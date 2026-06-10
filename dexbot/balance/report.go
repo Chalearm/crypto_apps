@@ -1,16 +1,16 @@
 /*
 Filename: balance/report.go
 
-Author: M365 Copilot (GPT-5)
-Version: v1.1
+Author: Gemini
+Version: v1.2
 Owner: Chalearm Saelim
-Date: 2026-06-10
+Date: 2026-06-11
 
 Description:
 Wallet balance reporting module.
 
 Features:
-- Fetch token balances on-chain
+- Fetch token balances on-chain (Supports both BEP20 tokens and Native BNB)
 - Convert to USD (static price mapping)
 - Pretty formatting output
 
@@ -21,13 +21,14 @@ AI Prompt Idea:
 package balance
 
 import (
+    "context"
     "fmt"
     "log"
     "math/big"
     "strings"
 
     "github.com/ethereum/go-ethereum/accounts/abi"
-    "github.com/ethereum/go-ethereum/accounts/abi/bind"       
+    "github.com/ethereum/go-ethereum/accounts/abi/bind"
     "github.com/ethereum/go-ethereum/common"
 )
 
@@ -49,13 +50,15 @@ var tokenPrices = map[string]float64{
     "AUTO": 600.0,
     "BSW":  0.3,
     "WBNB": 600.0,
+    "BNB":  600.0,
+    "UNI":  3.35,
 }
 
 // Custom parser to format: 12,345.123 456 789 012
 func formatWithSpacedDecimals(val float64) string {
     rawStr := fmt.Sprintf("%.12f", val)
     parts := strings.Split(rawStr, ".")
-    
+
     intPart := parts[0]
     decPart := parts[1]
 
@@ -88,7 +91,7 @@ func Report(
     tokenList map[string]common.Address,
 ) {
 
-    parsed, err := abi.JSON(strings.NewReader(ERC20_ABI))     
+    parsed, err := abi.JSON(strings.NewReader(ERC20_ABI))
     if err != nil {
         log.Fatal("ABI parse error:", err)
     }
@@ -97,23 +100,41 @@ func Report(
     fmt.Println("------------------------------------------------------------")
 
     for name, addr := range tokenList {
+        var balance *big.Int
 
-        contract := bind.NewBoundContract(addr, parsed, client, client, client)
+        // Native BNB doesn't implement ERC20. We verify if our client supports BalanceAt
+        if name == "BNB" {
+            type nativeBalanceReader interface {
+                BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
+            }
 
-        var result []interface{}
+            if reader, ok := client.(nativeBalanceReader); ok {
+                var err error
+                balance, err = reader.BalanceAt(context.Background(), auth.From, nil)
+                if err != nil {
+                    continue
+                }
+            } else {
+                continue
+            }
+        } else {
+            contract := bind.NewBoundContract(addr, parsed, client, client, client)
+            var result []interface{}
 
-        err := contract.Call(nil, &result, "balanceOf", auth.From)
-        if err != nil {
-            continue
-        }
+            err := contract.Call(nil, &result, "balanceOf", auth.From)
+            if err != nil {
+                continue
+            }
 
-        if len(result) == 0 {
-            continue
-        }
+            if len(result) == 0 {
+                continue
+            }
 
-        balance, ok := result[0].(*big.Int)
-        if !ok {
-            continue
+            var ok bool
+            balance, ok = result[0].(*big.Int)
+            if !ok {
+                continue
+            }
         }
 
         if balance.Cmp(big.NewInt(0)) == 0 {
@@ -135,9 +156,8 @@ func Report(
         // Apply our custom spatial layout format
         prettyTokenAmt := formatWithSpacedDecimals(value)
 
-        fmt.Printf("%s: %s tokens ($%.4f USD)\n", name, prettyTokenAmt, usd) 
+        fmt.Printf("%s: %s tokens ($%.4f USD)\n", name, prettyTokenAmt, usd)
     }
 
     fmt.Println("------------------------------------------------------------")
 }
-
