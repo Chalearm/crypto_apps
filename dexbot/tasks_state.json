@@ -1,0 +1,74 @@
+{
+  "tasks": {
+    "auto_task_1780921844288320312_0": {
+      "id": "auto_task_1780921844288320312_0",
+      "status": "CREATED",
+      "from_token": "USDC",
+      "to_token": "SHIB",
+      "buy_amount_units": 0.35,
+      "buy_price_usdc": 0,
+      "buy_timestamp": "0001-01-01T00:00:00Z",
+      "forecast_sell_time": "0001-01-01T00:00:00Z",
+      "forecast_profit_pct": 0,
+      "target_price_usdc": 0,
+      "sell_price_usdc": 0,
+      "sell_timestamp": "0001-01-01T00:00:00Z"
+    },
+    "auto_task_1780921844288323628_1": {
+      "id": "auto_task_1780921844288323628_1",
+      "status": "CREATED",
+      "from_token": "BTT",
+      "to_token": "SHIB",
+      "buy_amount_units": 2000000,
+      "buy_price_usdc": 0,
+      "buy_timestamp": "0001-01-01T00:00:00Z",
+      "forecast_sell_time": "0001-01-01T00:00:00Z",
+      "forecast_profit_pct": 0,
+      "target_price_usdc": 0,
+      "sell_price_usdc": 0,
+      "sell_timestamp": "0001-01-01T00:00:00Z"
+    },
+    "auto_task_1780921844288324125_2": {
+      "id": "auto_task_1780921844288324125_2",
+      "status": "CREATED",
+      "from_token": "USDC",
+      "to_token": "BTT",
+      "buy_amount_units": 0.35,
+      "buy_price_usdc": 0,
+      "buy_timestamp": "0001-01-01T00:00:00Z",
+      "forecast_sell_time": "0001-01-01T00:00:00Z",
+      "forecast_profit_pct": 0,
+      "target_price_usdc": 0,
+      "sell_price_usdc": 0,
+      "sell_timestamp": "0001-01-01T00:00:00Z"
+    },
+    "auto_task_1780921844288324491_3": {
+      "id": "auto_task_1780921844288324491_3",
+      "status": "CREATED",
+      "from_token": "USDC",
+      "to_token": "SHIB",
+      "buy_amount_units": 0.35,
+      "buy_price_usdc": 0,
+      "buy_timestamp": "0001-01-01T00:00:00Z",
+      "forecast_sell_time": "0001-01-01T00:00:00Z",
+      "forecast_profit_pct": 0,
+      "target_price_usdc": 0,
+      "sell_price_usdc": 0,
+      "sell_timestamp": "0001-01-01T00:00:00Z"
+    },
+    "auto_task_1780921844288324815_4": {
+      "id": "auto_task_1780921844288324815_4",
+      "status": "CREATED",
+      "from_token": "BTT",
+      "to_token": "SHIB",
+      "buy_amount_units": 2000000,
+      "buy_price_usdc": 0,
+      "buy_timestamp": "0001-01-01T00:00:00Z",
+      "forecast_sell_time": "0001-01-01T00:00:00Z",
+      "forecast_profit_pct": 0,
+      "target_price_usdc": 0,
+      "sell_price_usdc": 0,
+      "sell_timestamp": "0001-01-01T00:00:00Z"
+    }
+  }
+}
