@@ -3,9 +3,9 @@
 Filename: apps/auto_trade/main.go
 
 Author: M365 Copilot (GPT-5)
-Version: v3.0 (FULL EXPANDED)
+Version: v3.1 (FULL EXPANDED)
 Owner: Chalearm Saelim
-Date: 2026-06-11 23:15
+Date: 2026-06-12 01:02
 
 Description:
 Full production-grade Dexbot daemon system.
@@ -166,6 +166,20 @@ func writeConfig(cfg GlobalConfig) {
 // CLI ENTRY (SAFE)
 // ==============================
 
+func runStatus() {
+
+    data, err := os.ReadFile(PID_FILE)
+
+    if err != nil {
+        infra.Warn("daemon not running")
+        return
+    }
+
+    pid := strings.TrimSpace(string(data))
+
+    infra.Info("daemon running PID=" + pid)
+}
+
 func runApp(args []string) {
 
     fs := flag.NewFlagSet("dexbot", flag.ContinueOnError)
@@ -195,6 +209,10 @@ func runApp(args []string) {
 
     case "terminate":
         runTerminate()
+        return
+    
+    case "status":
+        runStatus()
         return
     }
 
@@ -245,8 +263,11 @@ func runTerminate() {
 
     pid, _ := strconv.Atoi(strings.TrimSpace(string(data)))
 
-    p, _ := os.FindProcess(pid)
-    _ = p.Signal(syscall.SIGTERM)
+    p, err := os.FindProcess(pid)
+
+    if err == nil {
+        _ = p.Signal(syscall.SIGTERM)
+    }
 
     _ = os.Remove(PID_FILE)
 
@@ -257,10 +278,13 @@ func runTerminate() {
 // REPORTING
 // ==============================
 
+
 func runReport() {
 
     tm := NewTaskManager()
     tm.Load()
+
+    totalPnL := 0.0
 
     infra.Info("===== REPORT START =====")
 
@@ -268,10 +292,23 @@ func runReport() {
 
         fmt.Printf("ID: %-20s | STATUS: %-10s | %s→%s\n",
             t.ID, t.Status, t.FromToken, t.ToToken)
+
+        // ✅ PnL
+        if t.Status == StatusCompleted {
+
+            pnl := t.SellPrice - t.BuyPrice
+            totalPnL += pnl
+
+            fmt.Printf("   BUY: %.6f SELL: %.6f PnL: %.6f\n",
+                t.BuyPrice, t.SellPrice, pnl)
+        }
     }
+
+    fmt.Printf("\nTOTAL PnL: %.6f\n", totalPnL)
 
     infra.Info("===== REPORT END =====")
 }
+
 
 // ==============================
 // DAEMON LOOP

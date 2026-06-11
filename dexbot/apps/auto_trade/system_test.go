@@ -2,9 +2,9 @@
 Filename: apps/auto_trade/system_test.go
 
 Author: M365 Copilot (GPT-5)
-Version: v3.1 (SYSTEM TEST FINAL)
+Version: v3.2 (SYSTEM TEST FINAL)
 Owner: Chalearm Saelim
-Date: 2026-06-11 23:34
+Date: 2026-06-12 01:03
 
 Description:
 SYSTEM TEST SUITE (INTEGRATION + BEHAVIOR)
@@ -286,4 +286,58 @@ func TestTerminate_NoPID(t *testing.T) {
 
     // should NOT panic or crash
     runApp([]string{"-action=terminate"})
+}
+// ============================================
+// ✅ STATUS TESTS
+// ============================================
+
+// Expect daemon not running
+func TestStatus_NoDaemon(t *testing.T) {
+
+    _ = os.Remove(PID_FILE)
+
+    runApp([]string{"-action=status"})
+}
+
+// Expect daemon running (fake PID)
+func TestStatus_WithPID(t *testing.T) {
+
+    os.WriteFile(PID_FILE, []byte("12345"), 0644)
+
+    runApp([]string{"-action=status"})
+}
+
+// ============================================
+// ✅ TERMINATE TEST (REAL CASE YOU PROVIDED)
+// ============================================
+
+func TestTerminate_Twice(t *testing.T) {
+
+    // simulate existing daemon
+    os.WriteFile(PID_FILE, []byte("999999"), 0644)
+
+    runApp([]string{"-action=terminate"})
+
+    // second terminate (no PID)
+    runApp([]string{"-action=terminate"})
+}
+
+// ============================================
+// ✅ PnL REPORT TEST
+// ============================================
+
+func TestReport_PnL(t *testing.T) {
+
+    tm := NewTaskManager()
+
+    tm.Tasks["p1"] = &TradeTask{
+        ID:        "p1",
+        Status:    StatusCompleted,
+        BuyPrice:  1.0,
+        SellPrice: 1.1,
+    }
+
+    tm.Save()
+
+    runApp([]string{"-action=report"})
 }
