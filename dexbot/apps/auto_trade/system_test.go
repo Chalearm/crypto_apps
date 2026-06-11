@@ -2,34 +2,29 @@
 Filename: apps/auto_trade/system_test.go
 
 Author: M365 Copilot (GPT-5)
-Version: v2.7
+Version: v3.0 (SYSTEM TEST FINAL)
 Owner: Chalearm Saelim
-Date: 2026-06-11 23:06
+Date: 2026-06-11 23:17
 
 Description:
 SYSTEM TEST SUITE (INTEGRATION + BEHAVIOR)
 
 Scope:
-✅ Task lifecycle (create → buy → progress)
-✅ File persistence (Save/Load)
-✅ Config real file handling
-✅ CLI behavior (runApp)
-✅ Infra logging execution
+✅ Full task lifecycle
+✅ Daemon execution (in test mode)
+✅ CLI commands (runApp)
+✅ File persistence
 ✅ Concurrency safety
-✅ Dry-run safety
+✅ Infra logging usage
+✅ Report functionality
 
-Design Principle:
-- Test REAL behavior
-- Allow side effects (file / logs)
+Philosophy:
+- Validate real workflow
+- Allow side effects
 - No duplication with unit tests
 
-Execution:
+Run:
 TEST_MODE=1 go test ./apps/auto_trade -v
-
-Expected:
-- No panic
-- Tasks progress state
-- Files created & reloaded
 */
 
 package main
@@ -41,40 +36,36 @@ import (
     "dexbot/infra"
 )
 
-// Force safe environment
+// enforce safe test mode
 func init() {
     os.Setenv("TEST_MODE", "1")
 }
 
-//
-// ===========================
-// ✅ LOG SYSTEM TESTS
-// ===========================
-//
+// ============================================
+// ✅ LOGGING TESTS
+// ============================================
 
-// Expectation: logging functions execute without panic
+// Logging should not crash
 func TestLog_AllLevels(t *testing.T) {
-    infra.Info("info test")
-    infra.Warn("warn test")
-    infra.Error("error test")
+    infra.Info("info")
+    infra.Warn("warn")
+    infra.Error("error")
 }
 
-// Expectation: mixed log sequence is safe
+// Mixed log flow
 func TestLog_MixedFlow(t *testing.T) {
-    infra.Info("i1")
-    infra.Warn("w1")
-    infra.Info("i2")
-    infra.Error("e1")
+    infra.Info("A")
+    infra.Warn("B")
+    infra.Info("C")
+    infra.Error("D")
 }
 
-//
-// ===========================
-// ✅ TASK SYSTEM (REAL FLOW)
-// ===========================
-//
+// ============================================
+// ✅ TASK LIFECYCLE TESTS
+// ============================================
 
-// Expectation: createTask increases task count
-func TestTask_Create_System(t *testing.T) {
+// Task creation
+func TestTask_Create(t *testing.T) {
 
     tm := NewTaskManager()
 
@@ -85,61 +76,59 @@ func TestTask_Create_System(t *testing.T) {
     }
 }
 
-// Expectation: worker moves task out of CREATED state
-func TestTask_WorkerProgress(t *testing.T) {
+// Task processing
+func TestTask_Progress(t *testing.T) {
 
     tm := NewTaskManager()
-    createTask(tm)
 
+    createTask(tm)
     runWorkers(tm)
 
-    for _, tsk := range tm.Tasks {
-        if tsk.Status == StatusCreated {
+    for _, task := range tm.Tasks {
+        if task.Status == StatusCreated {
             t.Error("task did not progress")
         }
     }
 }
 
-// Expectation: multiple tasks handled correctly
-func TestTask_MultiFlow(t *testing.T) {
+// Multiple task handling
+func TestTask_Multi(t *testing.T) {
 
     tm := NewTaskManager()
 
-    for i := 0; i < 4; i++ {
+    for i := 0; i < 5; i++ {
         createTask(tm)
     }
 
     runWorkers(tm)
 
-    if len(tm.Tasks) < 4 {
-        t.Error("multi-task flow failed")
+    if len(tm.Tasks) < 5 {
+        t.Error("multi tasks failed")
     }
 }
 
-//
-// ===========================
+// ============================================
 // ✅ FILE PERSISTENCE
-// ===========================
-//
+// ============================================
 
-// Expectation: saved tasks reload correctly
-func TestTask_SaveLoad_System(t *testing.T) {
+// Save + load integrity
+func TestTask_SaveLoad(t *testing.T) {
 
     tm := NewTaskManager()
-    createTask(tm)
 
+    createTask(tm)
     tm.Save()
 
     tm2 := NewTaskManager()
     tm2.Load()
 
     if len(tm2.Tasks) == 0 {
-        t.Error("restore failed")
+        t.Error("state restore failed")
     }
 }
 
-// Expectation: overwrite works
-func TestTask_PersistOverwrite(t *testing.T) {
+// Overwrite safety
+func TestTask_Overwrite(t *testing.T) {
 
     tm := NewTaskManager()
 
@@ -151,81 +140,113 @@ func TestTask_PersistOverwrite(t *testing.T) {
     }
 }
 
-//
-// ===========================
+// ============================================
 // ✅ CONFIG (REAL FILE)
-// ===========================
-//
+// ============================================
 
-// Expectation: file persistence works
-func TestConfig_FilePersistence(t *testing.T) {
+func TestConfig_File(t *testing.T) {
 
-    cfg := GlobalConfig{MaxTasks: 99}
-    writeConfig(cfg)
+    writeConfig(GlobalConfig{MaxTasks: 42})
 
-    out := loadConfig()
+    cfg := loadConfig()
 
-    if out.MaxTasks != 99 {
+    if cfg.MaxTasks != 42 {
         t.Error("config file failed")
     }
 }
 
-//
-// ===========================
-// ✅ CLI / ENTRY TESTS
-// ===========================
-//
+// ============================================
+// ✅ CLI / APP ENTRY TESTS
+// ============================================
 
-// Expectation: default run does not crash
+// Default run
 func TestCLI_Default(t *testing.T) {
     runApp([]string{})
 }
 
-// Expectation: report mode safe
+// Report mode
 func TestCLI_Report(t *testing.T) {
     runApp([]string{"-action=report"})
 }
 
-// Expectation: terminate mode safe
+// Terminate command
 func TestCLI_Terminate(t *testing.T) {
     runApp([]string{"-action=terminate"})
 }
 
-//
-// ===========================
-// ✅ CONCURRENCY TESTS
-// ===========================
-//
+// Mixed CLI calls
+func TestCLI_Mixed(t *testing.T) {
+    runApp([]string{"-dry_run=true"})
+    runApp([]string{"-action=report"})
+}
 
-// Expectation: no panic during concurrent creation
-func TestConcurrency_Creation(t *testing.T) {
+// ============================================
+// ✅ DAEMON + REPORT COMBINATION
+// ============================================
+
+// Run daemon then report
+func TestDaemon_ReportFlow(t *testing.T) {
+
+    runApp([]string{"-dry_run=true"})
+    runApp([]string{"-action=report"})
+}
+
+// Multiple report calls
+func TestReport_Multiple(t *testing.T) {
+
+    for i := 0; i < 3; i++ {
+        runApp([]string{"-action=report"})
+    }
+}
+
+// ============================================
+// ✅ CONCURRENCY TESTS
+// ============================================
+
+// Concurrent task creation
+func TestConcurrency_Create(t *testing.T) {
 
     tm := NewTaskManager()
 
-    for i := 0; i < 5; i++ {
+    for i := 0; i < 10; i++ {
         go createTask(tm)
     }
 }
 
-//
-// ===========================
-// ✅ SYSTEM STABILITY
-// ===========================
-//
+// Worker concurrency
+func TestConcurrency_Workers(t *testing.T) {
 
-// Expectation: multiple runs safe
-func TestSystem_RepeatedRun(t *testing.T) {
+    tm := NewTaskManager()
+
+    for i := 0; i < 3; i++ {
+        createTask(tm)
+    }
+
+    runWorkers(tm)
+}
+
+// ============================================
+// ✅ SYSTEM STABILITY
+// ============================================
+
+// Repeated execution
+func TestSystem_Repeated(t *testing.T) {
 
     for i := 0; i < 2; i++ {
         runApp([]string{})
     }
 }
 
-// Expectation: workers safe
+// Worker execution stability
 func TestSystem_Workers(t *testing.T) {
 
     tm := NewTaskManager()
-    createTask(tm)
 
+    createTask(tm)
     runWorkers(tm)
+}
+
+// Basic no-crash
+func TestSystem_NoCrash(t *testing.T) {
+    runApp([]string{})
 }
