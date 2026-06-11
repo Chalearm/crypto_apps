@@ -1,3 +1,26 @@
+/*
+Filename: main.go
+
+Author: Gemini
+Version: v1.2
+Owner: Chalearm Saelim
+Date: 2026-06-11
+
+Description:
+Core orchestration entry point for the BSC automated trading and price monitoring execution engine.
+
+Features:
+- Automated wallet state verification with high-precision layout alignment
+- Dynamic token purchasing via customizable asset volume inputs
+- Dynamic allowance checks with auto-approval overrides for router contracts
+- Real-time liquidity pool price tracking via PancakeSwap routing paths
+- Profit-taking algorithmic execution matrix (+10% target liquidation loop)
+- High-precision gas metric tracking (12 decimal places with 3-digit spacing)
+
+AI Prompt Idea:
+"Create a Go script using go-ethereum to monitor a PancakeSwap pool price and automatically execute a sell order when a specific profit target is met."
+*/
+
 package main
 
 import (
@@ -12,6 +35,7 @@ import (
         "github.com/ethereum/go-ethereum/accounts/abi"
         "github.com/ethereum/go-ethereum/accounts/abi/bind"
         "github.com/ethereum/go-ethereum/common"
+        "github.com/ethereum/go-ethereum/core/types"
         "github.com/ethereum/go-ethereum/crypto"
         "github.com/ethereum/go-ethereum/ethclient"
 )
@@ -25,6 +49,39 @@ var (
         BTT_ADDRESS  = common.HexToAddress("0x352Cb5E19b12FC216548a2677bD0fce83BaE434B") // BSC BTT (18 Decimals)
         ROUTER_ADDR  = common.HexToAddress("0x10ED43C718714eb63d5aA57B78B54704E256024E") // Pancake Router
 )
+
+/// =======================
+/// HIGH-PRECISION VISUAL FORMATTER
+/// =======================
+func formatWithSpacedDecimals(val float64) string {
+        rawStr := fmt.Sprintf("%.12f", val)
+        parts := strings.Split(rawStr, ".")
+
+        intPart := parts[0]
+        decPart := parts[1]
+
+        // 1. Format Integer side with commas (e.g., 1000 -> 1,000)
+        var intResult []string
+        for i, c := range intPart {
+                if i > 0 && (len(intPart)-i)%3 == 0 {
+                        intResult = append(intResult, ",")
+                }
+                intResult = append(intResult, string(c))
+        }
+        formattedInt := strings.Join(intResult, "")
+
+        // 2. Format Decimal side with 3-digit spacing spaces
+        var decResult []string
+        for i, c := range decPart {
+                if i > 0 && i%3 == 0 {
+                        decResult = append(decResult, " ")
+                }
+                decResult = append(decResult, string(c))
+        }
+        formattedDec := strings.Join(decResult, "")
+
+        return formattedInt + "." + formattedDec
+}
 
 /// =======================
 /// LOAD PRIVATE KEY
@@ -214,9 +271,32 @@ func enforceAllowance(client *ethclient.Client, auth *bind.TransactOpts, token c
 }
 
 /// =======================
-/// BUY BTT
+/// GAS REPORT GENERATOR WITH HIGH PRECISION SPACING
 /// =======================
-func buyBTT(client *ethclient.Client, auth *bind.TransactOpts) {
+func reportGas(client *ethclient.Client, tx *types.Transaction, gasPrice *big.Int) {
+        receipt, err := bind.WaitMined(context.Background(), client, tx)
+        if err != nil {
+                return
+        }
+
+        gasUsed := receipt.GasUsed
+        totalWei := new(big.Int).Mul(big.NewInt(int64(gasUsed)), gasPrice)
+
+        bnb := new(big.Float).Quo(new(big.Float).SetInt(totalWei), big.NewFloat(1e18))
+        bnbF, _ := bnb.Float64()
+        usd := bnbF * 600 // Static BNB calculation reference match
+
+        prettyBNBCost := formatWithSpacedDecimals(bnbF)
+        prettyUSDCost := formatWithSpacedDecimals(usd)
+
+        fmt.Println("Gas Units Consumed:", gasUsed)
+        fmt.Printf("Gas Cost Metrics: %s BNB (~$%s USD)\n", prettyBNBCost, prettyUSDCost)
+}
+
+/// =======================
+/// BUY BTT (UPDATED: Accepts dynamic float64 quantities)
+/// =======================
+func buyBTT(client *ethclient.Client, auth *bind.TransactOpts, amountUSDC float64) {
         fmt.Println("🟢 Checking Wallet Account Status...")
 
         usdcRaw := getERC20Balance(client, USDC_ADDRESS, auth.From)
@@ -232,12 +312,16 @@ func buyBTT(client *ethclient.Client, auth *bind.TransactOpts) {
         bnbClean, _ := new(big.Float).Quo(new(big.Float).SetInt(bnbRaw), base18).Float64()
 
         fmt.Println("-------------------------------------------")
-        fmt.Printf("💰 USDC Balance: %.5f USDC\n", usdcClean)
-        fmt.Printf("🪙 BTT Balance:  %.5f BTT\n", bttClean)
-        fmt.Printf("⛽ BNB Balance:  %.5f BNB\n", bnbClean)
+        fmt.Printf("💰 USDC Balance: %s USDC\n", formatWithSpacedDecimals(usdcClean))
+        fmt.Printf("🪙 BTT Balance:  %s BTT\n", formatWithSpacedDecimals(bttClean))
+        fmt.Printf("⛽ BNB Balance:  %s BNB\n", formatWithSpacedDecimals(bnbClean))
         fmt.Println("-------------------------------------------")
 
-        amountIn := new(big.Int).Exp(big.NewInt(10), big.NewInt(16), nil) // 0.01 USDC      
+        // Dynamic processing: Multiply float input by base18 decimals to get valid uint256 bounds
+        bigAmt := new(big.Float).Mul(big.NewFloat(amountUSDC), base18)
+        amountIn := new(big.Int)
+        bigAmt.Int(amountIn)
+
         amountOutMin := big.NewInt(0)
         path := []common.Address{USDC_ADDRESS, WBNB_ADDRESS, BTT_ADDRESS}       
         deadline := big.NewInt(time.Now().Add(5 * time.Minute).Unix())
@@ -256,13 +340,16 @@ func buyBTT(client *ethclient.Client, auth *bind.TransactOpts) {
         }
         contract := bind.NewBoundContract(ROUTER_ADDR, routerABI, client, client, client)
 
-        fmt.Println("⚡ Sending routed swap order for 0.01 USDC...")
+        fmt.Printf("⚡ Sending routed swap order for %s USDC...\n", formatWithSpacedDecimals(amountUSDC))
         tx, err := contract.Transact(auth, "swapExactTokensForTokens",
                 amountIn, amountOutMin, path, auth.From, deadline)
         if err != nil {
                 log.Fatal("Swap transaction execution stalled: ", err)
         }
         fmt.Println("✅ Swap TX sent successfully:", tx.Hash().Hex())
+
+        // Print high precision gas usage logs
+        reportGas(client, tx, gasPrice)
 }
 
 /// =======================
@@ -299,6 +386,9 @@ func sellBTT(client *ethclient.Client, auth *bind.TransactOpts) {
                 log.Fatal("Sell execution failed: ", err)
         }
         fmt.Println("✅ Sell TX sent successfully:", tx.Hash().Hex())
+
+        // Print high precision gas usage logs
+        reportGas(client, tx, gasPrice)
 }
 
 /// =======================
@@ -333,11 +423,10 @@ func main() {
         client := connect()
         auth, _ := getWallet(client, pk)
 
-        // Run balance verification and sample swap
-        buyBTT(client, auth)
+        // Run balance verification and dynamic sample swap (Requested value: 0.00005 USDC)
+        buyBTT(client, auth, 0.00005)
 
         // Launch monitoring array
         initial := getPriceUSDCtoBTT(client)
         monitor(client, auth, initial)
 }
-
