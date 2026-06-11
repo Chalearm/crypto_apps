@@ -1,16 +1,16 @@
 /*
 Filename: swap/swap_test.go
 
-Author: M365 Copilot (GPT-5)
-Version: v1.0
+Author: Gemini
+Version: v1.1
 Owner: Chalearm Saelim
-Date: 2026-06-10
+Date: 2026-06-11
 
 Description:
-Tests for swap module configuration.
+Tests for swap module configuration and visual precision parsers.
 
 AI Prompt Idea:
-"Create tests to validate router address and token decimals in a DEX swap engine."
+"Create tests to validate router address, token decimals, and decimal layout parser metrics in a DEX swap engine."
 
 How to test:
 go test ./swap -v
@@ -49,5 +49,27 @@ func TestCommonTokens(t *testing.T) {
 func TestRouterLength(t *testing.T) {
     if len(ROUTER) < 10 {
         t.Error("router too short")
+    }
+}
+
+// NEW: Test Case verifying precision layout alignment functionality 
+func TestFormatWithSpacedDecimals(t *testing.T) {
+    inputVal := 12345.678901234567
+    expected := "12,345.678 901 234 567" // Truncated/rounded safely to 12 decimals with spaces
+    
+    result := formatWithSpacedDecimals(inputVal)
+    if result != expected {
+        t.Errorf("Format validation mismatched.\nExpected: %s\nGot:      %s", expected, result)
+    }
+}
+
+// NEW: Test Case verifying spatial formatting rules for very small fractions
+func TestFormatWithSpacedDecimalsSmallFraction(t *testing.T) {
+    inputVal := 0.000398501311
+    expected := "0.000 398 501 311"
+    
+    result := formatWithSpacedDecimals(inputVal)
+    if result != expected {
+        t.Errorf("Format validation mismatched for fractions.\nExpected: %s\nGot:      %s", expected, result)
     }
 }

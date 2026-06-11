@@ -1,3 +1,23 @@
+/*
+Filename: swap/swap.go
+
+Author: Gemini
+Version: v1.2
+Owner: Chalearm Saelim
+Date: 2026-06-11
+
+Description:
+Automated token swap module using multi-path routing frameworks on Decentralized Exchanges.
+
+Features:
+- Blockchain-backed path discovery optimization
+- Dynamic gas cost calculation and conversion reporting
+- High-precision number alignment formatting for native and asset quantities
+
+AI Prompt Idea:
+"Create a Go swap execution script for Uniswap/Pancakeswap routers with automated path verification."
+*/
+
 package swap
 
 import (
@@ -45,6 +65,37 @@ var Decimals = map[string]int64{
     "CAKE": 18,
 }
 
+// Custom parser to format: 12,345.123 456 789 012
+func formatWithSpacedDecimals(val float64) string {
+    rawStr := fmt.Sprintf("%.12f", val)
+    parts := strings.Split(rawStr, ".")
+
+    intPart := parts[0]
+    decPart := parts[1]
+
+    // 1. Format Integer side with commas (e.g., 1000 -> 1,000)
+    var intResult []string
+    for i, c := range intPart {
+        if i > 0 && (len(intPart)-i)%3 == 0 {
+            intResult = append(intResult, ",")
+        }
+        intResult = append(intResult, string(c))
+    }
+    formattedInt := strings.Join(intResult, "")
+
+    // 2. Format Decimal side with 3-digit spacing spaces
+    var decResult []string
+    for i, c := range decPart {
+        if i > 0 && i%3 == 0 {
+            decResult = append(decResult, " ")
+        }
+        decResult = append(decResult, string(c))
+    }
+    formattedDec := strings.Join(decResult, "")
+
+    return formattedInt + "." + formattedDec
+}
+
 // APPROVAL ENGINE
 func approve(client *ethclient.Client, auth *bind.TransactOpts, token common.Address) {
     parsed, _ := abi.JSON(strings.NewReader(ERC20_ABI))
@@ -84,13 +135,13 @@ func ExecuteSwap(
 
     // Updated path options incorporating the verified ETH routes from MetaMask layout
     testPaths := [][]common.Address{
-        {from, tokens["ETH"], to},                     // 🚀 Path 1: BTT -> ETH -> SHIB
-        {from, tokens["WBNB"], to},                    // Path 2: BTT -> WBNB -> SHIB
-        {from, tokens["USDT"], to},                    // Path 3: BTT -> USDT -> SHIB
-        {from, tokens["WBNB"], tokens["ETH"], to},     // Path 4: BTT -> WBNB -> ETH -> SHIB
-        {from, tokens["USDT"], tokens["ETH"], to},     // Path 5: BTT -> USDT -> ETH -> SHIB
-        {from, tokens["WBNB"], tokens["USDT"], to},    // Path 6: BTT -> WBNB -> USDT -> SHIB
-        {from, to},                                    // Fallback Direct Pool
+        {from, tokens["ETH"], to},                  // 🚀 Path 1: BTT -> ETH -> SHIB
+        {from, tokens["WBNB"], to},                 // Path 2: BTT -> WBNB -> SHIB
+        {from, tokens["USDT"], to},                 // Path 3: BTT -> USDT -> SHIB
+        {from, tokens["WBNB"], tokens["ETH"], to},  // Path 4: BTT -> WBNB -> ETH -> SHIB
+        {from, tokens["USDT"], tokens["ETH"], to},  // Path 5: BTT -> USDT -> ETH -> SHIB
+        {from, tokens["WBNB"], tokens["USDT"], to}, // Path 6: BTT -> WBNB -> USDT -> SHIB
+        {from, to},                                 // Fallback Direct Pool
     }
 
     var validPath []common.Address
@@ -152,7 +203,7 @@ func ExecuteSwap(
     reportGas(client, tx, gasPrice)
 }
 
-// GAS REPORT GENERATOR
+// GAS REPORT GENERATOR WITH HIGH PRECISION SPACING
 func reportGas(client *ethclient.Client, tx *types.Transaction, gasPrice *big.Int) {
     receipt, err := bind.WaitMined(context.Background(), client, tx)
     if err != nil {
@@ -166,8 +217,12 @@ func reportGas(client *ethclient.Client, tx *types.Transaction, gasPrice *big.In
     bnbF, _ := bnb.Float64()
     usd := bnbF * 600
 
+    // Use our high-precision layout formatting rules
+    prettyBNBCost := formatWithSpacedDecimals(bnbF)
+    prettyUSDCost := formatWithSpacedDecimals(usd)
+
     fmt.Println("Gas Units Consumed:", gasUsed)
-    fmt.Printf("Gas Cost Metrics: %.6f BNB (~$%.2f)\n", bnbF, usd)
+    fmt.Printf("Gas Cost Metrics: %s BNB (~$%s USD)\n", prettyBNBCost, prettyUSDCost)
 }
 
 // EXPORT STRATEGY METHOD
