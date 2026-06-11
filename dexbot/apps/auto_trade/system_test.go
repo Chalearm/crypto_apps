@@ -2,9 +2,9 @@
 Filename: apps/auto_trade/system_test.go
 
 Author: M365 Copilot (GPT-5)
-Version: v3.0 (SYSTEM TEST FINAL)
+Version: v3.1 (SYSTEM TEST FINAL)
 Owner: Chalearm Saelim
-Date: 2026-06-11 23:17
+Date: 2026-06-11 23:34
 
 Description:
 SYSTEM TEST SUITE (INTEGRATION + BEHAVIOR)
@@ -22,6 +22,7 @@ Philosophy:
 - Validate real workflow
 - Allow side effects
 - No duplication with unit tests
+- Terminate tests
 
 Run:
 TEST_MODE=1 go test ./apps/auto_trade -v
@@ -249,4 +250,40 @@ func TestSystem_Workers(t *testing.T) {
 // Basic no-crash
 func TestSystem_NoCrash(t *testing.T) {
     runApp([]string{})
+}
+// ============================================
+// ✅ TERMINATE BEHAVIOR TESTS
+// ============================================
+
+// TestTerminate_WithPID
+// Expectation:
+// - if PID file exists → terminate succeeds
+// - PID file removed afterwards
+func TestTerminate_WithPID(t *testing.T) {
+
+    // create fake PID file
+    err := os.WriteFile(PID_FILE, []byte("999999"), 0644)
+    if err != nil {
+        t.Fatal("failed to create PID file")
+    }
+
+    runApp([]string{"-action=terminate"})
+
+    // ensure PID file removed
+    if _, err := os.Stat(PID_FILE); !os.IsNotExist(err) {
+        t.Error("PID file should be removed after terminate")
+    }
+}
+
+// TestTerminate_NoPID
+// Expectation:
+// - no PID file → no crash
+// - function exits safely
+func TestTerminate_NoPID(t *testing.T) {
+
+    // ensure no PID file exists
+    _ = os.Remove(PID_FILE)
+
+    // should NOT panic or crash
+    runApp([]string{"-action=terminate"})
 }
