@@ -2,7 +2,7 @@
 Filename: main.go
 
 Author: Gemini
-Version: v1.2
+Version: v1.3
 Owner: Chalearm Saelim
 Date: 2026-06-11
 
@@ -12,6 +12,7 @@ Core orchestration entry point for the BSC automated trading and price monitorin
 Features:
 - Automated wallet state verification with high-precision layout alignment
 - Dynamic token purchasing via customizable asset volume inputs
+- Post-trade blockchain state receipt interrogation to report exact net tokens received
 - Dynamic allowance checks with auto-approval overrides for router contracts
 - Real-time liquidity pool price tracking via PancakeSwap routing paths
 - Profit-taking algorithmic execution matrix (+10% target liquidation loop)
@@ -284,7 +285,7 @@ func reportGas(client *ethclient.Client, tx *types.Transaction, gasPrice *big.In
 
         bnb := new(big.Float).Quo(new(big.Float).SetInt(totalWei), big.NewFloat(1e18))
         bnbF, _ := bnb.Float64()
-        usd := bnbF * 600 // Static BNB calculation reference match
+        usd := bnbF * 600
 
         prettyBNBCost := formatWithSpacedDecimals(bnbF)
         prettyUSDCost := formatWithSpacedDecimals(usd)
@@ -294,13 +295,13 @@ func reportGas(client *ethclient.Client, tx *types.Transaction, gasPrice *big.In
 }
 
 /// =======================
-/// BUY BTT (UPDATED: Accepts dynamic float64 quantities)
+/// BUY BTT
 /// =======================
 func buyBTT(client *ethclient.Client, auth *bind.TransactOpts, amountUSDC float64) {
         fmt.Println("🟢 Checking Wallet Account Status...")
 
         usdcRaw := getERC20Balance(client, USDC_ADDRESS, auth.From)
-        bttRaw := getERC20Balance(client, BTT_ADDRESS, auth.From)
+        bttRawBefore := getERC20Balance(client, BTT_ADDRESS, auth.From) // Snapshot balance before trade execution
         bnbRaw, err := client.BalanceAt(context.Background(), auth.From, nil)   
         if err != nil {
                 log.Fatal("Failed to fetch BNB balance:", err)
@@ -308,16 +309,16 @@ func buyBTT(client *ethclient.Client, auth *bind.TransactOpts, amountUSDC float6
 
         base18 := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
         usdcClean, _ := new(big.Float).Quo(new(big.Float).SetInt(usdcRaw), base18).Float64()
-        bttClean, _ := new(big.Float).Quo(new(big.Float).SetInt(bttRaw), base18).Float64()
+        bttCleanBefore, _ := new(big.Float).Quo(new(big.Float).SetInt(bttRawBefore), base18).Float64()
         bnbClean, _ := new(big.Float).Quo(new(big.Float).SetInt(bnbRaw), base18).Float64()
 
         fmt.Println("-------------------------------------------")
         fmt.Printf("💰 USDC Balance: %s USDC\n", formatWithSpacedDecimals(usdcClean))
-        fmt.Printf("🪙 BTT Balance:  %s BTT\n", formatWithSpacedDecimals(bttClean))
+        fmt.Printf("🪙 BTT Balance:  %s BTT\n", formatWithSpacedDecimals(bttCleanBefore))
         fmt.Printf("⛽ BNB Balance:  %s BNB\n", formatWithSpacedDecimals(bnbClean))
         fmt.Println("-------------------------------------------")
 
-        // Dynamic processing: Multiply float input by base18 decimals to get valid uint256 bounds
+        // Dynamic processing: Convert processing float configuration down to base18 token elements
         bigAmt := new(big.Float).Mul(big.NewFloat(amountUSDC), base18)
         amountIn := new(big.Int)
         bigAmt.Int(amountIn)
@@ -348,8 +349,41 @@ func buyBTT(client *ethclient.Client, auth *bind.TransactOpts, amountUSDC float6
         }
         fmt.Println("✅ Swap TX sent successfully:", tx.Hash().Hex())
 
-        // Print high precision gas usage logs
-        reportGas(client, tx, gasPrice)
+        // ⏳ Block processing until transaction mining confirms state inclusion
+        fmt.Println("⏳ Confirming block state changes...")
+        receipt, err := bind.WaitMined(context.Background(), client, tx)
+        if err != nil {
+                log.Fatal("Receipt fetching failed: ", err)
+        }
+
+        if receipt.Status == 0 {
+                log.Fatal("❌ Blockchain Execution reverted on-chain.")
+        }
+
+        // Fetch updated token configuration to confirm execution results
+        bttRawAfter := getERC20Balance(client, BTT_ADDRESS, auth.From)
+        
+        // Math differential strategy to derive precise outputs received
+        receivedRaw := new(big.Int).Sub(bttRawAfter, bttRawBefore)
+        receivedClean, _ := new(big.Float).Quo(new(big.Float).SetInt(receivedRaw), base18).Float64()
+
+        fmt.Println("-------------------------------------------")
+        fmt.Printf("🎉 SWAP CONFIRMED: Received +%s BTT\n", formatWithSpacedDecimals(receivedClean))
+        fmt.Println("-------------------------------------------")
+
+        // Print high precision gas usage logs manually bypassing redundant wait times
+        gasUsed := receipt.GasUsed
+        totalWei := new(big.Int).Mul(big.NewInt(int64(gasUsed)), gasPrice)
+
+        bnb := new(big.Float).Quo(new(big.Float).SetInt(totalWei), big.NewFloat(1e18))
+        bnbF, _ := bnb.Float64()
+        usd := bnbF * 600
+
+        prettyBNBCost := formatWithSpacedDecimals(bnbF)
+        prettyUSDCost := formatWithSpacedDecimals(usd)
+
+        fmt.Println("Gas Units Consumed:", gasUsed)
+        fmt.Printf("Gas Cost Metrics: %s BNB (~$%s USD)\n", prettyBNBCost, prettyUSDCost)
 }
 
 /// =======================
