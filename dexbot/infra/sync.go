@@ -39,6 +39,10 @@ import (
     "path/filepath"
 )
 
+func DBHealthy() bool {
+    return CheckDBHealth() == nil
+}
+
 func RunSyncCycle() {
 
     files, err := filepath.Glob("data/buffer/*.json")

@@ -341,3 +341,61 @@ func TestReport_PnL(t *testing.T) {
 
     runApp([]string{"-action=report"})
 }
+
+// Strategy buy test
+func TestStrategy_Buy(t *testing.T) {
+
+    if !strategy.ShouldBuy() {
+        t.Error("buy strategy invalid")
+    }
+}
+
+// Strategy sell test
+func TestStrategy_Sell(t *testing.T) {
+
+    task := &TradeTask{
+        BuyPrice: 1.0,
+    }
+
+    if !strategy.ShouldSell(task, 1.1) {
+        t.Error("sell strategy failed")
+    }
+}
+
+// Dry-run behavior test
+func TestProcessTask_DryRun(t *testing.T) {
+
+    dryRun = true
+
+    task := &TradeTask{
+        ID:     "t1",
+        Status: StatusCreated,
+    }
+
+    tm := NewTaskManager()
+
+    processTask(task, tm)
+
+    if task.Status != StatusBought {
+        t.Error("dry run buy failed")
+    }
+}
+
+// End-to-end flow
+func TestFullFlow_System(t *testing.T) {
+
+    tm := NewTaskManager()
+
+    createTask(tm)
+
+    runWorkers(tm)
+
+    if len(tm.Tasks) == 0 {
+        t.Error("task not created")
+    }
+}
+
+// Report execution
+func TestReport_System(t *testing.T) {
+    runApp([]string{"-action=report"})
+}

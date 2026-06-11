@@ -195,10 +195,17 @@ func runApp(args []string) {
     infra.InitLogger("INFO")
     _ = infra.InitDB()
 
-    // ✅ TEST safety
+    // ✅ TEST MODE SAFETY
     if os.Getenv("TEST_MODE") == "1" {
         dryRun = true
         infra.Warn("TEST_MODE → forced dry-run")
+
+        // ✅ IMPORTANT: skip DB health check
+    } else {
+        if err := infra.CheckDBHealth(); err != nil {
+            infra.Error("DB not healthy → exiting")
+            return
+        }
     }
 
     switch *action {
@@ -210,13 +217,12 @@ func runApp(args []string) {
     case "terminate":
         runTerminate()
         return
-    
+
     case "status":
         runStatus()
         return
     }
 
-    // ✅ don't spawn daemon in test mode
     if os.Getenv("TEST_MODE") == "1" {
         runDaemon()
         return
@@ -429,33 +435,46 @@ func runWorkers(manager *TaskManager) {
     wg.Wait()
 }
 
+
 func processTask(task *TradeTask, manager *TaskManager) {
 
     switch task.Status {
 
     case StatusCreated:
 
-        task.BuyPrice = simulatePrice()
+        if !strategy.ShouldBuy() {
+            return
+        }
+
+        price := simulatePrice()
 
         if dryRun {
             infra.Info("[DRY BUY] " + task.ID)
+        } else {
+            infra.Info("[BUY] " + task.ID)
         }
 
+        task.BuyPrice = price
         task.Status = StatusBought
 
     case StatusBought:
 
         price := simulatePrice()
 
-        if price > task.BuyPrice*1.05 {
+        if strategy.ShouldSell(task, price) {
+
+            if dryRun {
+                infra.Info("[DRY SELL] " + task.ID)
+            } else {
+                infra.Info("[SELL] " + task.ID)
+            }
 
             task.SellPrice = price
             task.Status = StatusCompleted
-
-            infra.Info("[SELL] " + task.ID)
         }
     }
 }
+
 
 // ==============================
 // UTIL

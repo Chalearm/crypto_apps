@@ -33,7 +33,7 @@ func shouldLog(level string) bool {
     return levels[level] >= levels[currentLevel]
 }
 
-func log(level string, msg string) {
+func writeLog(level string, msg string){
     if !shouldLog(level) {
         return
     }
@@ -49,6 +49,8 @@ func log(level string, msg string) {
     f.WriteString(line)
 }
 
-func Info(msg string)  { log("INFO", msg) }
-func Warn(msg string)  { log("WARN", msg) }
-func Error(msg string) { log("ERROR", msg) }
+
+func Info(msg string)  { writeLog("INFO", msg) }
+func Warn(msg string)  { writeLog("WARN", msg) }
+func Error(msg string) { writeLog("ERROR", msg) }
+
