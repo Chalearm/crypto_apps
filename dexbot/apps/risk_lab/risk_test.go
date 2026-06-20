@@ -38,6 +38,43 @@ func TestReturns_Length(t *testing.T) {
         t.Error("returns length incorrect")
     }
 }
+
+// ✅ constant price
+func TestMaxDrawdown_Flat(t *testing.T) {
+
+    data := []float64{100, 100, 100}
+
+    mdd := maxDrawdown(data)
+
+    if mdd != 0 {
+        t.Error("MDD flat case failed")
+    }
+}
+
+// ✅ no drawdown
+func TestMaxDrawdown_NoDrop(t *testing.T) {
+
+    data := []float64{100, 110, 120}
+
+    mdd := maxDrawdown(data)
+
+    if mdd != 0 {
+        t.Error("MDD should be zero for increasing series")
+    }
+}
+// ✅ MDD basic test
+func TestMaxDrawdown(t *testing.T) {
+
+    data := []float64{100, 120, 80}
+
+    // peak 120 → drop to 80 = 33%
+    mdd := maxDrawdown(data)
+
+    if mdd < 0.3 || mdd > 0.4 {
+        t.Error("MDD calculation incorrect")
+    }
+}
+
 func TestReturns_Value(t *testing.T) {
 
     data := []float64{100, 110}
