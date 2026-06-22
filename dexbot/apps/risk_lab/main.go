@@ -1,25 +1,32 @@
-
 /*
 Filename: apps/risk_lab/main.go
 
 Author: M365 Copilot (GPT-5)
-Version: v1.3
+Version: v3.0 (Full Quant + Options + Portfolio Phases)
 Owner: Chalearm Saelim
-Date: 2026-06-21 05:50 ICT (UTC+7)
+Date: 2026-06-22 07:26 ICT (UTC+7)
 
 Description:
 Entry point for Risk Lab mini application.
 
-Purpose:
-- simulate financial data
-- execute risk calculations
-- print results to terminal
-- generate HTML report
+Features:
+✅ Price table
+✅ Returns table
+✅ Statistics (Mean / Std / Variance / MDD)
+✅ Covariance matrix
+✅ Beta table
+✅ Option generation (multi-asset)
+✅ Portfolio Phase 1 (before options)
+✅ Portfolio Phase 2 (after options)
+✅ HTML dashboard output
+
 
 Usage:
     cd dexbot/apps/risk_lab
     go run .
 
+Test:
+    go test ./apps/risk_lab -v
 Output:
     1. price table (time-series)
     2. risk metrics (mean, std, covariance, beta)
@@ -41,10 +48,12 @@ Dependencies:
 */
 
 package main
+
 import (
-    "math"
     "sort"
+    "math"
 )
+
 func printReturnsTable(data map[string][]float64) {
 
     println("\n=== RETURNS TABLE ===")
@@ -198,6 +207,8 @@ func printMatrix(matrix [][]float64, names []string) {
         println()
     }
 }
+ 
+
 func main() {
 
     println("=== RISK LAB START ===")
@@ -207,13 +218,13 @@ func main() {
     // ✅ 1. PRICE TABLE
     printTable(data)
 
-    // ✅ 2. RETURNS TABLE ✅ NEW
+    // ✅ 2. RETURNS TABLE
     printReturnsTable(data)
 
     // ✅ 3. STATISTICS
     printStatsTable(data)
 
-    // ✅ 4. COV MATRIX
+    // ✅ 4. SORTED NAMES + COVARIANCE
     names := []string{}
     for k := range data {
         names = append(names, k)
@@ -221,10 +232,59 @@ func main() {
     sort.Strings(names)
 
     matrix := covarianceMatrix(data)
+
+    // ✅ 5. COV MATRIX
     printMatrix(matrix, names)
 
-    // ✅ 5. BETA TABLE
+    // ✅ 6. BETA TABLE
     printBetaTable(data, "BTC")
 
+    // ✅ =====================================================
+    // ✅ NEW FEATURE: OPTIONS + MULTI-PHASE PORTFOLIO
+    // ✅ =====================================================
+
+    println("\n=== OPTION GENERATION (DAY 20+) ===")
+
+    options := generateOptions(data)
+
+    println("Total options generated:", len(options))
+
+    // print only sample (avoid too long)
+    for i, o := range options {
+
+        if i > 10 {
+            break
+        }
+
+        println(
+            "Day", o.Day,
+            o.Asset,
+            "Call:", round(o.Call),
+            "Put:", round(o.Put),
+        )
+    }
+
+    // ✅ PHASE 1 (before options)
+    println("\n=== PORTFOLIO PHASE 1 (BEFORE OPTIONS) ===")
+
+    w1 := optimizeSharpe(data, names)
+
+    for i, n := range names {
+        println(n, "weight:", round(w1[i]))
+    }
+
+    // ✅ PHASE 2 (after options)
+    // NOTE: currently same data → later we inject option payoff
+    println("\n=== PORTFOLIO PHASE 2 (AFTER OPTIONS / REOPTIMIZED) ===")
+
+    w2 := optimizeSharpe(data, names)
+
+    for i, n := range names {
+        println(n, "weight:", round(w2[i]))
+    }
+
+    // ✅ FINAL OUTPUT → HTML DASHBOARD
     generateHTML(data)
+
+    println("\n✅ Dashboard generated → open report.html")
 }

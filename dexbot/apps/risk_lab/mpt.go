@@ -18,6 +18,8 @@ Computes:
 
 package main
 
+import "math/rand"
+
 // expected returns vector
 func expectedReturns(data map[string][]float64, names []string) []float64 {
 
@@ -86,3 +88,48 @@ func optimizeWeights(data map[string][]float64, names []string) []float64 {
 
     return weights
 }
+
+
+func optimizeSharpe(data map[string][]float64, names []string) []float64 {
+
+    best := make([]float64, len(names))
+    bestSharpe := -1.0
+
+    for k := 0; k < 2000; k++ {
+
+        w := randomWeights(len(names))
+
+        ret := portfolioReturn(w, expectedReturns(data, names))
+        risk := portfolioRisk(w, covarianceMatrix(data))
+
+        if risk == 0 {
+            continue
+        }
+
+        s := ret / risk
+
+        if s > bestSharpe {
+            bestSharpe = s
+            copy(best, w)
+        }
+    }
+
+    return best
+}
+
+func randomWeights(n int) []float64 {
+    w := make([]float64, n)
+    sum := 0.0
+
+    for i := range w {
+        w[i] = rand.Float64()
+        sum += w[i]
+    }
+
+    for i := range w {
+        w[i] /= sum
+    }
+
+    return w
+}
+

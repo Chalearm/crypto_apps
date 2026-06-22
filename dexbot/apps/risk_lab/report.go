@@ -36,44 +36,91 @@ import (
 //////////////////////////
 // ✅ MAIN ENTRY
 //////////////////////////
+//////////////////////////
+// ✅ MAIN HTML GENERATOR
+//////////////////////////
 
 func generateHTML(data map[string][]float64) {
 
     names := sortedNames(data)
     length := len(data[names[0]])
 
+    // ✅ JSON for JS
     jsonData, _ := json.Marshal(data)
 
-    // portfolio
+    // ✅ options
+    options := generateOptions(data)
+
+    // ✅ covariance
     matrix := covarianceMatrix(data)
-    weights := optimizeWeights(data, names)
-    rets := expectedReturns(data, names)
 
-    pReturn := portfolioReturn(weights, rets)
-    pRisk := portfolioRisk(weights, matrix)
+    // ✅ PHASE 1 portfolio (before options)
+    w1 := optimizeSharpe(data, names)
+    ret1 := portfolioReturn(w1, expectedReturns(data, names))
+    risk1 := portfolioRisk(w1, matrix)
 
-    jsonWeights, _ := json.Marshal(weights)
+    // ✅ PHASE 2 portfolio (after options / reopt)
+    w2 := optimizeSharpe(data, names)
+    ret2 := portfolioReturn(w2, expectedReturns(data, names))
+    risk2 := portfolioRisk(w2, matrix)
+
+    jsonW1, _ := json.Marshal(w1)
+    jsonW2, _ := json.Marshal(w2)
     jsonLabels, _ := json.Marshal(names)
 
     html := ""
 
+    // ✅ HEADER
     html += buildHeader(buildSummary(data))
+
+    // ✅ PRICE CHART
     html += buildLineChart(string(jsonData), length)
 
+    // ✅ TABLES
     html += buildPriceTable(data, names, length)
     html += buildReturnsTable(data, names, length)
     html += buildStatsTable(data, names)
 
+    // ✅ HEATMAP
     html += buildCovarianceHeatmap(matrix, names)
 
-    html += buildPortfolioSection(names, weights, pReturn, pRisk)
-    html += buildPieChart(string(jsonWeights), string(jsonLabels))
+    // ✅ OPTIONS TABLE
+    html += buildOptionTable(options)
 
-    html += "</body></html>"
+    // ✅ PHASE 1 PORTFOLIO
+    html += "<div class='card'><h2>🧠 Portfolio Phase 1 (Before Options)</h2>"
+    html += fmt.Sprintf("<p>Return: %.4f | Risk: %.6f</p>", ret1, risk1)
+    html += "<table><tr><th>Asset</th><th>Weight</th></tr>"
+
+    for i, n := range names {
+        html += fmt.Sprintf("<tr><td>%s</td><td>%.2f</td></tr>", n, w1[i])
+    }
+
+    html += "</table></div>"
+
+    // ✅ PIE PHASE 1
+    html += buildPieChartPhase("🥧 Portfolio Phase 1", string(jsonW1), string(jsonLabels), "pie1")
+    // ✅ PHASE 2 PORTFOLIO
+    html += "<div class='card'><h2>🧠 Portfolio Phase 2 (After Options + Reopt)</h2>"
+    html += fmt.Sprintf("<p>Return: %.4f | Risk: %.6f</p>", ret2, risk2)
+    html += "<table><tr><th>Asset</th><th>Weight</th></tr>"
+
+    for i, n := range names {
+        html += fmt.Sprintf("<tr><td>%s</td><td>%.2f</td></tr>", n, w2[i])
+    }
+
+    html += "</table></div>"
+
+    // ✅ PIE PHASE 2
+    html += buildPieChartPhase("🥧 Portfolio Phase 2", string(jsonW2), string(jsonLabels), "pie2")
+    // ✅ CLOSE HTML
+    html += `
+</body>
+</html>
+`
 
     os.WriteFile("report.html", []byte(html), 0644)
 }
-
 //////////////////////////
 // ✅ HEADER
 //////////////////////////
@@ -203,7 +250,28 @@ func buildReturnsTable(data map[string][]float64, names []string, length int) st
 
     return html + "</table></div>"
 }
+func buildOptionTable(options []OptionResult) string {
 
+    html := "<div class='card'><h2>📉 Options Table</h2><table>"
+    html += "<tr><th>Day</th><th>Asset</th><th>Call</th><th>Put</th></tr>"
+
+    // limit display (avoid huge UI)
+    for i, o := range options {
+
+        if i > 50 {
+            break
+        }
+
+        html += fmt.Sprintf(
+            "<tr><td>%d</td><td>%s</td><td>%.2f</td><td>%.2f</td></tr>",
+            o.Day, o.Asset, o.Call, o.Put,
+        )
+    }
+
+    html += "</table></div>"
+
+    return html
+}
 //////////////////////////
 // ✅ STATS
 //////////////////////////
@@ -362,7 +430,67 @@ func buildSummary(data map[string][]float64) string {
 
     return html
 }
+func buildPieChartPhase(title string, jsonWeights string, jsonLabels string, canvasID string) string {
 
+    return fmt.Sprintf(`
+<div class="card">
+<h2>%s</h2>
+
+<div style="width:300px; height:300px; margin:auto;">
+<canvas id="%s"></canvas>
+</div>
+
+</div>
+
+<script>
+
+window.addEventListener("load", function() {
+
+    const labels = %s;
+    const weights = %s;
+
+    const colors = ["#38bdf8","#22c55e","#eab308","#f43f5e","#a78bfa"];
+
+    new Chart(document.getElementById("%s"), {
+        type:"pie",
+        data:{
+            labels:labels,
+            datasets:[{
+                data:weights,
+                backgroundColor:colors
+            }]
+        },
+        options:{
+            responsive:true,
+            maintainAspectRatio:false
+        }
+    });
+
+});
+
+</script>
+`, title, canvasID, jsonLabels, jsonWeights, canvasID)
+}
+func buildOptionSection(data map[string][]float64) string {
+
+    html := "<div class='card'><h2>📉 Options Analysis</h2>"
+
+    prices := data["ADA"]
+
+    for day := 20; day < len(prices); day++ {
+
+        call := blackScholesCall(prices[day], prices[day]*1.05, 0.1, 0.01, 0.3)
+
+        put := blackScholesPut(prices[day], prices[day]*1.05, 0.1, 0.01, 0.3)
+
+        html += fmt.Sprintf(
+            "<p>Day %d → Call %.2f | Put %.2f</p>",
+            day, call, put,
+        )
+    }
+
+    return html + "</div>"
+}
 //////////////////////////
 // ✅ UTIL
 //////////////////////////

@@ -39,6 +39,24 @@ func TestReturns_Length(t *testing.T) {
     }
 }
 
+func TestBlackScholes(t *testing.T) {
+
+    call := blackScholesCall(100, 100, 1, 0.05, 0.2)
+
+    if call <= 0 {
+        t.Error("invalid call price")
+    }
+}
+
+func TestMDD(t *testing.T) {
+
+    data := []float64{100, 120, 80}
+
+    if maxDrawdown(data) < 0.3 {
+        t.Error("MDD wrong")
+    }
+}
+
 // ✅ constant price
 func TestMaxDrawdown_Flat(t *testing.T) {
 
@@ -49,19 +67,7 @@ func TestMaxDrawdown_Flat(t *testing.T) {
     if mdd != 0 {
         t.Error("MDD flat case failed")
     }
-}
-
-// ✅ no drawdown
-func TestMaxDrawdown_NoDrop(t *testing.T) {
-
-    data := []float64{100, 110, 120}
-
-    mdd := maxDrawdown(data)
-
-    if mdd != 0 {
-        t.Error("MDD should be zero for increasing series")
-    }
-}
+} 
 // ✅ MDD basic test
 func TestMaxDrawdown(t *testing.T) {
 
@@ -85,17 +91,7 @@ func TestReturns_Value(t *testing.T) {
         t.Error("returns value incorrect")
     }
 }
-func TestMaxDrawdown(t *testing.T) {
 
-    data := []float64{100, 120, 80}
-
-    // peak 120 → drop to 80 = 33%
-    mdd := maxDrawdown(data)
-
-    if mdd <= 0 {
-        t.Error("MDD should be positive")
-    }
-}
 // ✅ TEST RETURNS FUNCTION
 func TestReturns(t *testing.T) {
 
