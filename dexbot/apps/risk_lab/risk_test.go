@@ -92,6 +92,27 @@ func TestReturns_Value(t *testing.T) {
     }
 }
 
+func TestOptionDecision(t *testing.T) {
+
+    data := []float64{100, 120, 60} // big drop
+
+    action := decideOptionAction("TEST", data)
+
+    if action == "" {
+        t.Error("should decide action")
+    }
+}
+
+func TestDeltaGamma(t *testing.T) {
+
+    d := deltaCall(100, 100, 1, 0.01, 0.2)
+    g := gamma(100, 100, 1, 0.01, 0.2)
+
+    if d <= 0 || g <= 0 {
+        t.Error("invalid greek values")
+    }
+}
+
 // ✅ TEST RETURNS FUNCTION
 func TestReturns(t *testing.T) {
 

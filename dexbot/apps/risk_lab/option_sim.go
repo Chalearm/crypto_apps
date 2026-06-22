@@ -16,7 +16,29 @@ type OptionResult struct {
     Call  float64
     Put   float64
 }
+/*
+Decide whether to BUY CALL / BUY PUT / STRADDLE
+*/
 
+func decideOptionAction(asset string, prices []float64) string {
+
+    r := returns(prices)
+    v := variance(r)
+    mdd := maxDrawdown(prices)
+
+    // ✅ HIGH RISK → hedge
+    if mdd > 0.4 {
+        return "BUY PUT (HEDGE)"
+    }
+
+    // ✅ HIGH VOLATILITY
+    if v > 0.02 {
+        return "STRADDLE (CALL+PUT)"
+    }
+
+    // ✅ LOW RISK
+    return "SELL CALL"
+}
 func generateOptions(data map[string][]float64) []OptionResult {
 
     var results []OptionResult
@@ -42,3 +64,43 @@ func generateOptions(data map[string][]float64) []OptionResult {
 
     return results
 }
+/*
+Decision timeline for each asset per day
+*/
+
+func decideOptionTimeline(asset string, prices []float64) []string {
+
+    decisions := []string{"HOLD"} // day 0
+
+    for i := 1; i < len(prices); i++ {
+
+        change := (prices[i] - prices[i-1]) / prices[i-1]
+
+        decision := "HOLD"
+
+        // ✅ BIG DROP → hedge
+        if change < -0.15 {
+            decision = "BUY PUT (HEDGE CRASH)"
+        }
+
+        // ✅ BIG RISE → bullish
+        if change > 0.15 {
+            decision = "BUY CALL (BULLISH)"
+        }
+
+        // ✅ EXTREME VOL
+        if change > 0.25 || change < -0.25 {
+            decision = "STRADDLE (VOL PLAY)"
+        }
+
+        // ✅ LOW MOVEMENT
+        if change < 0.02 && change > -0.02 {
+            decision = "SELL CALL (INCOME)"
+        }
+
+        decisions = append(decisions, decision)
+    }
+
+    return decisions
+}
+

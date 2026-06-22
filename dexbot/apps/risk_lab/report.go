@@ -80,7 +80,9 @@ func generateHTML(data map[string][]float64) {
     html += buildPriceTable(data, names, length)
     html += buildReturnsTable(data, names, length)
     html += buildStatsTable(data, names)
-
+    html += buildGreeksTable(data)
+    html += buildOptionTimelineTable(data)
+    html += buildOptionDecisionTable(data)
     // ✅ HEATMAP
     html += buildCovarianceHeatmap(matrix, names)
 
@@ -121,10 +123,48 @@ func generateHTML(data map[string][]float64) {
 
     os.WriteFile("report.html", []byte(html), 0644)
 }
+func buildGreeksTable(data map[string][]float64) string {
+
+    html := "<div class='card'><h2>📐 Greeks (Delta / Gamma)</h2><table>"
+    html += "<tr><th>Asset</th><th>Delta(Call)</th><th>Gamma</th></tr>"
+
+    for k, v := range data {
+
+        S := v[len(v)-1]
+        K := S * 1.05
+
+        d := deltaCall(S, K, 0.1, 0.01, 0.3)
+        g := gamma(S, K, 0.1, 0.01, 0.3)
+
+        html += fmt.Sprintf(
+            "<tr><td>%s</td><td>%.3f</td><td>%.5f</td></tr>",
+            k, d, g,
+        )
+    }
+
+    html += "</table></div>"
+
+    return html
+}
 //////////////////////////
 // ✅ HEADER
 //////////////////////////
+func buildOptionDecisionTable(data map[string][]float64) string {
 
+    html := "<div class='card'><h2>🧠 Option Decision</h2><table>"
+    html += "<tr><th>Asset</th><th>Decision</th></tr>"
+
+    for k, v := range data {
+
+        decision := decideOptionAction(k, v)
+
+        html += "<tr><td>" + k + "</td><td>" + decision + "</td></tr>"
+    }
+
+    html += "</table></div>"
+
+    return html
+}
 func buildHeader(summary string) string {
     return fmt.Sprintf(`
 <html>
@@ -200,6 +240,30 @@ window.onload = function() {
 </script>
 `, jsonData, length)
 }
+
+func buildOptionTimelineTable(data map[string][]float64) string {
+
+    html := "<div class='card'><h2>⏱ Option Timeline</h2><table>"
+    html += "<tr><th>Day</th><th>Asset</th><th>Price</th><th>Decision</th></tr>"
+
+    for asset, prices := range data {
+
+        decisions := decideOptionTimeline(asset, prices)
+
+        for i := 20; i < len(prices); i++ {
+
+            html += fmt.Sprintf(
+                "<tr><td>%d</td><td>%s</td><td>%.2f</td><td>%s</td></tr>",
+                i, asset, prices[i], decisions[i],
+            )
+        }
+    }
+
+    html += "</table></div>"
+
+    return html
+}
+
 //////////////////////////
 // ✅ PRICE TABLE
 //////////////////////////

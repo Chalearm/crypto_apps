@@ -168,4 +168,23 @@ func riskParityWeights(n int) []float64 {
 
     return w
 }
+/*
+Return with option payoff (hedged return)
+*/
 
+func returnsWithOptions(data []float64) []float64 {
+
+    out := []float64{}
+
+    for i := 1; i < len(data); i++ {
+
+        r := (data[i] - data[i-1]) / data[i-1]
+
+        opt := optionPayoff(data[i], data[i-1])
+
+        // ✅ combine
+        out = append(out, r+opt)
+    }
+
+    return out
+}

@@ -2,9 +2,9 @@
 Filename: apps/risk_lab/main.go
 
 Author: M365 Copilot (GPT-5)
-Version: v3.0 (Full Quant + Options + Portfolio Phases)
+Version: v4.0 (Full Quant + Options + Portfolio Phases)
 Owner: Chalearm Saelim
-Date: 2026-06-22 07:26 ICT (UTC+7)
+Date: 2026-06-22 07:44 ICT (UTC+7)
 
 Description:
 Entry point for Risk Lab mini application.
@@ -206,8 +206,19 @@ func printMatrix(matrix [][]float64, names []string) {
 
         println()
     }
+}  
+
+////////////////////////////////////////////////////////////
+// ✅ HELPER
+////////////////////////////////////////////////////////////
+
+func printWeights(weights []float64, names []string) {
+
+    for i, n := range names {
+        println(n, "weight:", round(weights[i]))
+    }
 }
- 
+
 
 func main() {
 
@@ -224,7 +235,7 @@ func main() {
     // ✅ 3. STATISTICS
     printStatsTable(data)
 
-    // ✅ 4. SORTED NAMES + COVARIANCE
+    // ✅ 4. SORTED + COVARIANCE
     names := []string{}
     for k := range data {
         names = append(names, k)
@@ -233,15 +244,15 @@ func main() {
 
     matrix := covarianceMatrix(data)
 
-    // ✅ 5. COV MATRIX
+    // ✅ 5. COVARIANCE MATRIX
     printMatrix(matrix, names)
 
     // ✅ 6. BETA TABLE
     printBetaTable(data, "BTC")
 
-    // ✅ =====================================================
-    // ✅ NEW FEATURE: OPTIONS + MULTI-PHASE PORTFOLIO
-    // ✅ =====================================================
+    // ====================================================
+    // ✅ OPTIONS SECTION
+    // ====================================================
 
     println("\n=== OPTION GENERATION (DAY 20+) ===")
 
@@ -249,11 +260,15 @@ func main() {
 
     println("Total options generated:", len(options))
 
-    // print only sample (avoid too long)
-    for i, o := range options {
+    // ✅ SHOW SAMPLE PER ASSET
+    println("\n=== OPTION SAMPLE (ALL ASSETS) ===")
 
-        if i > 10 {
-            break
+    countByAsset := map[string]int{}
+
+    for _, o := range options {
+
+        if countByAsset[o.Asset] >= 2 {
+            continue
         }
 
         println(
@@ -262,28 +277,78 @@ func main() {
             "Call:", round(o.Call),
             "Put:", round(o.Put),
         )
+
+        countByAsset[o.Asset]++
+    }
+println("\n=== OPTION TIMELINE (DAY 20–35) ===")
+
+for asset, prices := range data {
+
+    decisions := decideOptionTimeline(asset, prices)
+
+    println("\nAsset:", asset)
+
+    for i := 20; i < len(prices); i++ {
+
+        println(
+            "Day", i,
+            "Price:", prices[i],
+            "→", decisions[i],
+        )
+    }
+}
+    // ✅ ====================================================
+    // ✅ OPTION DECISION ENGINE
+    // ====================================================
+
+    println("\n=== OPTION DECISION ===")
+
+    for asset, prices := range data {
+
+        action := decideOptionAction(asset, prices)
+
+        lastPrice := prices[len(prices)-1]
+
+        call := blackScholesCall(lastPrice, lastPrice*1.05, 0.1, 0.01, 0.3)
+        put := blackScholesPut(lastPrice, lastPrice*1.05, 0.1, 0.01, 0.3)
+
+        println(
+            asset,
+            "Action:", action,
+            "Call:", round(call),
+            "Put:", round(put),
+        )
     }
 
-    // ✅ PHASE 1 (before options)
+    // ====================================================
+    // ✅ PORTFOLIO PHASE 1
+    // ====================================================
+
     println("\n=== PORTFOLIO PHASE 1 (BEFORE OPTIONS) ===")
 
     w1 := optimizeSharpe(data, names)
+    printWeights(w1, names)
 
-    for i, n := range names {
-        println(n, "weight:", round(w1[i]))
+    // ====================================================
+    // ✅ PORTFOLIO PHASE 2 (HEDGED)
+    // ====================================================
+
+    println("\n=== PORTFOLIO PHASE 2 (HEDGED) ===")
+
+    // ✅ clone dataset (future: inject option payoff here)
+    hedged := map[string][]float64{}
+
+    for k, v := range data {
+        hedged[k] = v
     }
 
-    // ✅ PHASE 2 (after options)
-    // NOTE: currently same data → later we inject option payoff
-    println("\n=== PORTFOLIO PHASE 2 (AFTER OPTIONS / REOPTIMIZED) ===")
+    w2 := optimizeSharpe(hedged, names)
+    printWeights(w2, names)
 
-    w2 := optimizeSharpe(data, names)
+    // ====================================================
+    // ✅ OUTPUT HTML DASHBOARD
+    // ====================================================
 
-    for i, n := range names {
-        println(n, "weight:", round(w2[i]))
-    }
-
-    // ✅ FINAL OUTPUT → HTML DASHBOARD
     generateHTML(data)
 
     println("\n✅ Dashboard generated → open report.html")
