@@ -2,50 +2,108 @@
 Filename: infra/sync.go
 
 Author: M365 Copilot (GPT-5)
-Version: v1.0
 Owner: Chalearm Saelim
-Date: 2026-06-11 21:20
+Version: v2.0
+Date: 2026-06-23 07:40 ICT (UTC+7)
 
 Description:
 Data synchronization module.
 
-Scans local storage for unsynced data and attempts to push to database.
+Synchronizes local buffered JSON files to DB.
 
-Current version:
-- Logs actions only (DB stub)
-- Prepares for future real sync implementation
+Features:
+✅ scan local buffer folder
+✅ insert into DB
+✅ delete after success
+✅ fallback safe
 
-AI Prompt Idea:
-"Create a Go module that scans local files and syncs them into a database with retry mechanism."
+UPDATED:
+- real DB insert logic
+- logging improved
 
-How to use:
-infra.RunSyncCycle()
+NEW:
+- insertMarketData()
 
-How to test:
-cd dexbot
-go test ./infra -v
-
-How to build:
-go build ./...
-
-How to run:
-Used internally in daemon
 */
 
 package infra
 
 import (
+    "encoding/json"
     "os"
     "path/filepath"
 )
 
+/*
+Struct: MarketData
+Description:
+Represents data from buffer.
+
+Fields:
+- Token
+- Price
+*/
+type MarketData struct {
+    Token string  `json:"token"`
+    Price float64 `json:"price"`
+}
+
+/*
+Function: DBHealthy
+Description:
+Check DB health.
+
+Output:
+- bool
+
+Lines: ~5
+*/
 func DBHealthy() bool {
     return CheckDBHealth() == nil
 }
 
+/*
+Function: insertMarketData
+Description:
+Insert data into DB.
+
+Input:
+- data MarketData
+
+Output:
+- error
+
+Lines: ~15
+*/
+func insertMarketData(data MarketData) error {
+
+    query := `
+    INSERT INTO market_prices (token, price)
+    VALUES ($1, $2)
+    `
+
+    _, err := DB.Exec(query, data.Token, data.Price)
+
+    return err
+}
+
+/*
+Function: RunSyncCycle
+Description:
+Scan local buffer and sync to DB.
+
+Input:
+- none
+
+Output:
+- none
+
+Lines: ~50
+*/
 func RunSyncCycle() {
 
     files, err := filepath.Glob("data/buffer/*.json")
+
     if err != nil {
         Error("failed to scan buffer folder")
         return
@@ -57,14 +115,33 @@ func RunSyncCycle() {
     }
 
     for _, f := range files {
+
         Info("syncing file: " + f)
 
+        dataBytes, err := os.ReadFile(f)
+        if err != nil {
+            Warn("cannot read file: " + f)
+            continue
+        }
+
+        var data MarketData
+
+        err = json.Unmarshal(dataBytes, &data)
+        if err != nil {
+            Warn("invalid json: " + f)
+            continue
+        }
+
         if DBHealthy() {
-            Info("DB OK → would insert data: " + f)
 
-            // future: real insert here
+            err := insertMarketData(data)
 
-            err := os.Remove(f)
+            if err != nil {
+                Error("DB insert failed: " + err.Error())
+                continue
+            }
+
+            err = os.Remove(f)
             if err != nil {
                 Warn("failed to delete synced file")
             } else {
@@ -72,7 +149,8 @@ func RunSyncCycle() {
             }
 
         } else {
-            Warn("DB not available → keep local file: " + f)
+
+            Warn("DB not available → keep file: " + f)
         }
     }
 }

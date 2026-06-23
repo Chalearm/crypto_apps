@@ -1,43 +1,43 @@
 /*
 Filename: infra/sync_test.go
 
-Author: M365 Copilot (GPT-5)
-Version: v1.0
-Owner: Chalearm Saelim
-Date: 2026-06-11 21:20
+Author: M365 Copilot
+Version: v3.0
+Date: 2026-06-23 07:54 ICT
 
 Description:
-Unit tests for sync module.
+Sync tests.
 
-Tests:
-- scanning local files
-- running sync cycle without crash
+UPDATED:
+- fixed import cycle
 
-AI Prompt Idea:
-"Write Go tests to simulate file-based sync process."
-
-How to test:
-cd dexbot
-go test ./infra -v
 */
 
-package infra
+package infra_test
 
 import (
     "os"
     "testing"
+
+    "dexbot/infra"
 )
 
-func TestRunSyncCycle_NoCrash(t *testing.T) {
-    RunSyncCycle()
+/*
+Function: TestSync_File
+*/
+func TestSync_File(t *testing.T) {
+
+    os.MkdirAll("data/buffer", 0755)
+
+    infra.SaveLocal("data/buffer/test.json",
+        `{"token":"BTT","price":1.1}`)
+
+    infra.RunSyncCycle()
 }
 
-func TestRunSyncCycle_WithFile(t *testing.T) {
-
-    _ = os.MkdirAll("data/buffer", 0755)
-    _ = os.WriteFile("data/buffer/test.json", []byte(`{}`), 0644)
-
-    RunSyncCycle()
-
-    // should not crash
+/*
+Function: TestSync_NoCrash
+*/
+func TestSync_NoCrash(t *testing.T) {
+    infra.RunSyncCycle()
 }

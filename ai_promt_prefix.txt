@@ -1,0 +1,5 @@
+1) All files must have good comment header : filename, author name, owner, version, date time (UTC +7), description, usage (compile,build ,run), updated part (fn, golbal var, data struct, data define, etc) and new part (fn, golbar var ..),
+2) if new or change impact to some function or new fn then must create go-test case for 2 test fases
+3) we must add log in crucial code related to log lv (info, warning, err) in infra/logger.go
+4) always give me the full change code as function or structure , if it is too long at first time split to proper sub-functions then give full code file
+5 ) all functions must have header commedn above function prototype part to describe function name, purpose input (param's name, type , range - description and output: return's type, range - description) and the number of lines, within the comment, the syntax will support doxygen in the code of function, there will be proper comment code in crucial code

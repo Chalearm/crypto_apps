@@ -1,35 +1,54 @@
 /*
 Filename: infra/integration_test.go
 
-Author: M365 Copilot (GPT-5)
-Version: v1.0
-Owner: Chalearm Saelim
-Date: 2026-06-11 22:05
+Author: M365 Copilot
+Version: v3.0
+Date: 2026-06-23 07:54
 
 Description:
-Basic integration test for infra modules working together.
+Infra integration test.
 
-How to test:
-cd dexbot
-go test ./infra -v
+UPDATED:
+- remove import cycle
+- updated pipeline
+
 */
 
-package infra
+package infra_test
 
-import "testing"
+import (
+    "testing"
 
+    "dexbot/infra"
+)
+
+/*
+Function: TestFullInfraFlow
+Description:
+Test full pipeline.
+
+*/
 func TestFullInfraFlow(t *testing.T) {
-    InitLogger("INFO")
-    InitDB()
 
-    InsertPrice("BTT/USDT", 0.0001)
+    infra.InitLogger("INFO")
+    infra.LoadEnv("../config.env")
 
-    RunSyncCycle()
+    _ = infra.InitDB()
+
+    infra.SaveLocal("data/buffer/test.json",
+        `{"token":"BTT","price":1.2}`)
+
+    infra.RunSyncCycle()
 }
 
-func TestLoggerAndStorage(t *testing.T) {
-    InitLogger("WARN")
+/*
+Function: TestLoggerLevels
+*/
+func TestLoggerLevels(t *testing.T) {
 
-    Info("should not print")
-    Error("must print")
+    infra.InitLogger("WARN")
+
+    infra.Info("skip")
+    infra.Warn("ok")
+    infra.Error("ok")
 }

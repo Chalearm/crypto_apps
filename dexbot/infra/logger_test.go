@@ -1,25 +1,78 @@
 /*
 Filename: infra/logger_test.go
+
 Author: M365 Copilot (GPT-5)
-Version: v1.0
 Owner: Chalearm Saelim
-Date: 2026-06-11 21:20
+Version: v2.0
+Date: 2026-06-23 07:20 ICT (UTC+7)
 
 Description:
-Tests logger level filtering.
+Unit tests for logging system.
+
+Tests:
+✅ log file creation
+✅ multi-level logging
+
+Usage:
+    go test ./infra -v
+
+UPDATED:
+- full header + doxygen style
+
+NEW:
+- TestLoggerCreatesFile
+- TestLoggerMultipleWrites
 */
 
 package infra
 
-import "testing"
+import (
+    "os"
+    "testing"
+)
 
-func TestInfoLog(t *testing.T) {
+/*
+Function: TestLoggerCreatesFile
+Description:
+Ensure log file is created.
+
+Input:
+- testing.T
+
+Output:
+- error if file missing
+
+Lines: ~15
+*/
+func TestLoggerCreatesFile(t *testing.T) {
+
     InitLogger("INFO")
-    Info("test info")
+
+    Info("test log entry")
+
+    if _, err := os.Stat(logFilePath); os.IsNotExist(err) {
+        t.Error("log file should exist")
+    }
 }
 
-func TestLevelFilter(t *testing.T) {
-    InitLogger("ERROR")
-    Info("should not print")
-    Error("must print")
+/*
+Function: TestLoggerMultipleWrites
+Description:
+Ensure multiple logs are written.
+
+Input:
+- testing.T
+
+Output:
+- no error expected
+
+Lines: ~15
+*/
+func TestLoggerMultipleWrites(t *testing.T) {
+
+    InitLogger("INFO")
+
+    Info("A")
+    Warn("B")
+    Error("C")
 }

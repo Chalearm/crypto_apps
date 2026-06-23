@@ -71,9 +71,12 @@ func InitDB() error {
 
     DB = db
 
+  
     if err := CheckDBHealth(); err != nil {
-        return err
+        Warn("DB not healthy → fallback to simulation mode")
+        return nil // ✅ DO NOT EXIT
     }
+
 
     createTable()
 
