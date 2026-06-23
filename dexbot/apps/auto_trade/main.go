@@ -192,6 +192,31 @@ func runStatus() {
     infra.Info("daemon running PID=" + pid)
 }
 /*
+Function: loadEnvSmart
+Description:
+Try multiple env locations.
+
+*/
+func loadEnvSmart() {
+
+    paths := []string{
+        "config.env",
+        "../config.env",
+        "../../config.env",
+    }
+
+    for _, p := range paths {
+        if _, err := os.Stat(p); err == nil {
+            infra.LoadEnv(p)
+            infra.Info("env loaded from: " + p)
+            return
+        }
+    }
+
+    infra.Warn("env file not found in any path")
+}
+
+/*
 Function: runApp
 Description:
 Main CLI dispatcher.
@@ -227,7 +252,8 @@ func runApp(args []string) {
 
     infra.InitLogger("INFO")
 
-    infra.LoadEnv("config.env") // ✅ ADD THIS LINE
+loadEnvSmart() // ✅ use this instead
+
 
 
     infra.Info("System starting → dryRun=" + strconv.FormatBool(dryRun))
@@ -283,8 +309,40 @@ func main() {
 // ==============================
 // DAEMON CONTROL
 // ==============================
+/*
+Function: startDaemon
+Description:
+Start daemon safely (prevent duplicates).
 
+Input:
+- none
+
+Output:
+- none
+
+Lines: ~25
+*/
 func startDaemon() {
+
+    // ✅ check existing PID
+    data, err := os.ReadFile(PID_FILE)
+
+    if err == nil {
+        pidStr := strings.TrimSpace(string(data))
+
+        pid, _ := strconv.Atoi(pidStr)
+
+        // ✅ check if process still exists
+        proc, err := os.FindProcess(pid)
+        if err == nil {
+            err = proc.Signal(syscall.Signal(0))
+
+            if err == nil {
+                infra.Warn("daemon already running PID=" + pidStr)
+                return
+            }
+        }
+    }
 
     cmd := exec.Command(os.Args[0], "-daemon")
 
@@ -297,28 +355,37 @@ func startDaemon() {
 
     infra.Info(fmt.Sprintf("daemon started PID=%d", cmd.Process.Pid))
 }
+/*
+Function: runTerminate
+Description:
+Terminate ALL auto_trade daemon processes.
 
+Input:
+- none
+
+Output:
+- none
+
+Lines: ~40
+*/
 func runTerminate() {
 
-    data, err := os.ReadFile(PID_FILE)
+    infra.Warn("terminating all auto_trade daemons...")
+
+    // ✅ use pkill (safe for dev)
+    cmd := exec.Command("pkill", "-f", "auto_trade")
+
+    err := cmd.Run()
 
     if err != nil {
-        infra.Error("no daemon running")
-        return
-    }
-
-    pid, _ := strconv.Atoi(strings.TrimSpace(string(data)))
-
-    p, err := os.FindProcess(pid)
-
-    if err == nil {
-        _ = p.Signal(syscall.SIGTERM)
+        infra.Error("failed to kill processes: " + err.Error())
+    } else {
+        infra.Info("all auto_trade processes terminated")
     }
 
     _ = os.Remove(PID_FILE)
-
-    infra.Warn(fmt.Sprintf("daemon stopped PID=%d", pid))
 }
+
 
 // ==============================
 // REPORTING

@@ -38,11 +38,17 @@ import (
 
 var DB *sql.DB
 
-// InitDB initializes DB connection
+/*
+Function: InitDB
+Description:
+Initialize DB connection and schema.
 
+UPDATED:
+✅ auto create market_prices table
+
+*/
 func InitDB() error {
 
-    // ✅ skip DB in test mode
     if os.Getenv("TEST_MODE") == "1" {
         log.Println("[INFO] TEST_MODE → skip DB init")
         return nil
@@ -71,20 +77,18 @@ func InitDB() error {
 
     DB = db
 
-  
     if err := CheckDBHealth(); err != nil {
-        Warn("DB not healthy → fallback to simulation mode")
-        return nil // ✅ DO NOT EXIT
+        Warn("DB health failed → fallback mode")
+        return nil
     }
 
-
-    createTable()
+    // ✅ NEW
+    createMarketTable()
 
     Info("DB connected")
 
     return nil
 }
-
 // CheckDBHealth ensures DB is reachable
 
 func CheckDBHealth() error {
@@ -131,4 +135,36 @@ func createTable() {
     if err != nil {
         log.Fatal(err)
     }
+}
+/*
+Function: createMarketTable
+Description:
+Create market_prices table if not exists.
+
+Input:
+- none
+
+Output:
+- none
+
+Lines: ~20
+*/
+func createMarketTable() {
+
+    query := `
+    CREATE TABLE IF NOT EXISTS market_prices (
+        id SERIAL PRIMARY KEY,
+        token TEXT,
+        price DOUBLE PRECISION,
+        ts TIMESTAMP DEFAULT NOW()
+    );
+    `
+
+    _, err := DB.Exec(query)
+    if err != nil {
+        Error("create table failed: " + err.Error())
+        return
+    }
+
+    Info("market_prices table ready")
 }
