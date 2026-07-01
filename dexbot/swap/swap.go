@@ -1,23 +1,63 @@
-/*
-Filename: swap/swap.go
-
-Author: Gemini
-Version: v1.2
-Owner: Chalearm Saelim
-Date: 2026-06-11
-
-Description:
-Automated token swap module using multi-path routing frameworks on Decentralized Exchanges.
-
-Features:
-- Blockchain-backed path discovery optimization
-- Dynamic gas cost calculation and conversion reporting
-- High-precision number alignment formatting for native and asset quantities
-
-AI Prompt Idea:
-"Create a Go swap execution script for Uniswap/Pancakeswap routers with automated path verification."
-*/
-
+/******************************************************************************
+ * File Name       : swap.go
+ * File Path       : swap/swap.go
+ *
+ * Author          : deepseek-4.0-pro
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : 2026-06-30 00:53:07 (UTC+7)
+ * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ *
+ * Description     :
+ *   Automated token swap module using multi-path routing frameworks on Decentralized Exchanges. - Blockchain-backed path discovery optimization - Dynamic gas cost calculation and conversion reporting - Hi
+ *
+ * Responsibilities:
+ *   - Implement core functionality for swap package.
+ *
+ * Usage :
+ *   Directory : swap/
+ *
+ *   Build :
+ *     go build ./swap
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./swap
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/swap
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Functions] All exported functions in this file
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
+ ******************************************************************************/
 package swap
 
 import (

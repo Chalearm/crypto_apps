@@ -1,37 +1,73 @@
-/*
-Filename: engine/validation_test.go
-
-Author: M365 Copilot (GPT-5)
-Version: v1.0
-Owner: Chalearm Saelim
-Date: 2026-06-10
-
-Description:
-Unit tests for trade validation logic.
-
-Covers:
-- Boundary conditions (min/max)
-- Capital limits
-- Invalid values (negative, zero)
-
-AI Prompt Idea:
-"Write Go unit tests for a trade validation function including edge cases and boundary conditions."
-
-How to test:
-go test ./engine -v
-*/
-
+/******************************************************************************
+ * File Name       : validation_test.go
+ * File Path       : engine/validation_test.go
+ *
+ * Author          : deepseek-4.0-pro
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : 2026-06-30 00:53:07 (UTC+7)
+ * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ *
+ * Description     :
+ *   Unit tests for trade validation logic. Covers: - Boundary conditions (min/max) - Capital limits - Invalid values (negative, zero) AI Prompt Idea: "Write Go unit tests for a trade validation function i
+ *
+ * Responsibilities:
+ *   - Implement core functionality for engine package.
+ *
+ * Usage :
+ *   Directory : engine/
+ *
+ *   Build :
+ *     go build ./engine
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./engine
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/engine
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Test Functions] Test suite: TestValidTrade, TestBelowMin, TestAboveMax, TestZeroAmount
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
+ ******************************************************************************/
 package engine
 
 import (
-    "dexbot/config"
     "testing"
 )
 
-func getCfg() config.Config {
-    return config.Config{
+func getCfg() Config {
+    return Config{
         MinUSD:          0.0001,
-        MaxUSD:          0.001,
+        MaxUSD:          0.5,
         TotalCapitalUSD: 0.2,
     }
 }

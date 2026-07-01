@@ -1,52 +1,63 @@
-/*
-Filename: apps/risk_lab/main.go
-
-Author: M365 Copilot (GPT-5)
-Version: v4.0 (Full Quant + Options + Portfolio Phases)
-Owner: Chalearm Saelim
-Date: 2026-06-22 07:44 ICT (UTC+7)
-
-Description:
-Entry point for Risk Lab mini application.
-
-Features:
-✅ Price table
-✅ Returns table
-✅ Statistics (Mean / Std / Variance / MDD)
-✅ Covariance matrix
-✅ Beta table
-✅ Option generation (multi-asset)
-✅ Portfolio Phase 1 (before options)
-✅ Portfolio Phase 2 (after options)
-✅ HTML dashboard output
-
-
-Usage:
-    cd dexbot/apps/risk_lab
-    go run .
-
-Test:
-    go test ./apps/risk_lab -v
-Output:
-    1. price table (time-series)
-    2. risk metrics (mean, std, covariance, beta)
-    3. HTML report (report.html)
-
-Execution Flow:
-    1. load sample data
-    2. print table (readable visualization)
-    3. run calculations
-    4. generate report
-Expected Output:
-- console output of risk metrics
-- HTML report file: ./report.html
-
-Dependencies:
-- standard Go
-- no DB required (standalone demo)
-
-*/
-
+/******************************************************************************
+ * File Name       : main.go
+ * File Path       : apps/risk_lab/main.go
+ *
+ * Author          : deepseek-4.0-pro
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : 2026-06-30 00:53:07 (UTC+7)
+ * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ *
+ * Description     :
+ *   Entry point for Risk Lab mini application. ✅ Price table ✅ Returns table ✅ Statistics (Mean / Std / Variance / MDD) ✅ Covariance matrix ✅ Beta table ✅ Option generation (multi-asset) ✅ Portfolio Phase
+ *
+ * Responsibilities:
+ *   - Implement core functionality for apps package.
+ *
+ * Usage :
+ *   Directory : apps/risk_lab/
+ *
+ *   Build :
+ *     go build ./apps/risk_lab
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./apps/risk_lab
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/apps
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Functions] All exported functions in this file
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
+ ******************************************************************************/
 package main
 
 import (

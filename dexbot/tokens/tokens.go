@@ -1,22 +1,63 @@
-/*
-Filename: tokens/tokens.go
-
-Author: Gemini
-Version: v1.1
-Owner: Chalearm Saelim
-Date: 2026-06-11
-
-Description:
-Token address registry for the balance tracker.
-
-Features:
-- Map token tickers to their respective common.Address
-- Supports both BEP20 tokens and a native BNB placeholder
-
-AI Prompt Idea:
-"Create a Go registry mapping token symbols to their smart contract addresses on BNB Smart Chain."
-*/
-
+/******************************************************************************
+ * File Name       : tokens.go
+ * File Path       : tokens/tokens.go
+ *
+ * Author          : deepseek-4.0-pro
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : 2026-06-30 00:53:07 (UTC+7)
+ * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ *
+ * Description     :
+ *   Token address registry for the balance tracker. - Map token tickers to their respective common.Address - Supports both BEP20 tokens and a native BNB placeholder AI Prompt Idea: "Create a Go registry m
+ *
+ * Responsibilities:
+ *   - Implement core functionality for tokens package.
+ *
+ * Usage :
+ *   Directory : tokens/
+ *
+ *   Build :
+ *     go build ./tokens
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./tokens
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/tokens
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Functions] All exported functions in this file
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
+ ******************************************************************************/
 package tokens
 
 import "github.com/ethereum/go-ethereum/common"

@@ -1,29 +1,63 @@
-/*
-Filename: apps/risk_lab/risk_test.go
-
-Author: M365 Copilot (GPT-5)
-Version: v2.0
-Owner: Chalearm Saelim
-Date: 2026-06-21 05:39 ICT (UTC+7)
-
-Description:
-Updated tests for return-based financial calculations.
-
-Covers:
-✅ returns calculation
-✅ mean of returns
-✅ variance (non-zero)
-✅ covariance (non-zero)
-✅ beta (logical check)
-
-Ensures:
-- correctness of financial math
-- compatibility with portfolio algorithms (MPT)
-
-Usage:
-    go test ./apps/risk_lab -v
-*/
-
+/******************************************************************************
+ * File Name       : risk_test.go
+ * File Path       : apps/risk_lab/risk_test.go
+ *
+ * Author          : deepseek-4.0-pro
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : 2026-06-30 00:53:07 (UTC+7)
+ * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ *
+ * Description     :
+ *   Updated tests for return-based financial calculations. Covers: ✅ returns calculation ✅ mean of returns ✅ variance (non-zero) ✅ covariance (non-zero) ✅ beta (logical check) Ensures: - correctness of fi
+ *
+ * Responsibilities:
+ *   - Implement core functionality for apps package.
+ *
+ * Usage :
+ *   Directory : apps/risk_lab/
+ *
+ *   Build :
+ *     go build ./apps/risk_lab
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./apps/risk_lab
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/apps
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Test Functions] Test suite: TestReturns_Length, TestBlackScholes, TestMDD, TestMaxDrawdown_Flat
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
+ ******************************************************************************/
 package main
 
 import "testing"

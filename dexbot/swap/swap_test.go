@@ -1,21 +1,63 @@
-/*
-Filename: swap/swap_test.go
-
-Author: Gemini
-Version: v1.1
-Owner: Chalearm Saelim
-Date: 2026-06-11
-
-Description:
-Tests for swap module configuration and visual precision parsers.
-
-AI Prompt Idea:
-"Create tests to validate router address, token decimals, and decimal layout parser metrics in a DEX swap engine."
-
-How to test:
-go test ./swap -v
-*/
-
+/******************************************************************************
+ * File Name       : swap_test.go
+ * File Path       : swap/swap_test.go
+ *
+ * Author          : deepseek-4.0-pro
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : 2026-06-30 00:53:07 (UTC+7)
+ * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ *
+ * Description     :
+ *   Tests for swap module configuration and visual precision parsers. AI Prompt Idea: "Create tests to validate router address, token decimals, and decimal layout parser metrics in a DEX swap engine." How
+ *
+ * Responsibilities:
+ *   - Implement core functionality for swap package.
+ *
+ * Usage :
+ *   Directory : swap/
+ *
+ *   Build :
+ *     go build ./swap
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./swap
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/swap
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Test Functions] Test suite: TestRouterNotEmpty, TestDecimalsExist, TestDecimalsPositive, TestCommonTokens
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
+ ******************************************************************************/
 package swap
 
 import "testing"

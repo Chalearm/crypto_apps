@@ -1,124 +1,63 @@
-/*
-Filename: apps/risk_lab/sample.go
-
-Author: M365 Copilot (GPT-5)
-Version: v4.0 (Multi-Asset + Options Scenario Dataset)
-Owner: Chalearm Saelim
-Date: 2026-06-22 07:08 ICT (UTC+7)
-
-Description:
-This file defines the synthetic market dataset used for the risk lab system.
-
-The dataset is intentionally designed to simulate:
-✅ multi-asset portfolio (BTC, ETH, BNB, UNI, ADA)
-✅ regime shift behavior (normal → volatile)
-✅ conditions that justify option usage (call/put)
-✅ portfolio rebalancing after risk events
-
---------------------------------------------------
-📊 DATA STRUCTURE
---------------------------------------------------
-
-Each asset contains 35 time steps:
-
-Phase 1 (Day 1–20):
-- relatively stable market
-- moderate upward trend
-- low-to-medium volatility
-
-Phase 2 (Day 21–35):
-- volatility spike (event regime)
-- price swings (sharp up/down)
-- drawdowns (especially ADA, UNI)
-
---------------------------------------------------
-🧠 SYSTEM PURPOSE
---------------------------------------------------
-
-This dataset supports the following system behaviors:
-
-1. Risk Analysis
-   - compute returns, variance, covariance
-   - calculate max drawdown (MDD)
-   - identify high-risk assets
-
-2. Portfolio Allocation
-   - Phase 1: optimize Sharpe ratio (pre-event)
-   - Phase 2: re-optimize after volatility
-
-3. Options Strategy Simulation
-   - from Day 20 onward
-   - generate CALL and PUT options for each asset
-   - used for hedging and speculative decisions
-
---------------------------------------------------
-📉 OPTIONS LOGIC (CONCEPT)
---------------------------------------------------
-
-Based on asset behavior:
-
-- High MDD (e.g., ADA):
-    → BUY PUT (hedging downside risk)
-
-- High volatility (e.g., UNI):
-    → BUY CALL + PUT (straddle)
-    → profit from large movement in either direction
-
-- Stable assets (e.g., BTC):
-    → SELL CALL or no option (income strategy)
-
---------------------------------------------------
-📈 EXPECTED SYSTEM OUTPUT
---------------------------------------------------
-
-The system will display:
-
-✅ Terminal:
-    - price table
-    - returns table
-    - statistics (mean, std, variance, MDD)
-    - covariance matrix
-    - beta table
-    - portfolio weights (Phase 1 & Phase 2)
-    - sample option outputs
-
-✅ HTML Dashboard (report.html):
-    - price chart
-    - returns + statistics tables
-    - covariance heatmap
-    - option table (multi-asset)
-    - portfolio phase comparison
-    - pie charts (before vs after)
-
---------------------------------------------------
-⚠️ NOTE
---------------------------------------------------
-
-Currently:
-- option values are generated (Black-Scholes)
-- but NOT yet injected into portfolio returns
-
-Future enhancement:
-→ integrate option payoff into returns
-→ true hedged portfolio simulation
-
---------------------------------------------------
-RUN INSTRUCTIONS
---------------------------------------------------
-
-Run application:
-    cd dexbot/apps/risk_lab
-    go run .
-
-Open dashboard:
-    open report.html   (macOS)
-
-Run tests:
-    go test ./apps/risk_lab -v
-
---------------------------------------------------
-*/
-
+/******************************************************************************
+ * File Name       : sample.go
+ * File Path       : apps/risk_lab/sample.go
+ *
+ * Author          : deepseek-4.0-pro
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : 2026-06-30 00:53:07 (UTC+7)
+ * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ *
+ * Description     :
+ *   This file defines the synthetic market dataset used for the risk lab system. The dataset is intentionally designed to simulate: ✅ multi-asset portfolio (BTC, ETH, BNB, UNI, ADA) ✅ regime shift behavio
+ *
+ * Responsibilities:
+ *   - Implement core functionality for apps package.
+ *
+ * Usage :
+ *   Directory : apps/risk_lab/
+ *
+ *   Build :
+ *     go build ./apps/risk_lab
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./apps/risk_lab
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/apps
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Functions] All exported functions in this file
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
+ ******************************************************************************/
 package main
 
 func sampleData() map[string][]float64 {

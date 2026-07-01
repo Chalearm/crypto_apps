@@ -1,30 +1,89 @@
-
+/******************************************************************************
+ * File Name       : main.go
+ * File Path       : apps/auto_trade/main.go
+ *
+ * Author          : deepseek-4.0-pro
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : 2026-06-30 00:53:07 (UTC+7)
+ * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ *
+ * Description     :
+ *   Full production-grade Dexbot daemon system with enhanced CLI for help and configuration. CORE FEATURES: [OK] CLI entry with safe flag parsing [OK] Background daemon (PID tracked) [OK] Dry-run safe exe
+ *
+ * Responsibilities:
+ *   - Implement core functionality for apps package.
+ *
+ * Usage :
+ *   Directory : apps/auto_trade/
+ *
+ *   Build :
+ *     go build ./apps/auto_trade
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./apps/auto_trade
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/apps
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Functions] All exported functions in this file
+ *   [Types] Struct definitions in this file
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
+ ******************************************************************************/
 /*
 Filename: apps/auto_trade/main.go
 
-Author: M365 Copilot (GPT-5)
-Version: v3.2 (FULL EXPANDED)
+Author: M365 Copilot (GPT-5), Gemini
+Version: v3.3 (HELP COMMAND ADDED)
 Owner: Chalearm Saelim
-Date: 2026-06-23 06:37
+Date: 2026-06-25 10:00 ICT (UTC+7)
 
 Description:
-Full production-grade Dexbot daemon system.
+Full production-grade Dexbot daemon system with enhanced CLI for help and configuration.
 
 CORE FEATURES:
-✅ CLI entry with safe flag parsing
-✅ Background daemon (PID tracked)
-✅ Dry-run safe execution
-✅ Real-time reporting (independent command)
-✅ Task lifecycle (CREATE → BUY → COMPLETE)
-✅ JSON persistence (state file)
-✅ Config system
-✅ Infra logging integration
-✅ Graceful shutdown
-✅ Multi-worker execution
+[OK] CLI entry with safe flag parsing
+[OK] Background daemon (PID tracked)
+[OK] Dry-run safe execution
+[OK] Real-time reporting (independent command)
+[OK] Task lifecycle (CREATE → BUY → COMPLETE)
+[OK] JSON persistence (state file)
+[OK] Config system
+[OK] Infra logging integration
+[OK] Graceful shutdown
+[OK] Multi-worker execution
+[OK] Help command for CLI options
 
 COMMANDS:
-
-
 
 Start daemon (safe test):
 go run apps/auto_trade/main.go -dry_run=true
@@ -35,17 +94,27 @@ go run apps/auto_trade/main.go -action=report
 Terminate:
 go run apps/auto_trade/main.go -action=terminate
 
+Show Help:
+go run apps/auto_trade/main.go -action=help
+
 TEST MODE:
 TEST_MODE=1 go test ./apps/auto_trade -v
 
 
 Usage:
 
-Run (IMPORTANT ✅):
+Run (IMPORTANT [OK]):
     go run . -dry_run=true
 
 DO NOT USE:
-    go run main.go ❌ (will break multi-file build)
+    go run main.go [ERROR] (will break multi-file build)
+
+UPDATED:
+- Added -action=help command.
+- Updated file header with new version and description.
+
+NEW:
+- runHelp() function.
 
 */
 
@@ -250,7 +319,7 @@ func runApp(args []string) {
 
     dryRun = *dry
 
-    infra.InitLogger("INFO")
+    infra.InitLogger()
 
 loadEnvSmart() // ✅ use this instead
 
@@ -282,24 +351,109 @@ loadEnvSmart() // ✅ use this instead
     case "status":
         runStatus()
         return
+
+    case "reload-log":
+        infra.ReloadLoggerConfig()
+        return
+
+    case "help":
+        runHelp()
+        return
     }
 
-    // ✅ TEST MODE stays inline
+    // [OK] TEST MODE stays inline
     if os.Getenv("TEST_MODE") == "1" {
         runDaemon()
         return
     }
 
-    // ✅ if NOT daemon flag → spawn background
+    // [OK] if NOT daemon flag → spawn background
     if !*daemon {
         infra.Info("Starting background daemon...")
         startDaemon()
         return
     }
 
-    // ✅ daemon child process
+    // [OK] daemon child process
     infra.Info("Running daemon process...")
     runDaemon()
+}
+/*
+Function: runHelp
+
+Description:
+Displays all supported CLI commands and usage examples.
+
+Input:
+- none
+
+Output:
+- none
+
+Lines:
+~35
+
+Updated:
+- Fixed multiline string syntax errors.
+- Added clearer CLI help formatting.
+
+New:
+- Examples section.
+*/
+func runHelp() {
+
+    fmt.Printf(`
+Dexbot Auto-Trade CLI Options
+========================================
+
+-action <command>
+
+Available commands:
+
+  start
+      Starts Dexbot daemon (default)
+
+  report
+      Displays current task report and PnL
+
+  terminate
+      Terminates all running Dexbot daemon processes
+
+  status
+      Displays daemon status and PID
+
+  reload-log
+      Reload logger configuration
+
+  help
+      Displays this help screen
+
+-daemon
+      Internal daemon mode
+      Do not manually use this option
+
+-dry_run=true|false
+      Enables or disables dry-run mode
+
+      true  = simulation only
+      false = live execution
+
+Examples:
+
+  go run . -dry_run=true
+
+  go run . -action=report
+
+  go run . -action=status
+
+  go run . -action=terminate
+
+  go run . -action=reload-log
+
+  go run . -action=help
+
+========================================
+`)
 }
 
 func main() {

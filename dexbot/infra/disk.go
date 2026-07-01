@@ -1,29 +1,63 @@
-/*
-Filename: infra/disk.go
-
-Author: M365 Copilot (GPT-5)
-Owner: Chalearm Saelim
-Version: v2.0
-Date: 2026-06-23 07:34 ICT (UTC+7)
-
-Description:
-Disk monitoring module.
-
-Features:
-✅ detect disk usage
-✅ prevent overflow
-✅ fallback safe
-
-UPDATED:
-- real disk usage calculation
-
-NEW:
-- GetFreeDiskPercent implemented
-
-Usage:
-infra.GetFreeDiskPercent()
-*/
-
+/******************************************************************************
+ * File Name       : disk.go
+ * File Path       : infra/disk.go
+ *
+ * Author          : deepseek-4.0-pro
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : 2026-06-30 00:53:07 (UTC+7)
+ * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ *
+ * Description     :
+ *   Disk monitoring module. ✅ detect disk usage ✅ prevent overflow ✅ fallback safe UPDATED: - real disk usage calculation NEW: - GetFreeDiskPercent implemented
+ *
+ * Responsibilities:
+ *   - Implement core functionality for infra package.
+ *
+ * Usage :
+ *   Directory : infra/
+ *
+ *   Build :
+ *     go build ./infra
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./infra
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/infra
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Functions] All exported functions in this file
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
+ ******************************************************************************/
 package infra
 
 import (

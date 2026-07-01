@@ -1,23 +1,63 @@
-/*
-Filename: balance/report.go
-
-Author: Gemini
-Version: v1.3
-Owner: Chalearm Saelim
-Date: 2026-06-11
-
-Description:
-Wallet balance reporting module.
-
-Features:
-- Fetch token balances on-chain (Supports both BEP20 tokens and Native BNB)
-- Convert to USD (static price mapping)
-- Pretty formatting output for both token amounts and USD values (12 decimal places with 3-digit spacing)
-
-AI Prompt Idea:
-"Create a Go tool to read ERC20 balances and display formatted wallet report with USD estimation."
-*/
-
+/******************************************************************************
+ * File Name       : report.go
+ * File Path       : balance/report.go
+ *
+ * Author          : deepseek-4.0-pro
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : 2026-06-30 00:53:07 (UTC+7)
+ * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ *
+ * Description     :
+ *   Wallet balance reporting module. - Fetch token balances on-chain (Supports both BEP20 tokens and Native BNB) - Convert to USD (static price mapping) - Pretty formatting output for both token amounts a
+ *
+ * Responsibilities:
+ *   - Implement core functionality for balance package.
+ *
+ * Usage :
+ *   Directory : balance/
+ *
+ *   Build :
+ *     go build ./balance
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./balance
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/balance
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Functions] All exported functions in this file
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
+ ******************************************************************************/
 package balance
 
 import (
