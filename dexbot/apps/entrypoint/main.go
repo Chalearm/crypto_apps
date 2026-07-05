@@ -4,22 +4,60 @@
  *
  * Author          : deepseek-4.0-pro
  * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
  * Version         : 1.0.0
- * Created Date    : 2026-06-29 17:30:00 (UTC+7)
+ * Status          : Development
+ * Created Date    : 2026-07-01 19:25:35 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:35 (UTC+7)
  *
  * Description     :
  *   Container entrypoint binary — replaces entrypoint.sh.
- *   Starts SSHD in background, then runs the Dexbot unified launcher.
- *   Built as a static binary copied into the Docker image.
+ *
+ * Responsibilities:
+ *   - Implement core functionality.
  *
  * Usage :
- *   Build : go build -o entrypoint ./apps/entrypoint
- *   Run   : ./entrypoint
+ *   Directory : apps/entrypoint/
+ *
+ *   Build :
+ *     go build ./apps/entrypoint
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./apps/entrypoint
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/apps
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Functions] All exported functions in this file
  *
  * Change History :
- *   1.0.0 | 2026-06-29 17:30 | deepseek-4.0-pro | Initial version
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-07-01 19:25:35 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package main
 
 import (

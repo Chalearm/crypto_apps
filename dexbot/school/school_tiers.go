@@ -8,66 +8,56 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-30 05:00:00 (UTC+7)
- * Modified Date   : 2026-06-30 05:00:00 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:50 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:50 (UTC+7)
  *
  * Description     :
  *   School tier management per myreq4.txt §90. Defines 4 training tiers:
- *     Tier 1 — Primary School: single-model training, 300 records,
- *              one model at a time, color-coded status tabs.
- *     Tier 2 — Middle School: 3-submodel ensembles, 250 max list,
- *              ensemble nicknames, color-coded status.
- *     Tier 3 — High School: 5-submodel ensembles, 150 max list,
- *              advanced architectures.
- *     Tier 4 — Graduate School: production-ready graduated models
- *              with deployment history and live metrics.
- *
- *   Each tier has its own ModelPopulation and training configuration.
- *   The SchoolDashboard page reads these tiers for the web UI.
  *
  * Responsibilities:
- *   - Define TierPrimary, TierMiddle, TierHigh, TierGraduate constants
- *   - TierConfig holds per-tier settings (max models, ensemble size, etc.)
- *   - SchoolTier wraps a ModelPopulation with tier-specific metadata
- *   - SchoolTierManager orchestrates all 4 tiers with training status
+ *   - - Define TierPrimary, TierMiddle, TierHigh, TierGraduate constants
  *
  * Usage :
  *   Directory : school/
- *   Build     : go build ./school
- *   Test      : go test ./school -v -run SchoolTier
+ *
+ *   Build :
+ *     go build ./school
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./school
  *
  * Dependencies :
- *   Internal : dexbot/governance
- *   External : sync, time (stdlib)
+ *   Internal :
+ *     - dexbot/school
+ *
+ *   External :
+ *     - (stdlib only)
  *
  * Configuration :
- *   - config.env (PRIMARY_SCHOOL_MAX_MODELS, MIDDLE_SCHOOL_MAX_ENSEMBLES,
- *     HIGH_SCHOOL_MAX_ENSEMBLES, TRAINING_DATA_RECORDS,
- *     TRAINING_INTERVAL_MINUTES)
+ *   - config.env
  *
  * Updated Parts :
  *   None (initial version)
  *
  * New Parts :
- *   [Constant]  TierPrimary, TierMiddle, TierHigh, TierGraduate
- *   [Struct]    TierConfig, SchoolTier, SchoolTierManager, TierModel
- *   [Function]  NewTierConfig, NewSchoolTier, NewSchoolTierManager,
- *               AllTiers, TierName, TierColor, TierModelCount
+ *   [Functions] All exported functions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-30 05:00:00   | deepseek-4.0-pro | Initial version
+ *   1.0.0   | 2026-07-01 19:25:50 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :
- *   - Add tier-specific training orchestration
+ *   - Add unit tests
  *
  * Notes :
- *   - Per myreq4.txt §90: Primary(50), Middle(250), High(150), Graduate(unlimited).
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package school
 
 import (

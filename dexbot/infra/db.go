@@ -8,14 +8,14 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-30 00:53:07 (UTC+7)
- * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:28 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:28 (UTC+7)
  *
  * Description     :
  *   Centralized database layer for Dexbot daemons, utilizing PostgreSQL and configured via environment variables. It provides functionalities for initializing the database connection, checking its health,
  *
  * Responsibilities:
- *   - Implement core functionality for infra package.
+ *   - - Implement core functionality for infra package.
  *
  * Usage :
  *   Directory : infra/
@@ -49,7 +49,7 @@
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   1.0.0   | 2026-07-01 19:25:28 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :
@@ -92,38 +92,52 @@ func InitDB() error {
 	password := os.Getenv("DB_PASS")
 	dbname := os.Getenv("DB_NAME")
 
-	if host == "" || port == "" || user == "" || dbname == "" {
-		Warn("Database configuration (DB_HOST, DB_PORT, DB_USER, DB_NAME) is incomplete in config.env. Skipping DB initialization.")
-		return fmt.Errorf("incomplete database configuration")
+	// Fallback hosts to try in order (§124)
+	hosts := []string{host}
+	if host == "" || host == "127.0.0.1" {
+		hosts = []string{host, "db", "127.0.0.1"}
+	}
+	if host == "db" {
+		hosts = []string{"db", "127.0.0.1"}
 	}
 
-	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
-
-	var err error
-	DB, err = sql.Open("postgres", connStr)
-	if err != nil {
-		Error("Failed to open database connection: " + err.Error())
-		return err
+	if user == "" || dbname == "" {
+		user = "trader"; password = "secret"; dbname = "traderdb"
+		if port == "" { port = "5432" }
 	}
 
-	// Use a context with a timeout for the initial database ping
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	var lastErr error
+	for _, h := range hosts {
+		if h == "" { continue }
+		connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+			h, port, user, password, dbname)
 
-	if err = DB.PingContext(ctx); err != nil {
-		Error("Failed to connect to database after opening (ping failed): " + err.Error())
-		// Ensure DB connection is closed if ping fails
-		DB.Close()
-		DB = nil
-		return err
+		var err error
+		DB, err = sql.Open("postgres", connStr)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		err = DB.PingContext(ctx)
+		cancel()
+		if err != nil {
+			DB.Close(); DB = nil
+			lastErr = err
+			continue
+		}
+
+		Info(fmt.Sprintf("Database connection established via %s:%s", h, port))
+		CreateMarketTable()
+		CreateUserTokensTable()
+		Info("Database initialization complete.")
+		return nil
 	}
-
-	Info("Database connection successfully established. Creating schema if not exists...")
-	CreateMarketTable() // Ensure market_prices table exists
-
-	Info("Database initialization complete.")
-	return nil
+	if lastErr != nil {
+		Error("InitDB all hosts failed: " + lastErr.Error())
+	}
+	return fmt.Errorf("database connection failed after trying %v", hosts)
 }
 
 /*

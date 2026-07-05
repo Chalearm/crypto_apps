@@ -8,60 +8,56 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-29 15:17:00 (UTC+7)
- * Modified Date   : 2026-06-29 15:17:00 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:51 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:51 (UTC+7)
  *
  * Description     :
  *   Unit tests for statistical model type registry.
- *   6 positive + 2 negative test cases per rule1.txt §2.
  *
  * Responsibilities:
- *   - Validate AllStatisticalModels returns 10 entries
- *   - Test ValidateStatisticalModel for known/unknown types
- *   - Test NewStatisticalModel produces valid ModelMetadata
- *   - Test CategoryForStatisticalModel mapping
- *   - Test IsStatisticalModel for nil and valid models
- *   - Negative: unknown model type handling
- *   - Negative: nil model in IsStatisticalModel
+ *   - - Validate AllStatisticalModels returns 10 entries
  *
  * Usage :
  *   Directory : school/
- *   Build     : go test ./school -v -run Statistical
- *   Test      : go test ./school -v -run Statistical
+ *
+ *   Build :
+ *     go build ./school
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./school
  *
  * Dependencies :
- *   Internal : dexbot/school
- *   External : testing (stdlib)
+ *   Internal :
+ *     - dexbot/school
  *
- * Configuration : None
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
  *
  * Updated Parts :
  *   None (initial version)
  *
  * New Parts :
- *   [Function] TestAllStatisticalModels_Count
- *   [Function] TestValidateStatisticalModel_Known
- *   [Function] TestNewStatisticalModel_ProducesValidMetadata
- *   [Function] TestCategoryForStatisticalModel_Mapping
- *   [Function] TestIsStatisticalModel_Valid
- *   [Function] TestArchitectureMap_ReturnsCopy
- *   [Function] TestValidateStatisticalModel_Unknown (negative)
- *   [Function] TestIsStatisticalModel_Nil (negative)
+ *   [Functions] All exported functions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-29 15:17:00   | deepseek-4.0-pro | 6 pos + 2 neg tests
+ *   1.0.0   | 2026-07-01 19:25:51 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :
- *   None
+ *   - Add unit tests
  *
  * Notes :
- *   - All model type constants are validated against full list.
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package school
 
 import "testing"

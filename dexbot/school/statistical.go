@@ -8,57 +8,56 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-29 15:17:00 (UTC+7)
- * Modified Date   : 2026-06-29 15:17:00 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:51 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:51 (UTC+7)
  *
  * Description     :
  *   Statistical model type registry for the School daemon.
- *   Provides model type constants and factory functions for all
- *   supported statistical / quantitative finance models per myreq3.txt §34.
  *
  * Responsibilities:
- *   - Define canonical model type constants (ARIMA, GARCH, VAR, etc.)
- *   - Provide AllStatisticalModels() returning all registered types
- *   - Provide NewStatisticalModel() factory creating a ModelMetadata stub
- *   - Validate model type against known statistical model names
- *   - Map each model type to its category constant
+ *   - - Define canonical model type constants (ARIMA, GARCH, VAR, etc.)
  *
  * Usage :
  *   Directory : school/
- *   Build     : go build ./school
- *   Run       : (library — imported by School daemon)
- *   Test      : go test ./school -v -run Statistical
+ *
+ *   Build :
+ *     go build ./school
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./school
  *
  * Dependencies :
- *   Internal : dexbot/school (ModelMetadata, category constants)
- *   External : time (stdlib)
+ *   Internal :
+ *     - dexbot/school
  *
- * Configuration : None
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
  *
  * Updated Parts :
  *   None (initial version)
  *
  * New Parts :
- *   [Constant]   ModelStatARIMA, ModelStatSARIMA, ModelStatGARCH, etc.
- *   [Function]   AllStatisticalModels, NewStatisticalModel, ValidateStatisticalModel
- *   [Function]   IsStatisticalModel, CategoryForStatisticalModel, ArchitectureMap
+ *   [Functions] All exported functions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-29 15:17:00   | deepseek-4.0-pro | Initial version
+ *   1.0.0   | 2026-07-01 19:25:51 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :
- *   - Add hyperparameter presets per model type
+ *   - Add unit tests
  *
  * Notes :
- *   - Per myreq3.txt §34: ARIMA, SARIMA, GARCH, EGARCH, VAR, KF, HMM,
- *     Cointegration, Monte Carlo, Black-Scholes.
- *   - Model types are constants — no runtime registration needed.
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package school
 
 import "time"

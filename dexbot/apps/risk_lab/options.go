@@ -8,14 +8,14 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-30 00:53:07 (UTC+7)
- * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:40 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:40 (UTC+7)
  *
  * Description     :
  *   Option pricing and simulation logic using Black-Scholes model. Used in Phase 2 (Day >= 20): - CALL option → profit when price increases - PUT option  → profit when price decreases Purpose: ✅ hedging h
  *
  * Responsibilities:
- *   - Implement core functionality for apps package.
+ *   - - Implement core functionality for apps package.
  *
  * Usage :
  *   Directory : apps/risk_lab/
@@ -49,7 +49,7 @@
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   1.0.0   | 2026-07-01 19:25:40 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :

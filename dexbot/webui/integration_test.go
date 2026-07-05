@@ -8,14 +8,14 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-30 00:53:07 (UTC+7)
- * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:26 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:26 (UTC+7)
  *
  * Description     :
- *   Subsystem integration tests for the webui package. Starts a real HTTP server on a random port and makes actual HTTP requests against it, validating full page responses. Covers: - GET  /               
+ *   Subsystem integration tests for the webui package. Starts a real HTTP server on a random port and makes actual HTTP requests against it, validating full page responses. Covers: - GET  /
  *
  * Responsibilities:
- *   - Implement core functionality for webui package.
+ *   - - Implement core functionality for webui package.
  *
  * Usage :
  *   Directory : webui/
@@ -43,13 +43,13 @@
  *   None (initial version)
  *
  * New Parts :
- *   [Test Functions] Test suite: TestIntegrationOperationsPage, TestIntegrationTrainingPage, TestIntegrationPortfolioPage, TestIntegrationAPIDaemonsJSON
+ *   [Functions] All exported functions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   1.0.0   | 2026-07-01 19:25:26 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :
@@ -226,9 +226,9 @@ func TestIntegrationTrainingPage(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	s := string(body)
 
-	for _, model := range []string{"School", "Primary", "Middle", "High", "Graduate"} {
+	for _, model := range []string{"Primary", "Middle", "High", "Graduate", "Database"} {
 		if !strings.Contains(s, model) {
-			t.Errorf("Expected training page to contain %q", model)
+			t.Errorf("Expected school page to contain %q", model)
 		}
 	}
 }

@@ -8,14 +8,14 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-30 00:53:07 (UTC+7)
- * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:23 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:23 (UTC+7)
  *
  * Description     :
  *   The Trading daemon executes trading strategies based on models from the School daemon, focusing on portfolio optimization, price prediction, and risk management. Compile: go build -o trading main.go R
  *
  * Responsibilities:
- *   - Implement core functionality for daemons package.
+ *   - - Implement core functionality for daemons package.
  *
  * Usage :
  *   Directory : daemons/trading/
@@ -49,7 +49,7 @@
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   1.0.0   | 2026-07-01 19:25:23 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :

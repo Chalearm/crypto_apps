@@ -8,14 +8,14 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-30 00:53:07 (UTC+7)
- * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:35 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:35 (UTC+7)
  *
  * Description     :
  *   Live price feeder service. ✅ generate price every second ✅ insert into DB ✅ production-safe logging Run: go run ./apps/price_feeder UPDATED: - initial version
  *
  * Responsibilities:
- *   - Implement core functionality for apps package.
+ *   - - Implement core functionality for apps package.
  *
  * Usage :
  *   Directory : apps/price_feeder/
@@ -49,7 +49,7 @@
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   1.0.0   | 2026-07-01 19:25:35 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :

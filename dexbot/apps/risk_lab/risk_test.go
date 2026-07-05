@@ -8,14 +8,14 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-30 00:53:07 (UTC+7)
- * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:41 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:41 (UTC+7)
  *
  * Description     :
  *   Updated tests for return-based financial calculations. Covers: ✅ returns calculation ✅ mean of returns ✅ variance (non-zero) ✅ covariance (non-zero) ✅ beta (logical check) Ensures: - correctness of fi
  *
  * Responsibilities:
- *   - Implement core functionality for apps package.
+ *   - - Implement core functionality for apps package.
  *
  * Usage :
  *   Directory : apps/risk_lab/
@@ -43,13 +43,13 @@
  *   None (initial version)
  *
  * New Parts :
- *   [Test Functions] Test suite: TestReturns_Length, TestBlackScholes, TestMDD, TestMaxDrawdown_Flat
+ *   [Functions] All exported functions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   1.0.0   | 2026-07-01 19:25:41 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :

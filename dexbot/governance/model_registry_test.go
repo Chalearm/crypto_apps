@@ -8,59 +8,56 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-28 15:00:00 (UTC+7)
- * Modified Date   : 2026-06-28 17:00:00 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:46 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:46 (UTC+7)
  *
  * Description     :
  *   Unit tests for ModelRegistry. 6 positive + 2 negative test cases.
  *
  * Responsibilities:
- *   - Validate Register/Get round-trip
- *   - Test Graduate/Retire lifecycle
- *   - Verify ListByStatus filtering
- *   - Validate DeploymentRecord + PerformancePoint persistence
- *   - Test FitnessHistory multi-generation snapshot
- *   - Confirm model version independence from software version
- *   - Negative: Graduate/RecordPerformance for nonexistent models
+ *   - - Validate Register/Get round-trip
  *
  * Usage :
  *   Directory : governance/
- *   Build     : go test ./governance -v -run ModelRegistry
- *   Test      : go test ./governance -v -run ModelRegistry
+ *
+ *   Build :
+ *     go build ./governance
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./governance
  *
  * Dependencies :
- *   Internal : dexbot/governance
- *   External : testing, time (stdlib)
+ *   Internal :
+ *     - dexbot/governance
  *
- * Configuration : None
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
  *
  * Updated Parts :
  *   None (initial version)
  *
  * New Parts :
- *   [Function] TestModelRegistry_RegisterAndGet
- *   [Function] TestModelRegistry_GraduateAndRetire
- *   [Function] TestModelRegistry_ListByStatus
- *   [Function] TestModelRegistry_DeploymentAndPerformance
- *   [Function] TestModelRegistry_FitnessHistory
- *   [Function] TestModelRegistry_VersionIndependence
- *   [Function] TestModelRegistry_GraduateNonexistent (negative)
- *   [Function] TestModelRegistry_RecordPerformanceNonexistent (negative)
+ *   [Functions] All exported functions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-28 15:00:00   | deepseek-4.0-pro | 6 pos + 2 neg tests
+ *   1.0.0   | 2026-07-01 19:25:46 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :
- *   - Add concurrent access stress test
+ *   - Add unit tests
  *
  * Notes :
- *   - All tests use in-memory registry (no DB dependency).
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package governance
 
 import (

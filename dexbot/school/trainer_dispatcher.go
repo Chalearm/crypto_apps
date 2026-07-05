@@ -4,26 +4,60 @@
  *
  * Author          : deepseek-4.0-pro
  * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
  * Version         : 1.0.0
- * Created Date    : 2026-06-29 16:50:00 (UTC+7)
- * Modified Date   : 2026-06-29 16:50:00 (UTC+7)
+ * Status          : Development
+ * Created Date    : 2026-07-01 19:25:53 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:53 (UTC+7)
  *
  * Description     :
  *   Training Mode Router — routes model training to the correct target
- *   based on configuration per myreq3.txt §42-43 and Phase 23 architecture.
  *
- *   MODE A: Go-native training (in-process, no remote configured).
- *   MODE B: Local daemon training (same machine, UDP loopback).
- *   MODE C: Dedicated remote training (worker2 via UDP/SSH).
- *   MODE D: Subprocess training (Python/TensorFlow/Rust/C++ binaries).
+ * Responsibilities:
+ *   - Implement core functionality.
  *
- *   The dispatcher also tracks training progress and records results
- *   to the centralized Model Registry.
+ * Usage :
+ *   Directory : school/
+ *
+ *   Build :
+ *     go build ./school
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./school
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/school
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Functions] All exported functions in this file
  *
  * Change History :
- *   1.0.0 | 2026-06-29 16:50 | deepseek-4.0-pro | Initial version
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-07-01 19:25:53 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package school
 
 import (

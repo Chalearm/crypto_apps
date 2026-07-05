@@ -8,14 +8,14 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-30 00:53:07 (UTC+7)
- * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:24 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:24 (UTC+7)
  *
  * Description     :
  *   Unit tests for trade validation logic. Covers: - Boundary conditions (min/max) - Capital limits - Invalid values (negative, zero) AI Prompt Idea: "Write Go unit tests for a trade validation function i
  *
  * Responsibilities:
- *   - Implement core functionality for engine package.
+ *   - - Implement core functionality for engine package.
  *
  * Usage :
  *   Directory : engine/
@@ -43,13 +43,13 @@
  *   None (initial version)
  *
  * New Parts :
- *   [Test Functions] Test suite: TestValidTrade, TestBelowMin, TestAboveMax, TestZeroAmount
+ *   [Functions] All exported functions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   1.0.0   | 2026-07-01 19:25:24 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :

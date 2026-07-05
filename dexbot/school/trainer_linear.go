@@ -8,58 +8,56 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-29 16:10:00 (UTC+7)
- * Modified Date   : 2026-06-29 16:10:00 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:53 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:53 (UTC+7)
  *
  * Description     :
  *   Go-native linear model trainers: Linear Regression, Ridge Regression,
- *   Lasso Regression, and Elastic Net. Uses closed-form normal equations
- *   with optional L2 (Ridge), L1 (Lasso via coordinate descent), and
- *   combined L1+L2 (Elastic Net) regularization.
  *
  * Responsibilities:
- *   - Implement TrainingEngine for Linear/Ridge/Lasso/ElasticNet
- *   - Closed-form OLS solution via matrix inversion
- *   - Coordinate descent for Lasso soft-thresholding
- *   - Serialize/Deserialize model coefficients
+ *   - - Implement TrainingEngine for Linear/Ridge/Lasso/ElasticNet
  *
  * Usage :
  *   Directory : school/
- *   Build     : go build ./school
- *   Test      : go test ./school -v -run LinearTrainer
+ *
+ *   Build :
+ *     go build ./school
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./school
  *
  * Dependencies :
- *   Internal : dexbot/school (TrainingEngine, TrainingConfig, FitnessHistory)
- *   External : encoding/json, fmt (stdlib)
+ *   Internal :
+ *     - dexbot/school
  *
- * Configuration : None
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
  *
  * Updated Parts :
  *   None (initial version)
  *
  * New Parts :
- *   [Struct]    LinearTrainer
- *   [Function]  NewLinearTrainer, (LinearTrainer).Fit, .Predict,
- *               .Backtest, .WalkForward, .Serialize, .Deserialize
- *   [Function]  solveNormalEq, softThreshold
- *   [Function]  init() — registers trainers for all 4 model types
+ *   [Functions] All exported functions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-29 16:10:00   | deepseek-4.0-pro | Initial version
+ *   1.0.0   | 2026-07-01 19:25:53 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :
- *   - Add QR decomposition for numerical stability on ill-conditioned matrices
+ *   - Add unit tests
  *
  * Notes :
- *   - Registered for: Linear Regression, Ridge Regression, Lasso Regression,
- *     Elastic Net (per myreq3.txt §35).
- *   - In MODE C (worker2), the dispatcher delegates to Python scikit-learn.
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package school
 
 import (

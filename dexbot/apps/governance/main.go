@@ -8,14 +8,14 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-30 00:53:07 (UTC+7)
- * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:43 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:43 (UTC+7)
  *
  * Description     :
  *   Central control unit for the Dexbot system. Monitors daemon health via UDP heartbeats, manages daemon lifecycle (restarting if unhealthy), provides CLI command interface, and hosts a web dashboard. Us
  *
  * Responsibilities:
- *   - Implement core functionality for apps package.
+ *   - - Implement core functionality for apps package.
  *
  * Usage :
  *   Directory : apps/governance/
@@ -44,13 +44,12 @@
  *
  * New Parts :
  *   [Functions] All exported functions in this file
- *   [Types] Struct definitions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   1.0.0   | 2026-07-01 19:25:43 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :
@@ -70,6 +69,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sort"
 	"os/exec"
 	"os/signal"
 	"strconv"
@@ -194,6 +194,9 @@ func initCommander() {
 	commander.Register(governance.ActionHelp, handleHelpCommand)
 	commander.Register(governance.ActionHelpConfig, handleHelpConfigCommand)
 	commander.Register(governance.ActionHelpConfigVVV, handleHelpConfigVVVCommand)
+	commander.Register(governance.ActionBalance, handleBalanceCommand)
+	commander.Register(governance.ActionAddToken, handleAddTokenCommand)
+	commander.Register(governance.ActionAddChain, handleAddChainCommand)
 }
 
 /*
@@ -666,7 +669,12 @@ func startDaemon() {
 	// §83: Initialize dynamic token registry for balance panel
 	tokenReg = infra.NewTokenRegistry()
 
-	// §87: Ensure database is initialized for table browser queries
+	// §87: Explicitly set DB_HOST to docker service name
+	os.Setenv("DB_HOST", "db")
+	os.Setenv("DB_PORT", "5432")
+	os.Setenv("DB_USER", "trader")
+	os.Setenv("DB_PASS", "secret")
+	os.Setenv("DB_NAME", "traderdb")
 	_ = infra.InitDB()
 
 	// Register self
@@ -1100,29 +1108,53 @@ func startHealthCheckLoop(ctx context.Context) {
 			// Check School daemon
 			schoolResp, err := sendUdpProbeFunc(schoolUdpConn, "governance:probe:health_check", HEALTH_CHECK_TIMEOUT)
 			schoolInfo := getOrCreateInfo("school")
+			secondsSinceHealthy := time.Since(schoolInfo.LastHeartbeat).Seconds()
+
 			if err != nil || !strings.Contains(schoolResp, "school:pong:healthy") {
 				if err != nil {
 					infra.Error("School probe error: " + err.Error())
 				}
-				// §86: Lifecycle transitions — killing → building → recovering → healthy
-				if schoolInfo.Status == "killing" {
+
+				// §102: Diagnostics — track how long daemon has been unhealthy
+				schoolInfo.ActiveTasks = int(secondsSinceHealthy) // store unhealthy seconds in ActiveTasks for display
+
+				switch schoolInfo.Status {
+				case "killing":
 					schoolInfo.Status = "building"
-					schoolInfo.Message = "Daemon killed — recreating..."
-				} else if schoolInfo.Status == "building" || schoolInfo.Status == "recovering" {
-					schoolInfo.Status = "recovering"
-					schoolInfo.Message = "Daemon recovering — waiting for healthy response."
-				} else {
+					schoolInfo.Message = fmt.Sprintf("Daemon killed — recreating... (%.0fs since kill)", secondsSinceHealthy)
+				case "building", "recovering":
+					// Give the launcher time to auto-restart (start_all handles this)
+					if secondsSinceHealthy > 30 {
+						// Launcher should have restarted by now — try manual recreate
+						schoolInfo.Status = "recovering"
+						schoolInfo.Message = fmt.Sprintf("Still recovering... (%.0fs) Launcher may be restarting. If stuck, check: launcher PID alive? school binary compiles?", secondsSinceHealthy)
+						if secondsSinceHealthy > recreateThreshold.Seconds()*2 {
+							recreateDaemonFunc("school", "/workspace/crypto_apps/dexbot/apps/school/main.go")
+							schoolInfo.RecordRestart()
+							schoolInfo.Message = fmt.Sprintf("Manual recreate triggered after %.0fs unhealthy. Previous status: %s", secondsSinceHealthy, schoolInfo.Status)
+						}
+					} else {
+						schoolInfo.Message = fmt.Sprintf("Daemon recovering — waiting for launcher restart... (%.0fs)", secondsSinceHealthy)
+					}
+				default:
+					// First time unhealthy
 					schoolInfo.Status = "unhealthy"
-					schoolInfo.Message = "School daemon unresponsive or unhealthy."
+					if secondsSinceHealthy > recreateThreshold.Seconds() {
+						schoolInfo.Message = fmt.Sprintf("Unhealthy for %.0fs — diagnostic: check if 'go run ./apps/school' compiles, check UDP port %d not blocked, check launcher process alive.", secondsSinceHealthy, schoolPort)
+					} else {
+						schoolInfo.Message = fmt.Sprintf("School daemon unresponsive. Will attempt recovery if unhealthy for >%.0fs.", recreateThreshold.Seconds())
+					}
 				}
-				infra.Warn("School daemon status: " + schoolInfo.Status)
-				if schoolInfo.Status == "building" || (time.Since(schoolInfo.LastHeartbeat) > recreateThreshold && schoolInfo.Status != "killing") {
+
+				infra.Warn("School daemon status: " + schoolInfo.Status + " — " + schoolInfo.Message)
+				if schoolInfo.Status == "building" || (secondsSinceHealthy > recreateThreshold.Seconds()*2 && schoolInfo.Status != "killing" && schoolInfo.Status != "recovering") {
 					recreateDaemonFunc("school", "/workspace/crypto_apps/dexbot/apps/school/main.go")
 					schoolInfo.RecordRestart()
 					schoolInfo.Status = "recovering"
-					schoolInfo.Message = "Recreating school daemon..."
+					schoolInfo.Message = "Manual recreate triggered for school daemon."
 				}
 			} else {
+				schoolInfo.ActiveTasks = 0 // reset unhealthy counter
 				schoolInfo.Status = "healthy"
 				schoolInfo.Message = "School daemon is healthy."
 			}
@@ -1323,31 +1355,53 @@ func refreshDashboard(renderer *webui.Renderer) {
 	// Pull latest model data from the registry before rendering
 	renderer.RefreshModels()
 
-	// §79-81: Generate balance summary from dynamic token registry
+	// Get real BSC wallet balance — use infra.GetBalanceSummary (real BSC query)
 	am := infra.NewAccountManager()
-	balance := &infra.BalanceSummary{
-		AccountName:   am.FullKey(),
-		AccountMasked: am.MaskedKey(),
-		BTCPrice:      infra.BTCPriceMock,
-	}
-	// Use tokens from the dynamic registry if available
+	summary := infra.GetBalanceSummary(am)
+
+	// Merge with token registry: GetBalanceSummary provides real amounts, registry provides UI metadata
 	if tokenReg != nil {
-		balance.Assets = tokenReg.AsBalanceAssets()
-	} else {
-		raw := infra.GetBalanceSummary(am)
-		if raw != nil {
-			balance.Assets = raw.Assets
+		realByTicker := make(map[string]infra.BalanceAsset)
+		for _, a := range summary.Assets {
+			realByTicker[strings.ToUpper(a.Ticker)] = a
+		}
+		// Build final list: all registry tokens + any real tokens not in registry
+		seen := make(map[string]bool)
+		summary.Assets = nil
+		for _, t := range tokenReg.GetTokens() {
+			ticker := strings.ToUpper(t.Ticker)
+			seen[ticker] = true
+			if real, ok := realByTicker[ticker]; ok {
+				summary.Assets = append(summary.Assets, real)
+			} else {
+				summary.Assets = append(summary.Assets, infra.BalanceAsset{
+					Ticker: t.Ticker, Amount: 0, USDPrice: t.USDPrice, USDValue: 0,
+					BSCAddr: t.Address, ChainID: t.ChainID, ChainName: t.ChainName,
+				})
+			}
+		}
+		// Add any tokens from real balance not in registry
+		for ticker, real := range realByTicker {
+			if !seen[ticker] {
+				summary.Assets = append(summary.Assets, real)
+			}
 		}
 	}
+
+	// Sort assets alphabetically by ticker
+	sort.Slice(summary.Assets, func(i, j int) bool {
+		return summary.Assets[i].Ticker < summary.Assets[j].Ticker
+	})
+
 	totalUSD := 0.0
-	for i := range balance.Assets {
-		balance.Assets[i].USDValue = balance.Assets[i].Amount * balance.Assets[i].USDPrice
-		totalUSD += balance.Assets[i].USDValue
+	for i := range summary.Assets {
+		summary.Assets[i].USDValue = summary.Assets[i].Amount * summary.Assets[i].USDPrice
+		totalUSD += summary.Assets[i].USDValue
 	}
-	balance.TotalUSD = totalUSD
-	balance.TotalBTC = totalUSD / infra.BTCPriceMock
-	balance.IsPaperTrade = false
-	renderer.SetBalance(balance)
+	summary.TotalUSD = totalUSD
+	summary.TotalBTC = totalUSD / infra.BTCPriceMock
+	summary.IsPaperTrade = false
+	renderer.SetBalance(summary)
 
 	// HTML pages
 	pages := []struct{ name, content string }{
@@ -1376,8 +1430,8 @@ func refreshDashboard(renderer *webui.Renderer) {
 	}
 
 	// §79: Write balance summary for web display
-	if balance != nil {
-		if err := publisher.WriteJSON("api/balance", balance); err != nil {
+	if summary != nil {
+		if err := publisher.WriteJSON("api/balance", summary); err != nil {
 			infra.Error("Failed to write api/balance.json: " + err.Error())
 		}
 	}
@@ -1391,6 +1445,16 @@ func refreshDashboard(renderer *webui.Renderer) {
 	}
 
 	// §87: Database table list + per-table row data
+	// Hardcode DB_HOST to docker service name
+	os.Setenv("DB_HOST", "db")
+	os.Setenv("DB_PORT", "5432")
+	os.Setenv("DB_USER", "trader")
+	os.Setenv("DB_PASS", "secret")
+	os.Setenv("DB_NAME", "traderdb")
+
+	// Always force re-init
+	_ = infra.InitDB()
+
 	tables := infra.ListTables()
 	if tables != nil {
 		if err := publisher.WriteJSON("api/database_tables", map[string]interface{}{"tables": tables}); err != nil {

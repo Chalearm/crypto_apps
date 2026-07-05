@@ -4,33 +4,60 @@
  *
  * Author          : deepseek-4.0-pro
  * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
  * Version         : 1.0.0
- * Created Date    : 2026-06-30 06:00:00 (UTC+7)
+ * Status          : Development
+ * Created Date    : 2026-07-01 19:25:54 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:54 (UTC+7)
  *
  * Description     :
  *   Subprocess-based training execution per myreq4.txt §91.
- *   School daemon spawns external training programs (Python/TensorFlow,
- *   Rust, C++) as subprocesses. Each subprocess receives training
- *   configuration via JSON stdin and returns results via JSON stdout
- *   using the Artifact Contract (§44-47).
- *
- *   Supported subprocess types:
- *     - Python/TensorFlow  (train_template.py)
- *     - Python/scikit-learn (train_template.py --framework sklearn)
- *     - Rust binary         (train_binary --framework rust)
- *     - C++ binary          (train_binary --framework cpp)
  *
  * Responsibilities:
- *   - Spawn subprocesses with timeout + resource limits
- *   - Feed training config via stdin (JSON)
- *   - Collect results from stdout (JSON Artifact)
- *   - Parse exit codes and error output
- *   - Convert results to FitnessHistory for the orchestrator
+ *   - - Spawn subprocesses with timeout + resource limits
+ *
+ * Usage :
+ *   Directory : school/
+ *
+ *   Build :
+ *     go build ./school
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./school
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/school
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Functions] All exported functions in this file
  *
  * Change History :
- *   1.0.0 | 2026-06-30 06:00 | deepseek-4.0-pro | Initial version
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-07-01 19:25:54 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package school
 
 import (

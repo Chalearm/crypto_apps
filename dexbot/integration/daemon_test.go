@@ -8,65 +8,56 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-30 01:00:00 (UTC+7)
- * Modified Date   : 2026-06-30 01:00:00 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:24 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:24 (UTC+7)
  *
  * Description     :
  *   Integration test suite for the Dexbot platform per myreq3.txt §73-74.
- *   Tests UDP communication, database access, model registration,
- *   portfolio creation, dashboard generation, and state persistence
- *   against real running daemon instances.
  *
- *   All tests communicate with live daemons running in the container —
- *   governance (UDP :8081), school (UDP :8082), trading (UDP :8083),
- *   database (TCP :5432), HTTP (TCP :8080) per §73.
- *
- *   Test categories per §74:
- *     - UDP communication (health probe, heartbeat, model sync)
- *     - Database access (connect, table exists, read/write)
- *     - Model registration (create, register, graduate, retire)
- *     - Portfolio creation (create agent, allocate, execute)
- *     - Configuration reload behavior
- *     - Dashboard generation (verify output files)
- *     - State persistence (checkpoint save/restore)
+ * Responsibilities:
+ *   - Implement core functionality.
  *
  * Usage :
  *   Directory : integration/
- *   Build     : go build ./integration
- *   Run       : (tests only — no run target)
- *   Test      : go test ./integration -v -timeout 60s
+ *
+ *   Build :
+ *     go build ./integration
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./integration
  *
  * Dependencies :
- *   Internal : dexbot/governance, dexbot/school, dexbot/trading, dexbot/infra
- *   External : encoding/json, net, os, testing, time (stdlib)
+ *   Internal :
+ *     - dexbot/integration
+ *
+ *   External :
+ *     - (stdlib only)
  *
  * Configuration :
- *   - config.env (DB_HOST=db, UDP ports 8081-8083, HTTP port 8080)
+ *   - config.env
  *
  * Updated Parts :
  *   None (initial version)
  *
  * New Parts :
- *   [Function] TestIntegrationUDPHeartbeat, TestIntegrationDBConnection,
- *              TestIntegrationModelRegistration, TestIntegrationPortfolioCreation,
- *              TestIntegrationDashboardFiles, TestIntegrationCheckpointFlow,
- *              TestIntegrationConfigurationReload
+ *   [Functions] All exported functions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-30 01:00:00   | deepseek-4.0-pro | Initial integration suite
+ *   1.0.0   | 2026-07-01 19:25:24 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :
- *   - Add daemon recovery test (kill daemon, verify governance recreates)
+ *   - Add unit tests
  *
  * Notes :
- *   - Uses build tag //go:build integration to separate from unit tests.
- *   - Run with: go test -tags=integration ./integration -v
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package integration
 
 import (

@@ -8,58 +8,56 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-28 15:00:00 (UTC+7)
- * Modified Date   : 2026-06-28 17:00:00 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:45 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:45 (UTC+7)
  *
  * Description     :
  *   Centralized Model Registry for all model lifecycle tracking.
  *
  * Responsibilities:
- *   - Register experimental/graduated/retired models with independent versioning
- *   - Track fitness snapshots per generation
- *   - Store ensemble definitions with voting weights
- *   - Record deployment history per trading agent
- *   - Track live performance time-series
+ *   - - Register experimental/graduated/retired models with independent versioning
  *
  * Usage :
  *   Directory : governance/
- *   Build     : go build ./governance
- *   Run       : (library — imported by daemons)
- *   Test      : go test ./governance -v -run ModelRegistry
+ *
+ *   Build :
+ *     go build ./governance
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./governance
  *
  * Dependencies :
- *   Internal : None
- *   External : None (stdlib only)
+ *   Internal :
+ *     - dexbot/governance
  *
- * Configuration : None
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
  *
  * Updated Parts :
  *   None (initial version)
  *
  * New Parts :
- *   [Struct]  ModelRegistry, ModelRecord, FitnessSnapshot, EnsembleDef,
- *             DeploymentRecord, PerformancePoint
- *   [Function] NewModelRegistry, Register, Get, Graduate, Retire,
- *             ListByStatus, ListByCategory, Count, CountByStatus, Remove,
- *             RecordDeployment, RecordPerformance, RecordFitness, AllIDs
+ *   [Functions] All exported functions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-28 15:00:00   | deepseek-4.0-pro | Initial version
+ *   1.0.0   | 2026-07-01 19:25:45 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :
- *   - Add event sourcing for full audit trail
+ *   - Add unit tests
  *
  * Notes :
- *   - Per myreq3.txt §33: model versioning is independent of software versioning.
- *   - Fitness history capped at 100 entries per model.
- *   - Registry history capped at 500 entries.
- *   - Performance history capped at 200 data points per model.
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package governance
 
 import (

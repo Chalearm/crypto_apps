@@ -6,57 +6,58 @@
  * Owner           : Chalearm Saelim
  * Reviewer        : Chalearm Saelim
  *
- * Version         : 1.0.0
+ * Version         : 1.0.1
  * Status          : Development
- * Created Date    : 2026-06-30 00:53:07 (UTC+7)
- * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:35 (UTC+7)
+ * Modified Date   : 2026-07-02 19:15:00 (UTC+7)
  *
  * Description     :
- *   Dexbot component — auto-documented per rule1.txt.
+ *    Dexbot component — auto-documented per rule1.txt.
  *
  * Responsibilities:
- *   - Implement core functionality for auth package.
+ *    - Implement core functionality for auth package with multi-chain features.
  *
  * Usage :
- *   Directory : auth/
+ *    Directory : auth/
  *
- *   Build :
- *     go build ./auth
+ *    Build :
+ *       go build ./auth
  *
- *   Run :
- *     go run .  (from dexbot root)
+ *    Run :
+ *       go run .  (from dexbot root)
  *
- *   Test :
- *     go test ./auth
+ *    Test :
+ *       go test ./auth
  *
  * Dependencies :
- *   Internal :
- *     - dexbot/auth
+ *    Internal :
+ *       - dexbot/auth
  *
- *   External :
- *     - (stdlib only)
+ *    External :
+ *       - (stdlib only)
  *
  * Configuration :
- *   - config.env
+ *    - config.env
  *
- * Updated Parts :
- *   None (initial version)
+ * Updated Parts  :
+ *    - Added ConnectToChain and GetWalletForChain to cleanly allow multi-chain support
  *
- * New Parts :
- *   [Functions] All exported functions in this file
+ * New Parts      :
+ *    [Functions] ConnectToChain, GetWalletForChain
  *
  * Change History :
- *   -------------------------------------------------------------------------
- *   Version | Date Time (UTC+7)      | Author          | Description
- *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
- *   -------------------------------------------------------------------------
+ *    -------------------------------------------------------------------------
+ *    Version | Date Time (UTC+7)      | Author          | Description
+ *    -------------------------------------------------------------------------
+ *    1.0.0   | 2026-07-01 19:25:35    | deepseek-4.0-pro | Header validation — rule1.txt compliant
+ *    1.0.1   | 2026-07-02 19:15:00    | Gemini          | Added multi-chain RPC extensions
+ *    -------------------------------------------------------------------------
  *
  * TODO :
- *   - Add unit tests
+ *    - Add unit tests
  *
  * Notes :
- *   - Per rule1.txt coding standard.
+ *    - Per rule1.txt coding standard.
  ******************************************************************************/
 package auth
 
@@ -86,6 +87,7 @@ func LoadPrivateKey() string {
     return ""
 }
 
+// Connect retains backward compatibility with all apps (Defaults to BSC)
 func Connect() *ethclient.Client {
     client, err := ethclient.Dial("https://bsc-dataseed.binance.org/")
     if err != nil {
@@ -94,6 +96,7 @@ func Connect() *ethclient.Client {
     return client
 }
 
+// GetWallet retains backward compatibility with all apps (Defaults to Chain ID 56)
 func GetWallet(client *ethclient.Client, pk string) *bind.TransactOpts {
     privateKey, _ := crypto.HexToECDSA(pk)
     chainID := big.NewInt(56)
@@ -101,6 +104,39 @@ func GetWallet(client *ethclient.Client, pk string) *bind.TransactOpts {
     auth, err := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
     if err != nil {
         log.Fatal(err)
+    }
+
+    nonce, _ := client.PendingNonceAt(context.Background(), auth.From)
+    gasPrice, _ := client.SuggestGasPrice(context.Background())
+
+    auth.Nonce = big.NewInt(int64(nonce))
+    auth.Value = big.NewInt(0)
+    auth.GasPrice = gasPrice
+
+    return auth
+}
+
+// ============================================================================
+// NEW MULTI-CHAIN COMPATIBLE EXTENSIONS (Will not break existing legacy apps)
+// ============================================================================
+
+// ConnectToChain initializes an ethclient interface dynamically to any RPC link
+func ConnectToChain(rpcURL string) *ethclient.Client {
+    client, err := ethclient.Dial(rpcURL)
+    if err != nil {
+        log.Fatal("Failed connecting to RPC endpoint: ", err)
+    }
+    return client
+}
+
+// GetWalletForChain safely targets the customized target ChainID context 
+func GetWalletForChain(client *ethclient.Client, pk string, targetChainID int64) *bind.TransactOpts {
+    privateKey, _ := crypto.HexToECDSA(pk)
+    chainID := big.NewInt(targetChainID)
+
+    auth, err := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
+    if err != nil {
+        log.Fatal("Failed assigning targeted transactor context: ", err)
     }
 
     nonce, _ := client.PendingNonceAt(context.Background(), auth.From)

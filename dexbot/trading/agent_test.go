@@ -8,14 +8,14 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-30 00:53:07 (UTC+7)
- * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:25 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:25 (UTC+7)
  *
  * Description     :
  *   Unit tests for portfolio agents and Thompson Sampling / H-MAB. 5 positive + 2 negative test cases per coding rule §2. go test ./trading -v - Created during Phase 7 reorganization. - All test functions
  *
  * Responsibilities:
- *   - Implement core functionality for trading package.
+ *   - - Implement core functionality for trading package.
  *
  * Usage :
  *   Directory : trading/
@@ -43,13 +43,13 @@
  *   None (initial version)
  *
  * New Parts :
- *   [Test Functions] Test suite: TestAgentCreation, TestAgentRetirement, TestAgentRetireNonexistent, TestAgentPoolRebalanceCapital
+ *   [Functions] All exported functions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   1.0.0   | 2026-07-01 19:25:25 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :

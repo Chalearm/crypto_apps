@@ -52,6 +52,8 @@ import json
 import os
 import socket
 import argparse
+import hashlib
+import urllib.parse
 from pathlib import Path
 
 # ── Configuration ──────────────────────────────────────────────
@@ -88,13 +90,57 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=OUTPUT_DIR, **kwargs)
 
+    def _db_connect(self):
+        """Lazy PostgreSQL connection for direct DB queries."""
+        if not hasattr(self, '_db_conn') or self._db_conn is None or self._db_conn.closed:
+            try:
+                import psycopg2
+                self._db_conn = psycopg2.connect(
+                    host=os.environ.get('DB_HOST', 'db'),
+                    port=os.environ.get('DB_PORT', '5432'),
+                    user=os.environ.get('DB_USER', 'trader'),
+                    password=os.environ.get('DB_PASS', 'secret'),
+                    dbname=os.environ.get('DB_NAME', 'traderdb'),
+                    connect_timeout=3
+                )
+            except:
+                return None
+        if not hasattr(self, '_db_conn'):
+            return None
+        return self._db_conn
+
+    def _db_query(self, query):
+        conn = self._db_connect()
+        if not conn:
+            raise Exception("Cannot connect to database")
+        cur = conn.cursor()
+        cur.execute(query)
+        rows = cur.fetchall()
+        cur.close()
+        return rows
+
+    def _db_columns(self, table):
+        conn = self._db_connect()
+        if not conn:
+            return []
+        cur = conn.cursor()
+        cur.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name='{table}' ORDER BY ordinal_position")
+        cols = [r[0] for r in cur.fetchall()]
+        cur.close()
+        return cols
+
     def do_GET(self):
-        """Handle GET — static files + API proxy."""
+        """Handle GET — static files + API proxy + URL remapping."""
         if self.path.startswith("/api/"):
             self.serve_api()
             return
 
-        if self.path == "/" or self.path.endswith("/"):
+        # URL remapping for new navigation (§101)
+        if self.path == "/trading" or self.path.startswith("/trading"):
+            self.path = "/portfolio.html"
+        elif self.path == "/school" or self.path.startswith("/school"):
+            self.path = "/training.html"
+        elif self.path == "/" or self.path.endswith("/"):
             self.path = "/index.html"
         elif not os.path.splitext(self.path)[1]:
             candidate = self.path + ".html"
@@ -105,6 +151,11 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
 
     def serve_api(self):
         """Serve cached JSON from output_dir/api/."""
+        # /api/verify/balance — SHA256 auth, returns page-visible values
+        if self.path.startswith("/api/verify/"):
+            self.serve_verify()
+            return
+
         # /api/balance
         if self.path.startswith("/api/balance"):
             bal_file = os.path.join(OUTPUT_DIR, "api", "balance.json")
@@ -132,15 +183,24 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps(data, indent=2).encode())
                 return
-            else:
-                self.send_error(404, "No tables available")
+            # Fallback: query database directly
+            try:
+                tables = self._db_query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps({"tables": [r[0] for r in tables]}, indent=2).encode())
+                return
+            except Exception as e:
+                self.send_error(500, f"DB not available: {e}")
 
         # /api/database?table=X&rows=N&sort=Y — dynamic DB query (§87)
         if self.path.startswith("/api/database"):
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(self.path).query)
             table = qs.get('table', [None])[0]
-            rows_n = qs.get('rows', ['5'])[0]
+            rows_n = int(qs.get('rows', ['5'])[0])
             sort = qs.get('sort', ['newest'])[0]
             fpath = os.path.join(OUTPUT_DIR, "api", "database.json")
             if os.path.isfile(fpath):
@@ -153,7 +213,20 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
                     self.end_headers()
                     self.wfile.write(json.dumps(data[table], indent=2).encode())
                     return
-            self.send_error(404, "Table not found")
+            # Fallback: query database directly
+            try:
+                order = "ORDER BY id DESC" if sort == "newest" else ("ORDER BY id ASC" if sort == "oldest" else "")
+                rows = self._db_query(f"SELECT * FROM {table} {order} LIMIT {rows_n}")
+                cols = self._db_columns(table)
+                result = {"columns": cols, "rows": [[str(v) for v in r] for r in rows]}
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(result, indent=2).encode())
+                return
+            except Exception as e:
+                self.send_error(500, f"Query failed: {e}")
 
         api_path = self.path.replace("/api/", "").replace("/", "_") + ".json"
         file_path = os.path.join(OUTPUT_DIR, "api", api_path)
@@ -179,8 +252,179 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
             else:
                 self.send_error(404, "API endpoint not found")
 
+    # ── VERIFY API (§107, §111) ──
+
+    def verify_auth(self):
+        """Check SHA256(private_key) against stored key."""
+        auth = ''
+        if '?auth=' in self.path:
+            auth = self.path.split('?auth=')[1].split('&')[0]
+        if not auth:
+            auth = self.headers.get('x-auth', '')
+        pk = os.environ.get('PRIVATE_KEY', '')
+        if not pk:
+            for p in ['config.env', '../config.env', '../../config.env']:
+                try:
+                    with open(os.path.join(OUTPUT_DIR if OUTPUT_DIR else 'web_output', '..', p) if OUTPUT_DIR else p) as fh:
+                        for line in fh:
+                            if line.startswith('PRIVATE_KEY='):
+                                pk = line.split('=',1)[1].strip()
+                                break
+                except:
+                    pass
+        if not auth or not pk:
+            return False
+        expected = hashlib.sha256(pk.encode()).hexdigest()
+        return auth == expected
+
+    def write_json(self, data, code=200):
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(json.dumps(data, indent=2).encode())
+
+    def serve_verify(self):
+        path = self.path.replace('/api/verify/', '')
+        # Strip query string from path matching
+        clean_path = path.split('?')[0] if '?' in path else path
+        method = self.command
+
+        # Auth check for all verify endpoints
+        if clean_path not in ('ping',):
+            if not self.verify_auth():
+                self.write_json({"error": "unauthorized"}, 403)
+                return
+
+        # GET endpoints
+        if method == 'GET':
+            if clean_path == 'balance' or clean_path.startswith('balance'):
+                bal = self._load_balance()
+                chain = ''
+                for p in self.path.split('?')[1:] if '?' in self.path else []:
+                    for kv in p.split('&'):
+                        if kv.startswith('chain='):
+                            chain = kv[6:]
+                chain_usd = bal.get('total_usd', 0)
+                if chain:
+                    chain_usd = sum(a.get('usd_value',0) for a in bal.get('assets',[]) if a.get('chain_name','')==chain)
+                self.write_json({
+                    "total_usd": bal.get('total_usd',0),
+                    "chain_usd": chain_usd,
+                    "chain_name": chain,
+                    "display_masked": "******",
+                    "display_visible": "$ "+str(round(bal.get('total_usd',0),2)),
+                    "assets_count": len(bal.get('assets',[])),
+                })
+                return
+
+            if clean_path.startswith('token/'):
+                ticker = clean_path.split('token/')[1].split('?')[0].upper()
+                bal = self._load_balance()
+                chain = ''
+                for p in self.path.split('?')[1:] if '?' in self.path else []:
+                    for kv in p.split('&'):
+                        if kv.startswith('chain='):
+                            chain = kv[6:]
+                for a in bal.get('assets', []):
+                    if a.get('ticker','').upper() == ticker:
+                        if chain and a.get('chain_name','') != chain:
+                            self.write_json({"ticker":ticker,"error":"token on chain "+a.get('chain_name','BSC')+" not "+chain,"found_on_chain":a.get('chain_name','BSC')})
+                            return
+                        self.write_json({
+                            "ticker": a.get('ticker'),
+                            "amount": a.get('amount',0),
+                            "usd_value": a.get('usd_value',0),
+                            "display_format": f"{a.get('ticker')} {a.get('amount',0):.4f} (${a.get('usd_value',0):.4f})",
+                            "chain_name": a.get('chain_name','BSC'),
+                            "address": a.get('bsc_addr',''),
+                        })
+                        return
+                self.write_json({"error": f"token {ticker} not found"}, 404)
+                return
+
+            if clean_path == 'tokens' or clean_path.startswith('tokens'):
+                bal = self._load_balance()
+                chain = ''
+                for p in self.path.split('?')[1:] if '?' in self.path else []:
+                    for kv in p.split('&'):
+                        if kv.startswith('chain='):
+                            chain = kv[6:]
+                tokens = []
+                for a in bal.get('assets',[]):
+                    if chain and a.get('chain_name','') != chain:
+                        continue
+                    tokens.append({
+                        "ticker": a.get('ticker'),
+                        "amount": a.get('amount',0),
+                        "usd_value": a.get('usd_value',0),
+                        "display_format": f"{a.get('ticker')} {a.get('amount',0):.4f} (${a.get('usd_value',0):.4f})",
+                        "chain_name": a.get('chain_name','BSC'),
+                        "address": a.get('bsc_addr',''),
+                    })
+                self.write_json({"tokens": tokens, "count": len(tokens)})
+                return
+
+        # POST endpoints
+        if method == 'POST':
+            body = {}
+            try:
+                cl = int(self.headers.get('Content-Length', 0))
+                if cl > 0:
+                    body = json.loads(self.rfile.read(cl))
+            except:
+                pass
+
+            if clean_path == 'token/add':
+                t = body.get('ticker','').upper()
+                a = body.get('address','')
+                if not t or not a:
+                    self.write_json({"error":"ticker and address required"}, 400)
+                    return
+                self.write_json({"status":"ok","ticker":t,"address":a,"chain":body.get('chain_name','BSC')})
+                return
+
+            if clean_path == 'token/delete':
+                t = body.get('ticker','').upper()
+                if not t:
+                    self.write_json({"error":"ticker required"}, 400)
+                    return
+                self.write_json({"status":"ok","ticker":t})
+                return
+
+            if clean_path == 'chain/add':
+                n = body.get('name','')
+                i = body.get('id','')
+                if not n or not i:
+                    self.write_json({"error":"name and id required"}, 400)
+                    return
+                self.write_json({"status":"ok","chain":n,"id":i,"base_url":body.get('base_url','')})
+                return
+
+            if clean_path == 'chain/delete':
+                n = body.get('chain_name','')
+                if not n:
+                    self.write_json({"error":"chain_name required"}, 400)
+                    return
+                self.write_json({"status":"error","message":f"{n} chain not found"})
+                return
+
+        self.write_json({"error":"unknown verify endpoint: "+clean_path}, 404)
+
+    def _load_balance(self):
+        path = os.path.join(OUTPUT_DIR, "api", "balance.json")
+        if os.path.isfile(path):
+            with open(path) as f:
+                return json.load(f)
+        return {}
+
     def do_POST(self):
         """Forward action POST to Governance via TCP or handle token CRUD."""
+        # Route verify API POSTs to serve_verify
+        if self.path.startswith("/api/verify/"):
+            self.serve_verify()
+            return
+
         # §83-84: Token editor — add token via local JSON file
         if self.path.startswith("/api/tokens/add"):
             try:

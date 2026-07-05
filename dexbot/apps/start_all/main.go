@@ -6,70 +6,58 @@
  * Owner           : Chalearm Saelim
  * Reviewer        : Chalearm Saelim
  *
- * Version         : 2.0.0
+ * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-29 15:30:00 (UTC+7)
- * Modified Date   : 2026-06-29 17:30:00 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:42 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:42 (UTC+7)
  *
  * Description     :
  *   Unified launcher for all 4 Dexbot daemons + HTTP server.
- *   Starts governance, school, trading, testdaemon as subprocesses,
- *   then launches serve.py for the dashboard. Monitors child processes
- *   and restarts any that exit unexpectedly.
- *
- *   Uses config.env for all settings. In single-container mode,
- *   all daemons run in one process group with localhost UDP.
- *   In distributed mode (§64-66), daemons are split across containers:
- *     worker1: governance, trading, testdaemon, serve.py
- *     worker2: school (remote training node)
- *   The SINGLE_CONTAINER_MODE env var gates which daemons launch.
  *
  * Responsibilities:
- *   - Read SINGLE_CONTAINER_MODE from env / config.env
- *   - Start Go daemons conditionally based on mode
- *   - Start Python3 serve.py for HTTP dashboard (worker1 only)
- *   - Monitor health via subprocess liveness
- *   - Graceful shutdown on SIGTERM/SIGINT
+ *   - - Read SINGLE_CONTAINER_MODE from env / config.env
  *
  * Usage :
  *   Directory : apps/start_all/
- *   Build     : go build -o start_all .
- *   Run       : ./start_all
- *   Test      : go run . (from dexbot root)
+ *
+ *   Build :
+ *     go build ./apps/start_all
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./apps/start_all
  *
  * Dependencies :
- *   Internal : dexbot/config, dexbot/infra
- *   External : os/exec, os/signal, sync, syscall, time (stdlib)
- *   Runtime  : /usr/local/go/bin/go, python3
+ *   Internal :
+ *     - dexbot/apps
+ *
+ *   External :
+ *     - (stdlib only)
  *
  * Configuration :
- *   - config.env (all keys, 62 total)
- *   - SINGLE_CONTAINER_MODE (true=all local, false=distributed)
- *   - WEB_OUTPUT_DIR, WEB_REFRESH_SECONDS, WEB_ACTION_PORT
+ *   - config.env
  *
  * Updated Parts :
- *   [Function] main — added SingleContainerMode detection + conditional launch
+ *   None (initial version)
  *
  * New Parts :
- *   [Function] isSingleContainerMode — reads SINGLE_CONTAINER_MODE from env
+ *   [Functions] All exported functions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-29 15:30:00   | deepseek-4.0-pro | Initial version
- *   2.0.0   | 2026-06-29 17:30:00   | deepseek-4.0-pro | Added §64-66 distributed
- *            |                        |                  | mode support
+ *   1.0.0   | 2026-07-01 19:25:42 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :
- *   - Add health probe before marking a daemon as "started"
+ *   - Add unit tests
  *
  * Notes :
- *   - In distributed mode, worker2 runs only the school daemon.
- *   - serve.py only launches on worker1 (the dashboard host).
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package main
 
 import (

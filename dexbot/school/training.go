@@ -8,58 +8,56 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-29 16:00:00 (UTC+7)
- * Modified Date   : 2026-06-29 16:00:00 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:55 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:55 (UTC+7)
  *
  * Description     :
  *   TrainingEngine interface — the contract every trainable model must
- *   implement. Each model family (statistical, supervised, DL, RL,
- *   unsupervised) provides a Go-native implementation of this interface.
- *   When remote training is configured, the dispatcher proxies calls
- *   via UDP using the Artifact Contract (§44-47).
  *
  * Responsibilities:
- *   - Define Predict / Fit / Backtest / WalkForward contracts
- *   - Define Serialize / Deserialize for model persistence
- *   - Provide a Go-native model registry for in-process dispatch
- *   - Common fitness-computation helper shared by all trainers
+ *   - - Define Predict / Fit / Backtest / WalkForward contracts
  *
  * Usage :
  *   Directory : school/
- *   Build     : go build ./school
- *   Test      : go test ./school -v -run Training
+ *
+ *   Build :
+ *     go build ./school
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./school
  *
  * Dependencies :
- *   Internal : dexbot/school (FitnessHistory)
- *   External : fmt, time (stdlib)
+ *   Internal :
+ *     - dexbot/school
  *
- * Configuration : None
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
  *
  * Updated Parts :
  *   None (initial version)
  *
  * New Parts :
- *   [Interface] TrainingEngine
- *   [Struct]    TrainingConfig
- *   [Function]  NewTrainingConfig, RegisterTrainer, NewTrainer,
- *               HasGoTrainer, RegisteredTrainerTypes,
- *               ComputeFitnessFromPredictions
+ *   [Functions] All exported functions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-29 16:00:00   | deepseek-4.0-pro | Initial version
+ *   1.0.0   | 2026-07-01 19:25:55 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :
- *   - Add BatchPredict for vectorized inference
+ *   - Add unit tests
  *
  * Notes :
- *   - Per myreq3.txt §34-38, §42-47: each model family implements this.
- *   - The dispatcher (trainer_dispatcher.go) routes to Go-native or remote.
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package school
 
 import (

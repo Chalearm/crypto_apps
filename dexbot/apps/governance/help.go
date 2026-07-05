@@ -8,14 +8,14 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-30 00:53:07 (UTC+7)
- * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:43 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:43 (UTC+7)
  *
  * Description     :
  *   Dexbot component — auto-documented per rule1.txt.
  *
  * Responsibilities:
- *   - Implement core functionality for apps package.
+ *   - - Implement core functionality for apps package.
  *
  * Usage :
  *   Directory : apps/governance/
@@ -49,7 +49,7 @@
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
+ *   1.0.0   | 2026-07-01 19:25:43 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :
@@ -93,6 +93,9 @@ func handleHelpCommand(args map[string]string) (string, error) {
 		"  stop -daemon=X      Stop daemon",
 		"  start -daemon=X     Start daemon",
 		"  shutdown            Gracefully stop all daemons",
+		"  balance             Show real BSC wallet balance (all tokens)",
+		"  addToken -name=X -address=0x...   Add token to registry",
+		"  addChain -name=X -id=N -url=URL   Add chain config",
 		"",
 		"CLI ACTIONS (school):",
 		"  start               Run as daemon (default)",
@@ -107,19 +110,19 @@ func handleHelpCommand(args map[string]string) (string, error) {
 		"  history             Show stored test run history",
 		"",
 		"WEB DASHBOARD (http://localhost:8080):",
-		"  /           Operations dashboard",
-		"  /training   Training system status",
-		"  /portfolio  Portfolio & transactions",
-		"  /predict    Prediction comparison",
+		"  /           Governance — daemon status tabs",
+		"  /trading    Trading — balance + portfolio blocks",
+		"  /school     School — 4-tier training + DB browser",
 		"  /api/daemons  JSON daemon status",
 		"",
 		"INTERACTION METHODS:",
 		"  1. CLI: go run ./apps/governance -action=status",
-		"  2. Web: http://localhost:8080/",
-		"  3. API: curl http://localhost:8080/api/daemons",
-		"  4. API: curl -X POST http://localhost:8080/api/daemon/school/restart",
+		"  2. CLI: go run ./apps/governance -action=balance",
+		"  3. Web: http://localhost:8080/",
+		"  4. API: curl http://localhost:8080/api/daemons",
+		"  5. API: curl -X POST http://localhost:8080/api/daemon/school/restart",
 		"",
-		"CONFIGURATION: All settings in config.env (54 variables).",
+		"CONFIGURATION: All settings in config.env (67 variables).",
 		"  Run -action=help-configuration to see all variables.",
 		"  Run -action=help-configuration-vvv for full docs with examples.",
 		"",

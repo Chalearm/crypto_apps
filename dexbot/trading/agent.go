@@ -4,23 +4,60 @@
  *
  * Author          : deepseek-4.0-pro
  * Owner           : Chalearm Saelim
- * Version         : 2.0.0
- * Created Date    : 2026-06-27 14:30 (UTC+7)
- * Modified Date   : 2026-06-29 17:10 (UTC+7)
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : 2026-07-01 19:25:24 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:24 (UTC+7)
  *
  * Description     :
  *   Portfolio agent types for the Trading daemon v2.0. Expanded to support:
- *   - Configurable portfolio counts (tens to thousands) (§50)
- *   - Multiple time horizons (§51)
- *   - Holdings, risk profiles, KPI histories, lifecycle states (§52)
- *   - Agent lifecycle: replicate, evolve, merge, retire, promote (§59)
+ *
+ * Responsibilities:
+ *   - Implement core functionality.
+ *
+ * Usage :
+ *   Directory : trading/
+ *
+ *   Build :
+ *     go build ./trading
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./trading
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/trading
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Functions] All exported functions in this file
  *
  * Change History :
- *   v1.0.0 | 2026-06-27 | deepseek-4.0-pro | Initial version
- *   v2.0.0 | 2026-06-29 | deepseek-4.0-pro | Added horizons, holdings,
- *            risk profiles, KPI history, lifecycle states, scale support
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-07-01 19:25:24 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package trading
 
 import (

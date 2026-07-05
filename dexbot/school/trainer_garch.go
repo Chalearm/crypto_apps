@@ -4,19 +4,60 @@
  *
  * Author          : deepseek-4.0-pro
  * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
  * Version         : 1.0.0
- * Created Date    : 2026-06-29 16:25:00 (UTC+7)
- * Modified Date   : 2026-06-29 16:25:00 (UTC+7)
+ * Status          : Development
+ * Created Date    : 2026-07-01 19:25:53 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:53 (UTC+7)
  *
  * Description     :
  *   Go-native GARCH(1,1) / EGARCH volatility forecaster per myreq3.txt §34.
- *   GARCH: σ²ₜ = ω + α·ε²ₜ₋₁ + β·σ²ₜ₋₁
- *   EGARCH: ln(σ²ₜ) = ω + α·(|εₜ₋₁|/σₜ₋₁ - √(2/π)) + γ·(εₜ₋₁/σₜ₋₁) + β·ln(σ²ₜ₋₁)
+ *
+ * Responsibilities:
+ *   - Implement core functionality.
+ *
+ * Usage :
+ *   Directory : school/
+ *
+ *   Build :
+ *     go build ./school
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./school
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/school
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Functions] All exported functions in this file
  *
  * Change History :
- *   1.0.0 | 2026-06-29 16:25 | deepseek-4.0-pro | Initial version
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-07-01 19:25:53 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package school
 
 import (

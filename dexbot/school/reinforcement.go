@@ -4,15 +4,60 @@
  *
  * Author          : deepseek-4.0-pro
  * Owner           : Chalearm Saelim
- * Version         : 1.0.0
- * Created Date    : 2026-06-29 15:17:00 (UTC+7)
- * Modified Date   : 2026-06-29 15:17:00 (UTC+7)
+ * Reviewer        : Chalearm Saelim
  *
- * Description     : Reinforcement learning model type registry per myreq3.txt §37.
- *   DQN, PPO, A2C, A3C, SAC, TD3.
- * Usage           : go test ./school -v -run Reinforcement
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : 2026-07-01 19:25:49 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:49 (UTC+7)
+ *
+ * Description     :
+ *   Dexbot component.
+ *
+ * Responsibilities:
+ *   - Implement core functionality.
+ *
+ * Usage :
+ *   Directory : school/
+ *
+ *   Build :
+ *     go build ./school
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./school
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/school
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Configuration :
+ *   - config.env
+ *
+ * Updated Parts :
+ *   None (initial version)
+ *
+ * New Parts :
+ *   [Functions] All exported functions in this file
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)      | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-07-01 19:25:49 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add unit tests
+ *
+ * Notes :
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package school
 
 import "time"

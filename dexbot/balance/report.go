@@ -1,69 +1,10 @@
-/******************************************************************************
- * File Name       : report.go
- * File Path       : balance/report.go
- *
- * Author          : deepseek-4.0-pro
- * Owner           : Chalearm Saelim
- * Reviewer        : Chalearm Saelim
- *
- * Version         : 1.0.0
- * Status          : Development
- * Created Date    : 2026-06-30 00:53:07 (UTC+7)
- * Modified Date   : 2026-06-30 00:53:07 (UTC+7)
- *
- * Description     :
- *   Wallet balance reporting module. - Fetch token balances on-chain (Supports both BEP20 tokens and Native BNB) - Convert to USD (static price mapping) - Pretty formatting output for both token amounts a
- *
- * Responsibilities:
- *   - Implement core functionality for balance package.
- *
- * Usage :
- *   Directory : balance/
- *
- *   Build :
- *     go build ./balance
- *
- *   Run :
- *     go run .  (from dexbot root)
- *
- *   Test :
- *     go test ./balance
- *
- * Dependencies :
- *   Internal :
- *     - dexbot/balance
- *
- *   External :
- *     - (stdlib only)
- *
- * Configuration :
- *   - config.env
- *
- * Updated Parts :
- *   None (initial version)
- *
- * New Parts :
- *   [Functions] All exported functions in this file
- *
- * Change History :
- *   -------------------------------------------------------------------------
- *   Version | Date Time (UTC+7)      | Author          | Description
- *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-30 00:53:07 (UTC+7)   | deepseek-4.0-pro | Initial version — rule1.txt header batch
- *   -------------------------------------------------------------------------
- *
- * TODO :
- *   - Add unit tests
- *
- * Notes :
- *   - Per rule1.txt coding standard.
- ******************************************************************************/
 package balance
 
 import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"math/big"
 	"strings"
 
@@ -72,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+// Added a view call for decimals
 const ERC20_ABI = `[
 {
     "name":"balanceOf",
@@ -79,30 +21,38 @@ const ERC20_ABI = `[
     "inputs":[{"name":"account","type":"address"}],
     "outputs":[{"name":"","type":"uint256"}],
     "stateMutability":"view"
+},
+{
+    "name":"decimals",
+    "type":"function",
+    "inputs":[],
+    "outputs":[{"name":"","type":"uint8"}],
+    "stateMutability":"view"
 }
 ]`
 
-// ✅ TEMP STATIC PRICES
-var tokenPrices = map[string]float64{
-	"USDC": 1.0,
-	"BTT":  0.0000003,
-	"SHIB": 0.000025,
-	"AUTO": 600.0,
-	"BSW":  0.3,
-	"WBNB": 600.0,
-	"BNB":  600.0,
-	"UNI":  3.35,
+var TokenPrices = map[string]float64{
+	"BNB":   553.843,    
+	"USDC":  1.00,
+	"BUSD":  1.00,
+	"MATIC": 0.072535,  
+	"USDT":  1.00,        
+	"BTT":   0.00000026,
+	"SHIB":  0.000025,
+	"AUTO":  600.0,
+	"BSW":   0.3,
+	"WBNB":  553.843,
+	"UNI":   3.35,
+	"ETH":   3500.0,
 }
 
-// Custom parser to format: 12,345.123 456 789 012
-func formatWithSpacedDecimals(val float64) string {
+func FormatWithSpacedDecimals(val float64) string {
 	rawStr := fmt.Sprintf("%.12f", val)
 	parts := strings.Split(rawStr, ".")
 
 	intPart := parts[0]
 	decPart := parts[1]
 
-	// 1. Format Integer side with commas (e.g., 1000 -> 1,000)
 	var intResult []string
 	for i, c := range intPart {
 		if i > 0 && (len(intPart)-i)%3 == 0 {
@@ -112,7 +62,6 @@ func formatWithSpacedDecimals(val float64) string {
 	}
 	formattedInt := strings.Join(intResult, "")
 
-	// 2. Format Decimal side with 3-digit spacing spaces
 	var decResult []string
 	for i, c := range decPart {
 		if i > 0 && i%3 == 0 {
@@ -129,21 +78,31 @@ func Report(
 	client bind.ContractBackend,
 	auth *bind.TransactOpts,
 	tokenList map[string]common.Address,
-) {
-
+) float64 {
 	parsed, err := abi.JSON(strings.NewReader(ERC20_ABI))
 	if err != nil {
 		log.Fatal("ABI parse error:", err)
 	}
 
-	fmt.Println("WALLET BALANCE")
-	fmt.Println("------------------------------------------------------------")
+	isBSCChain := false
+	if _, hasWBNB := tokenList["WBNB"]; hasWBNB {
+		isBSCChain = true
+	} else if _, hasCake := tokenList["CAKE"]; hasCake {
+		isBSCChain = true
+	}
+
+	var networkTotalUSD float64
 
 	for name, addr := range tokenList {
-		var balance *big.Int
+		if name != "BNB" && name != "USDC" && name != "BUSD" && name != "MATIC" && name != "USDT" {
+			continue
+		}
 
-		// Native BNB doesn't implement ERC20. We verify if our client supports BalanceAt
-		if name == "BNB" {
+		var balance *big.Int
+		tokenDecimals := uint8(18) // Default fallback
+		isNative := addr.Hex() == "0x0000000000000000000000000000000000000000" || (isBSCChain && name == "BNB")
+
+		if isNative {
 			type nativeBalanceReader interface {
 				BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 			}
@@ -159,14 +118,20 @@ func Report(
 			}
 		} else {
 			contract := bind.NewBoundContract(addr, parsed, client, client, client)
-			var result []interface{}
-
-			err := contract.Call(nil, &result, "balanceOf", auth.From)
-			if err != nil {
-				continue
+			
+			// 1. Fetch Dynamic Token Decimals to handle 6-decimal tokens like Polygon USDT
+			var decResult []interface{}
+			errDec := contract.Call(nil, &decResult, "decimals")
+			if errDec == nil && len(decResult) > 0 {
+				if d, ok := decResult[0].(uint8); ok {
+					tokenDecimals = d
+				}
 			}
 
-			if len(result) == 0 {
+			// 2. Fetch Balance
+			var result []interface{}
+			err := contract.Call(nil, &result, "balanceOf", auth.From)
+			if err != nil || len(result) == 0 {
 				continue
 			}
 
@@ -181,24 +146,48 @@ func Report(
 			continue
 		}
 
-		// FIX: Replaced big.BigFloat with big.NewFloat
+		// Calculate using the dynamic decimal scale factor (e.g. 10^6 or 10^18)
+		divisor := math.Pow10(int(tokenDecimals))
 		clean := new(big.Float).Quo(
 			new(big.Float).SetInt(balance),
-			big.NewFloat(1e18),
+			big.NewFloat(divisor),
 		)
 
 		value, _ := clean.Float64()
-
-		// USD calculation
-		priceUSD := tokenPrices[name]
+		priceUSD := TokenPrices[name]
 		usd := value * priceUSD
 
-		// Apply our custom spatial layout format to both token amounts and USD
-		prettyTokenAmt := formatWithSpacedDecimals(value)
-		prettyUSDAmt := formatWithSpacedDecimals(usd)
+		networkTotalUSD += usd
+
+		prettyTokenAmt := FormatWithSpacedDecimals(value)
+		prettyUSDAmt := FormatWithSpacedDecimals(usd)
 
 		fmt.Printf("%s: %s tokens ($%s USD)\n", name, prettyTokenAmt, prettyUSDAmt)
 	}
 
+	prettyNetTotal := FormatWithSpacedDecimals(networkTotalUSD)
+	fmt.Printf("Subtotal for Network: $%s USD\n", prettyNetTotal)
 	fmt.Println("------------------------------------------------------------")
+
+	return networkTotalUSD
+}
+
+func GetTokenBalance(client bind.ContractBackend, tokenAddr, owner common.Address) (*big.Int, error) {
+	parsed, err := abi.JSON(strings.NewReader(ERC20_ABI))
+	if err != nil {
+		return nil, err
+	}
+	contract := bind.NewBoundContract(tokenAddr, parsed, client, client, client)
+	var result []interface{}
+	if err := contract.Call(nil, &result, "balanceOf", owner); err != nil {
+		return nil, err
+	}
+	if len(result) == 0 {
+		return nil, fmt.Errorf("empty result")
+	}
+	bal, ok := result[0].(*big.Int)
+	if !ok {
+		return nil, fmt.Errorf("type assertion failed")
+	}
+	return bal, nil
 }

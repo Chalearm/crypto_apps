@@ -8,60 +8,56 @@
  *
  * Version         : 1.0.0
  * Status          : Development
- * Created Date    : 2026-06-28 14:15:00 (UTC+7)
- * Modified Date   : 2026-06-28 17:00:00 (UTC+7)
+ * Created Date    : 2026-07-01 19:25:31 (UTC+7)
+ * Modified Date   : 2026-07-01 19:25:31 (UTC+7)
  *
  * Description     :
  *   File-based dashboard publisher. Replaces embedded HTTP server per
- *   myreq3.txt §68-70. Governance writes HTML/JSON to output directory;
- *   external HTTP server (serve.py) publishes static files.
  *
  * Responsibilities:
- *   - Write HTML pages to configured output directory
- *   - Write JSON API responses to api/ subdirectory
- *   - Write arbitrary files via WriteRaw
- *   - Directory health check for writability
- *   - Thread-safe via mutex
+ *   - - Write HTML pages to configured output directory
  *
  * Usage :
  *   Directory : infra/
- *   Build     : go build ./infra
- *   Run       : pub := infra.NewPublisher("web_output")
- *               pub.WriteHTML("index", "<html>...</html>")
- *               pub.WriteJSON("api/daemons", data)
- *   Test      : go test ./infra -v
+ *
+ *   Build :
+ *     go build ./infra
+ *
+ *   Run :
+ *     go run .  (from dexbot root)
+ *
+ *   Test :
+ *     go test ./infra
  *
  * Dependencies :
- *   Internal : None
- *   External : encoding/json, os, path/filepath, sync, time (stdlib)
+ *   Internal :
+ *     - dexbot/infra
+ *
+ *   External :
+ *     - (stdlib only)
  *
  * Configuration :
- *   - WEB_OUTPUT_DIR environment variable (default: web_output)
+ *   - config.env
  *
  * Updated Parts :
  *   None (initial version)
  *
  * New Parts :
- *   [Struct]  Publisher
- *   [Function] NewPublisher, WriteHTML, WriteJSON, WriteRaw, Dir,
- *             LastRefresh, MarkRefreshed, HealthCheck
+ *   [Functions] All exported functions in this file
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-06-28 14:15:00   | deepseek-4.0-pro | Initial version
+ *   1.0.0   | 2026-07-01 19:25:31 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
  *   -------------------------------------------------------------------------
  *
  * TODO :
- *   - Add WriteCSV for spreadsheet export
- *   - Add incremental refresh (only changed files)
+ *   - Add unit tests
  *
  * Notes :
- *   - Per myreq3.txt §68-70: Governance does NOT run an HTTP server.
- *   - Output files are served by an external HTTP server (serve.py).
+ *   - Per rule1.txt coding standard.
  ******************************************************************************/
-
 package infra
 
 import (
