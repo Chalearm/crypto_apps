@@ -354,7 +354,204 @@ func FormatCryptoNumeric(val float64) string {
 	// Combine components with clean space padding around the decimal point literal
 	return fmt.Sprintf("%s . %s", formattedInt, formattedFrac)
 }
+/******************************************************************************
+ * Function Name : ExecuteTableWatch
+ *
+ * Purpose :
+ *   Inspects PostgreSQL system catalogs to determine the column configuration
+ *   of any targeted operational table dynamically. Pulls rows using either 
+ *   chronological head or tail boundaries, applies high-precision 12-decimal 
+ *   space-separated format rules to floating/numeric fields, and renders a perfectly 
+ *   aligned grid layout to the terminal.
+ *
+ * Inputs :
+ *   db
+ *     Type        : *sql.DB
+ *     Description : Connected active relational database transaction context pointer.
+ *   tableName
+ *     Type        : string
+ *     Description : Targeted structural table to visualize.
+ *   fetchLast
+ *     Type        : int
+ *     Description : Count of rows to extract from the most recent chronological records.
+ *   fetchFirst
+ *     Type        : int
+ *     Description : Count of rows to extract from the oldest baseline sequential records.
+ *
+ * Return :
+ *   Type          : error
+ *   Description   : Relational query tracking execution response or error tracing context.
+ ******************************************************************************/
+func ExecuteTableWatch(db *sql.DB, tableName string, fetchLast int, fetchFirst int) error {
+	// Step 1: Validate table existence via system schemas to protect against injection strings
+	var exists bool
+	checkQuery := `SELECT EXISTS (
+		SELECT FROM information_schema.tables 
+		WHERE table_schema = 'public' AND table_name = $1
+	);`
+	if err := db.QueryRow(checkQuery, tableName).Scan(&exists); err != nil || !exists {
+		return fmt.Errorf("table '%s' does not exist in the public database schema", tableName)
+	}
 
+	// Step 2: Extract column data definitions dynamically
+	colQuery := `SELECT column_name, data_type 
+	             FROM information_schema.columns 
+	             WHERE table_schema = 'public' AND table_name = $1 
+	             ORDER BY ordinal_position;`
+	colRows, err := db.Query(colQuery, tableName)
+	if err != nil {
+		return err
+	}
+	
+	type colMeta struct {
+		Name string
+		Type string
+	}
+	var columns []colMeta
+	for colRows.Next() {
+		var cm colMeta
+		if err := colRows.Scan(&cm.Name, &cm.Type); err != nil {
+			colRows.Close()
+			return err
+		}
+		columns = append(columns, cm)
+	}
+	colRows.Close()
+
+	if len(columns) == 0 {
+		return fmt.Errorf("no structural definitions found for target table '%s'", tableName)
+	}
+
+	// Step 3: Determine sort order and constraints based on flags
+	direction := "DESC"
+	limit := 10
+	if fetchFirst > 0 {
+		direction = "ASC"
+		limit = fetchFirst
+	} else if fetchLast > 0 {
+		limit = fetchLast
+	}
+
+	// Check if 'ts' or 'prediction_time' column exists to determine the tracking vector sorting keys
+	sortKey := ""
+	for _, col := range columns {
+		if col.Name == "ts" || col.Name == "prediction_time" || col.Name == "created_at" {
+			sortKey = col.Name
+			break
+		}
+	}
+	if sortKey == "" {
+		sortKey = columns[0].Name // Fallback to first primary key slot if no timestamp exists
+	}
+
+	// Step 4: Execute dynamic select query tracking (FIX: Added missing dot literal operator)
+	dataQuery := fmt.Sprintf("SELECT * FROM %s ORDER BY %s.%s %s LIMIT %d", tableName, tableName, sortKey, direction, limit)
+	rows, err := db.Query(dataQuery)
+	if err != nil {
+		return fmt.Errorf("dynamic query extraction tracking failure: %v", err)
+	}
+	defer rows.Close()
+
+	// Step 5: Read raw byte matrix interfaces to bypass strong-type compilation boundaries
+	scanArgs := make([]interface{}, len(columns))
+	valuePtrs := make([]interface{}, len(columns))
+	for i := range columns {
+		valuePtrs[i] = &scanArgs[i]
+	}
+
+	var dataGrid [][]string
+	for rows.Next() {
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return err
+		}
+
+		var rowCells []string
+		for i, val := range scanArgs {
+			if val == nil {
+				rowCells = append(rowCells, "NULL")
+				continue
+			}
+
+			// Format floating and high-precision numeric values uniformly using the custom spacer rule
+			switch columns[i].Type {
+			case "numeric", "double precision", "real":
+				var floatVal float64
+				switch v := val.(type) {
+				case float64:
+					floatVal = v
+				case []byte:
+					floatVal, _ = strconv.ParseFloat(string(v), 64)
+				default:
+					floatVal, _ = strconv.ParseFloat(fmt.Sprintf("%v", v), 64)
+				}
+				rowCells = append(rowCells, FormatCryptoNumeric(floatVal))
+			case "timestamp with time zone", "timestamp without time zone":
+				if t, ok := val.(time.Time); ok {
+					rowCells = append(rowCells, t.Format(time.RFC3339))
+				} else if b, ok := val.([]byte); ok {
+					rowCells = append(rowCells, string(b))
+				} else {
+					rowCells = append(rowCells, fmt.Sprintf("%v", val))
+				}
+			default:
+				if b, ok := val.([]byte); ok {
+					rowCells = append(rowCells, string(b))
+				} else {
+					rowCells = append(rowCells, fmt.Sprintf("%v", val))
+				}
+			}
+		}
+		dataGrid = append(dataGrid, rowCells)
+	}
+
+	// Step 6: Dynamically calculate column spacing padding widths based on max data properties
+	colWidths := make([]int, len(columns))
+	for i, col := range columns {
+		colWidths[i] = len(col.Name)
+	}
+	for _, row := range dataGrid {
+		for i, cell := range row {
+			if len(cell) > colWidths[i] {
+				colWidths[i] = len(cell)
+			}
+		}
+	}
+
+	// Step 7: Render dynamic layout to console matrix output
+	fmt.Printf("\n--- DYNAMIC TABLE WATCH SCREEN: %s (Showing %s, Limit %d) ---\n", tableName, direction, limit)
+	
+	// Print Header line
+	for i, col := range columns {
+		fmt.Printf("%-*s", colWidths[i], col.Name)
+		if i < len(columns)-1 {
+			fmt.Print(" | ")
+		}
+	}
+	fmt.Println()
+
+	// Print Separator rule layout
+	for i, w := range colWidths {
+		fmt.Print(strings.Repeat("-", w))
+		if i < len(colWidths)-1 {
+			fmt.Print("-+-")
+		}
+	}
+	fmt.Println()
+
+	// Print Grid Data Cells
+	for _, row := range dataGrid {
+		for i, cell := range row {
+			fmt.Printf("%-*s", colWidths[i], cell)
+			if i < len(row)-1 {
+				fmt.Print(" | ")
+			}
+		}
+		fmt.Println()
+	}
+	fmt.Println()
+
+	return nil
+}
 /******************************************************************************
  * Function Name : ListDatabaseTables
  *
@@ -804,6 +1001,7 @@ func PrintHelpMenu() {
 	fmt.Println("  -action=status         Displays background process lock diagnostics and trails logs.")
 	fmt.Println("  -action=list-tables    Queries PostgreSQL catalog schemas and prints active tables as a bulleted list.")
     fmt.Println("  -action=clear-data     Invokes administrative retention filters or table truncation sequences.")
+    fmt.Println("  -action=watch          Inspects any database table dynamically with high-precision grid formatting.")
 	fmt.Println("  -action=db-crypto      Prints the most recent orderbook pricing spread snapshots.")
 	fmt.Println("  -action=db-crypto-options Prints high-fidelity Greek parameters and implied volatilities.")
 	fmt.Println("  -action=macro          Inspects commodities timelines (Gold, Oil, Federal Rates).")
@@ -817,10 +1015,11 @@ func PrintHelpMenu() {
 	fmt.Println("  -all                   Truncates all data lines inside the targeted table space cleanly.")
 	fmt.Println("  -left-N-last=N         Preserves the most recent N records and wipes remaining chronological metrics.")
 	fmt.Println("  -left-N-first=N        Preserves the oldest baseline N records and wipes trailing market data rows.")
+    fmt.Println("\nWatch Visual Modifiers (Requires -action=watch):")
+	fmt.Println("  -fetch-last=N          Renders the last N chronological rows generated inside the database grid.")
+	fmt.Println("  -fetch-first=N         Renders the first N baseline tracking rows stored in the database grid.")
 	fmt.Println("==============================================================================")
 }
-
-
 
 /******************************************************************************
  * Function Name : BootstrapDatabaseSchemas
@@ -1508,6 +1707,8 @@ func main() {
 	clearAllFlag  := flag.Bool("all", false, "Truncate entire targeted table data space")
 	leftLastFlag  := flag.Int("left-N-last", 0, "Retain the most recent N rows and clear remaining records")
 	leftFirstFlag := flag.Int("left-N-first", 0, "Retain the oldest N rows and clear remaining records")
+ 
+	fetchFirstFlag := flag.Int("fetch-first", 0, "Count of records to extract from head boundaries")
 
 	flag.Parse() 
 
@@ -1516,7 +1717,7 @@ func main() {
 		PrintHelpMenu()
 		return
 	} 
-
+ 
 	if *action == "terminate" {
 		if err := HandleTermination(); err != nil {
 			infra.Error(fmt.Sprintf("Termination error: %v", err))
@@ -1622,6 +1823,19 @@ func main() {
 		err := ExecuteDataClearance(db, *tableNameFlag, *clearAllFlag, *leftLastFlag, *leftFirstFlag)
 		if err != nil {
 			infra.Error(fmt.Sprintf("Administrative database data clearance fault: %v", err))
+			os.Exit(1)
+		}
+		return
+	}
+	// 3. Shared Table Watch Operational Route
+	if *action == "watch" {
+		if *tableNameFlag == "" {
+			infra.Error("Watch runtime validation rejected: please provide a valid target schema table string utilizing -table-name")
+			os.Exit(1)
+		}
+		err := ExecuteTableWatch(db, *tableNameFlag, *fetchLast, *fetchFirstFlag)
+		if err != nil {
+			infra.Error(fmt.Sprintf("Table Watch extraction engine failure: %v", err))
 			os.Exit(1)
 		}
 		return

@@ -129,6 +129,10 @@ func InitDB() error {
 		}
 
 		Info(fmt.Sprintf("Database connection established via %s:%s", h, port))
+		// Limit pool size to avoid exhausting PostgreSQL connections
+		DB.SetMaxOpenConns(10)
+		DB.SetMaxIdleConns(5)
+		DB.SetConnMaxLifetime(5 * time.Minute)
 		CreateMarketTable()
 		CreateUserTokensTable()
 		Info("Database initialization complete.")
@@ -204,10 +208,10 @@ func CreateMarketTable() {
         block_number BIGINT DEFAULT 0,
         tx_count INTEGER DEFAULT 0,
         source TEXT NOT NULL DEFAULT 'dexbot',
-        timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        ts TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE INDEX IF NOT EXISTS idx_market_prices_symbol_ts ON market_prices(symbol, timestamp DESC);
-    CREATE INDEX IF NOT EXISTS idx_market_prices_chain ON market_prices(chain_id, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_market_prices_symbol_ts ON market_prices(symbol, ts DESC);
+    CREATE INDEX IF NOT EXISTS idx_market_prices_chain ON market_prices(chain_id, ts DESC);
     `
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -322,13 +326,24 @@ func QueryTableRows(tableName string, limit int, sortOrder string) ([]string, []
 	}
 
 	orderClause := ""
-	switch sortOrder {
-	case "newest":
-		orderClause = " ORDER BY id DESC"
-	case "oldest":
-		orderClause = " ORDER BY id ASC"
-	default:
-		// no explicit order — DB order
+	if sortOrder == "newest" || sortOrder == "oldest" {
+		// Try id column first, then created_at, then ts
+		orderCol := ""
+		for _, col := range []string{"id", "created_at", "ts", "timestamp"} {
+			var exists bool
+			checkQ := fmt.Sprintf("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='%s' AND column_name='%s')", tableName, col)
+			if err := DB.QueryRow(checkQ).Scan(&exists); err == nil && exists {
+				orderCol = col
+				break
+			}
+		}
+		if orderCol != "" {
+			dir := "DESC"
+			if sortOrder == "oldest" {
+				dir = "ASC"
+			}
+			orderClause = fmt.Sprintf(" ORDER BY %s %s", orderCol, dir)
+		}
 	}
 
 	query := fmt.Sprintf("SELECT * FROM %s%s LIMIT %d", tableName, orderClause, limit)
@@ -429,7 +444,7 @@ func FetchTrainingData(symbol string, limit int) ([][]float64, []float64) {
 		return nil, nil
 	}
 	query := `SELECT price, volume, high_24h, low_24h FROM market_prices
-		WHERE symbol = $1 ORDER BY timestamp DESC LIMIT $2`
+		WHERE symbol = $1 ORDER BY ts DESC LIMIT $2`
 	rows, err := DB.Query(query, symbol, limit)
 	if err != nil {
 		Error("FetchTrainingData query failed: " + err.Error())

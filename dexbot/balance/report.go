@@ -94,10 +94,6 @@ func Report(
 	var networkTotalUSD float64
 
 	for name, addr := range tokenList {
-		if name != "BNB" && name != "USDC" && name != "BUSD" && name != "MATIC" && name != "USDT" {
-			continue
-		}
-
 		var balance *big.Int
 		tokenDecimals := uint8(18) // Default fallback
 		isNative := addr.Hex() == "0x0000000000000000000000000000000000000000" || (isBSCChain && name == "BNB")

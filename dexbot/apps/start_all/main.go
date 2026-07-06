@@ -234,7 +234,7 @@ func launchDaemon(ctx context.Context, d daemonDef, wg *sync.WaitGroup) {
 	}
 
 	for {
-		args := []string{"run", d.Path}
+		args := []string{"run", "-a", d.Path}
 		args = append(args, d.Args...)
 		cmd := exec.CommandContext(ctx, goBin, args...)
 		cmd.Stdout = os.Stdout
@@ -279,8 +279,21 @@ func launchPython(ctx context.Context, wg *sync.WaitGroup) {
 	infra.FnTrace("starting serve.py")
 	defer wg.Done()
 
+	// Find dexbot root (where config.env, web_output/, serve.py live)
+	dexbotRoot := "."
+	if _, err := os.Stat("serve.py"); err != nil {
+		// Not in dexbot root — try known paths
+		for _, p := range []string{"/home/worker1/dexbot", "/home/worker2/dexbot", os.ExpandEnv("$HOME/dexbot")} {
+			if _, err2 := os.Stat(p + "/serve.py"); err2 == nil {
+				dexbotRoot = p
+				break
+			}
+		}
+	}
+
 	for {
 		cmd := exec.CommandContext(ctx, "python3", "serve.py")
+		cmd.Dir = dexbotRoot
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 

@@ -65,6 +65,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"dexbot/auth"
 	"dexbot/balance"
@@ -92,6 +93,9 @@ func handleBalanceCommand(args map[string]string) (string, error) {
 
 	totalUSD := 0.0
 	for name, addr := range tokens.Tokens {
+		// Small delay to avoid BSC rate limiting
+		time.Sleep(100 * time.Millisecond)
+
 		if name == "BNB" {
 			bal, err := client.BalanceAt(context.Background(), wallet.From, nil)
 			if err != nil || bal.Cmp(big.NewInt(0)) == 0 {

@@ -122,6 +122,7 @@ var (
 	publisher   *infra.Publisher     // file-based dashboard output (Phase 18)
 	modelReg    *governance.ModelRegistry // centralized model registry (§33)
 	tokenReg    *infra.TokenRegistry      // §83: dynamic token registry for balance panel
+	dashRenderer *webui.Renderer          // dashboard renderer (for TCP refresh trigger)
 )
 
 // ==============================
@@ -249,6 +250,14 @@ func webuiActionCallback(name, action string) {
 			tradingUdpConn.Write([]byte("governance:command:kill"))
 		}
 		infra.Info(fmt.Sprintf("Kill command sent to %s", name))
+	case "refresh":
+		// Reload env (may have new PRIVATE_KEY from web unlock) and regenerate dashboard
+		loadEnvSmart()
+		if dashRenderer != nil {
+			infra.Info("TCP refresh: regenerating dashboard...")
+			refreshDashboard(dashRenderer)
+			infra.Info("TCP refresh: dashboard regenerated")
+		}
 	}
 }
 
@@ -1097,6 +1106,10 @@ func startHealthCheckLoop(ctx context.Context) {
 	ticker := time.NewTicker(time.Duration(healthCheckInterval) * time.Second)
 	defer ticker.Stop()
 
+	// Wait for daemons to start before first health check (§4 race condition fix)
+	infra.Info(fmt.Sprintf("Health check loop starting in %ds (daemon startup grace period)", healthCheckInterval))
+	time.Sleep(time.Duration(healthCheckInterval) * time.Second)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -1310,6 +1323,7 @@ func startPublisher(ctx context.Context) {
 	if modelReg != nil {
 		renderer.SetModelRegistry(modelReg)
 	}
+	dashRenderer = renderer // store globally for TCP refresh trigger
 
 	// Initialize account manager for balance display (§79-81)
 	acctMgr := infra.NewAccountManager()
@@ -1355,43 +1369,94 @@ func refreshDashboard(renderer *webui.Renderer) {
 	// Pull latest model data from the registry before rendering
 	renderer.RefreshModels()
 
-	// Get real BSC wallet balance — use infra.GetBalanceSummary (real BSC query)
-	am := infra.NewAccountManager()
-	summary := infra.GetBalanceSummary(am)
+	// Re-load env to pick up any private key set via web UI unlock
+	loadEnvSmart()
 
-	// Merge with token registry: GetBalanceSummary provides real amounts, registry provides UI metadata
+	// Get real BSC wallet balance — use infra.GetBalanceSummary (real BSC query)
+	// Guard against nil dereference if RPC is unreachable
+	var summary *infra.BalanceSummary
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				infra.Error(fmt.Sprintf("GetBalanceSummary panic: %v", r))
+			}
+		}()
+		am := infra.NewAccountManager()
+		summary = infra.GetBalanceSummary(am)
+	}()
+	if summary == nil {
+		summary = &infra.BalanceSummary{}
+	}
+
+	// Merge with token registry: keep ALL real balance data, only supplement with
+	// zero-balance tokens from the registry that aren't already present.
 	if tokenReg != nil {
-		realByTicker := make(map[string]infra.BalanceAsset)
-		for _, a := range summary.Assets {
-			realByTicker[strings.ToUpper(a.Ticker)] = a
-		}
-		// Build final list: all registry tokens + any real tokens not in registry
-		seen := make(map[string]bool)
-		summary.Assets = nil
-		for _, t := range tokenReg.GetTokens() {
-			ticker := strings.ToUpper(t.Ticker)
-			seen[ticker] = true
-			if real, ok := realByTicker[ticker]; ok {
-				summary.Assets = append(summary.Assets, real)
-			} else {
+		if len(summary.Assets) > 0 {
+			// Build lookup of existing tokens per chain
+			type assetKey struct{ ticker, chain string }
+			existing := make(map[assetKey]bool)
+			for _, a := range summary.Assets {
+				existing[assetKey{strings.ToUpper(a.Ticker), a.ChainName}] = true
+			}
+			// Add any registry tokens not already in the real balance data
+			for _, t := range tokenReg.GetTokens() {
+				key := assetKey{strings.ToUpper(t.Ticker), t.ChainName}
+				if !existing[key] {
+					existing[key] = true
+					summary.Assets = append(summary.Assets, infra.BalanceAsset{
+						Ticker: t.Ticker, Amount: 0, USDPrice: t.USDPrice, USDValue: 0,
+						BSCAddr: t.Address, ChainID: t.ChainID, ChainName: t.ChainName,
+					})
+				}
+			}
+		} else {
+			// No real balance data — populate from token registry defaults
+			for _, t := range tokenReg.GetTokens() {
 				summary.Assets = append(summary.Assets, infra.BalanceAsset{
 					Ticker: t.Ticker, Amount: 0, USDPrice: t.USDPrice, USDValue: 0,
 					BSCAddr: t.Address, ChainID: t.ChainID, ChainName: t.ChainName,
 				})
 			}
 		}
-		// Add any tokens from real balance not in registry
-		for ticker, real := range realByTicker {
-			if !seen[ticker] {
-				summary.Assets = append(summary.Assets, real)
-			}
+	}
+	// If still empty, add known BSC defaults
+	if len(summary.Assets) == 0 {
+		defaults := []infra.BalanceAsset{
+			{Ticker: "BNB", Amount: 0, USDPrice: 610, BSCAddr: "0x0000000000000000000000000000000000000000", ChainID: "56", ChainName: "BSC"},
+			{Ticker: "USDT", Amount: 0, USDPrice: 1, BSCAddr: "0x55d398326f99059ff775485246999027b3197955", ChainID: "56", ChainName: "BSC"},
+			{Ticker: "USDC", Amount: 0, USDPrice: 1, BSCAddr: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", ChainID: "56", ChainName: "BSC"},
+			{Ticker: "BUSD", Amount: 0, USDPrice: 1, BSCAddr: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", ChainID: "56", ChainName: "BSC"},
+			{Ticker: "CAKE", Amount: 0, USDPrice: 2.35, BSCAddr: "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82", ChainID: "56", ChainName: "BSC"},
+			{Ticker: "BTT", Amount: 0, USDPrice: 0.0000003, BSCAddr: "0x352Cb5E19b12FC216548a2677bD0fce83BaE434B", ChainID: "56", ChainName: "BSC"},
 		}
+		summary.Assets = defaults
 	}
 
 	// Sort assets alphabetically by ticker
 	sort.Slice(summary.Assets, func(i, j int) bool {
 		return summary.Assets[i].Ticker < summary.Assets[j].Ticker
 	})
+
+	// Ensure account info is populated even when BSC RPC fails
+	if summary.AccountMasked == "" {
+		pk := os.Getenv("PRIVATE_KEY")
+		if pk == "" {
+			data, err := os.ReadFile("config.env")
+			if err == nil {
+				lines := strings.Split(string(data), "\n")
+				for _, line := range lines {
+					if strings.HasPrefix(line, "PRIVATE_KEY=") {
+						pk = strings.TrimSpace(strings.TrimPrefix(line, "PRIVATE_KEY="))
+						break
+					}
+				}
+			}
+		}
+		if pk != "" && len(pk) >= 10 {
+			summary.AccountMasked = pk[:6] + strings.Repeat("*", len(pk)-10) + pk[len(pk)-4:]
+			summary.AccountName = summary.AccountMasked
+		}
+	}
 
 	totalUSD := 0.0
 	for i := range summary.Assets {

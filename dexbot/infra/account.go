@@ -68,13 +68,12 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 
+	"dexbot/auth"
 	"dexbot/balance"
 	"dexbot/tokens"
 )
@@ -106,7 +105,33 @@ type AccountManager struct {
  ******************************************************************************/
 func NewAccountManager() *AccountManager {
 	pk := os.Getenv("PRIVATE_KEY")
+	// Always read from config.env file (web unlock writes to file, not env vars)
+	data, err := os.ReadFile("config.env")
+	if err == nil {
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "PRIVATE_KEY=") {
+				parts := strings.SplitN(line, "=", 2)
+				pk = ""
+				if len(parts) == 2 && parts[1] != "" {
+					pk = parts[1]
+				}
+				break
+			}
+		}
+	}
+	// If key is valid, set up profile in DB
+	_ = ProfileFromKey(pk)
 	return &AccountManager{privateKey: pk}
+}
+
+// ProfileFromKey looks up or creates a profile for the given key.
+func ProfileFromKey(pk string) *Profile {
+	if pk == "" || len(pk) < 16 {
+		return nil
+	}
+	prof, _ := LookupOrCreateProfile(pk)
+	return prof
 }
 
 /******************************************************************************
@@ -118,7 +143,7 @@ func NewAccountManager() *AccountManager {
  *
  * Return :
  *   Type        : string
- *   Description : e.g., "****" or "no-private-key" if empty.
+ *   Description : e.g., "aabbcc******" or "no-private-key" if empty.
  *
  * Complexity : O(1), Number Of Lines : 8
  ******************************************************************************/
@@ -157,7 +182,7 @@ func (a *AccountManager) FullKey() string {
  *
  * Return :
  *   Type        : string
- *   Description : e.g., "runtime/portfolio_/".
+ *   Description : e.g., "runtime/portfolio_abcdefab/".
  *
  * Complexity : O(1), Number Of Lines : 8
  ******************************************************************************/
@@ -341,7 +366,7 @@ func GetBalanceSummary(am *AccountManager) *BalanceSummary {
 	}
 
 	return &BalanceSummary{
-		AccountName:   accountName,
+		AccountName:   accountName[:min(8,len(accountName))] + "*****",
 		AccountMasked: accountMasked,
 		TotalUSD:      totalUSD,
 		TotalBTC:      totalUSD / BTCPriceMock,
@@ -351,108 +376,145 @@ func GetBalanceSummary(am *AccountManager) *BalanceSummary {
 	}
 }
 
-// queryRealBalances connects to BSC and reads real on-chain token balances
-// for the given private key. Falls back silently on any error.
+func min(a, b int) int {
+	if a < b { return a }
+	return b
+}
+
+// queryRealBalances uses dexbot/auth + dexbot/balance to query ALL chains
+// exactly like apps/balance/main.go does. Each chain gets its own RPC client
+// and wallet via auth.ConnectToChain + auth.GetWalletForChain.
 func queryRealBalances(pk string) ([]BalanceAsset, float64) {
-	// Connect to BSC
-	client, err := ethclient.Dial("https://bsc-dataseed.binance.org/")
-	if err != nil {
-		return nil, 0
-	}
-	defer client.Close()
+	var assets []BalanceAsset
 
-	// Derive wallet from private key
-	privateKey, err := crypto.HexToECDSA(pk)
-	if err != nil {
-		return nil, 0
-	}
-	chainID := big.NewInt(56)
-	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
-	if err != nil {
-		return nil, 0
-	}
-
-	// ERC20 ABI for balanceOf
-	erc20ABI, err := abi.JSON(strings.NewReader(`[{"name":"balanceOf","type":"function","inputs":[{"name":"account","type":"address"}],"outputs":[{"name":"","type":"uint256"}],"stateMutability":"view"}]`))
-	if err != nil {
-		return nil, 0
-	}
-
+	// ERC20 ABI — same as balance.Report()
+	parsedABI, _ := abi.JSON(strings.NewReader(balance.ERC20_ABI))
 	base18 := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
-
-	// Use the SAME token list as the CLI balance command (tokens/tokens.go)
-	tokenList := tokens.Tokens
 	prices := balance.TokenPrices
 
-	// Try to get real-time BNB price from PancakeSwap
-	bnbPrice := 610.50
-	var oraclePtr *PriceOracle
-	oraclePtr, err = NewPriceOracle()
-	if err == nil {
-		if p, e := oraclePtr.GetPriceBNB(); e == nil && p > 0 {
-			bnbPrice = p
+	for chainName, tokenMap := range tokens.Chains {
+		chainID, rpcURL := chainInfo(chainName)
+		if rpcURL == "" {
+			continue
 		}
-		oraclePtr.Close()
-	}
+		client := auth.ConnectToChain(rpcURL)
+		wallet := auth.GetWalletForChain(client, pk, chainID)
 
-	// Collect tickers alphabetically
-	type tokInfo struct {
-		Ticker string
-		Addr   common.Address
-	}
-	var sorted []tokInfo
-	for ticker, addr := range tokenList {
-		sorted = append(sorted, tokInfo{Ticker: ticker, Addr: addr})
-	}
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Ticker < sorted[j].Ticker })
+		// Use balance.Report() for console diagnostics
+		_ = balance.Report(client, wallet, tokenMap)
 
-	var assets []BalanceAsset
-	totalUSD := 0.0
-	for _, tok := range sorted {
-		ticker := strings.ToUpper(tok.Ticker)
-		addr := tok.Addr
-		var amount float64
+		// Query each token individually for the web asset list
+		for ticker, addr := range tokenMap {
+			isNative := addr.Hex() == "0x0000000000000000000000000000000000000000" ||
+				(chainName == "BSC" && ticker == "BNB") ||
+				(chainName == "POLYGON" && ticker == "MATIC") ||
+				(chainName == "ETHEREUM" && ticker == "ETH")
 
-		if ticker == "BNB" {
-			bal, e := client.BalanceAt(context.Background(), auth.From, nil)
-			if e == nil && bal != nil {
-				clean := new(big.Float).Quo(new(big.Float).SetInt(bal), base18)
-				amount, _ = clean.Float64()
-			}
-		} else if addr != (common.Address{}) && addr.Hex() != "0x0000000000000000000000000000000000000000" {
-			contract := bind.NewBoundContract(addr, erc20ABI, client, client, client)
-			var result []interface{}
-			if e := contract.Call(nil, &result, "balanceOf", auth.From); e == nil && len(result) > 0 {
-				if bal, ok := result[0].(*big.Int); ok && bal != nil {
-					clean := new(big.Float).Quo(new(big.Float).SetInt(bal), base18)
-					amount, _ = clean.Float64()
+			var amount float64
+			if isNative {
+				bal, _ := client.BalanceAt(context.Background(), wallet.From, nil)
+				if bal != nil {
+					clean, _ := new(big.Float).Quo(new(big.Float).SetInt(bal), base18).Float64()
+					amount = clean
+				}
+			} else {
+				tokenDecimals := uint8(18)
+				contract := bind.NewBoundContract(addr, parsedABI, client, client, client)
+				var decRes []interface{}
+				if contract.Call(nil, &decRes, "decimals") == nil && len(decRes) > 0 {
+					if d, ok := decRes[0].(uint8); ok {
+						tokenDecimals = d
+					}
+				}
+				var res []interface{}
+				if contract.Call(nil, &res, "balanceOf", wallet.From) == nil && len(res) > 0 {
+					if bal, ok := res[0].(*big.Int); ok && bal != nil {
+						divisor := math.Pow10(int(tokenDecimals))
+						clean := new(big.Float).Quo(new(big.Float).SetInt(bal), big.NewFloat(divisor))
+						amount, _ = clean.Float64()
+					}
 				}
 			}
-		}
 
-		// Determine USD price — prefer live PancakeSwap price for BNB, use static fallback
-		usdPrice := prices[ticker]
-		if ticker == "BNB" && bnbPrice > 0 {
-			usdPrice = bnbPrice // ALWAYS use live PancakeSwap BNB price
+			usdPrice := prices[ticker]
+			if usdPrice <= 0 && (ticker == "USDC" || ticker == "USDT" || ticker == "BUSD") {
+				usdPrice = 1.0
+			}
+			if ticker == "BNB" && amount > 0 {
+				if oraclePtr, err := NewPriceOracle(); err == nil {
+					if p, e := oraclePtr.GetPriceBNB(); e == nil && p > 0 {
+						usdPrice = p
+					}
+					oraclePtr.Close()
+				}
+			}
+			usdVal := amount * usdPrice
+			assets = append(assets, BalanceAsset{
+				Ticker: ticker, Amount: amount, USDPrice: usdPrice,
+				USDValue: usdVal, BSCAddr: addr.Hex(),
+				ChainID: fmt.Sprintf("%d", chainID), ChainName: chainName,
+			})
 		}
-		if usdPrice <= 0 && (ticker == "USDC" || ticker == "USDT") {
-			usdPrice = 1.0
-		}
-
-		usdValue := amount * usdPrice
-		totalUSD += usdValue
-
-		// Show ALL tokens — even zero balance (will be dimmed on web)
-		assets = append(assets, BalanceAsset{
-			Ticker:    ticker,
-			Amount:    amount,
-			USDPrice:  usdPrice,
-			USDValue:  usdValue,
-			BSCAddr:   addr.Hex(),
-			ChainID:   "56",
-			ChainName: "BSC",
-		})
+		client.Close()
+		time.Sleep(500 * time.Millisecond)
 	}
 
+	// Add any tokens from tokens.Chains NOT already in assets (zero-balance display)
+	seen := make(map[string]bool)
+	for _, a := range assets {
+		seen[a.Ticker+"_"+a.ChainName] = true
+	}
+	for chainName, tokenMap := range tokens.Chains {
+		chainID, _ := chainInfo(chainName)
+		if chainID == 0 {
+			continue
+		}
+		for ticker, addr := range tokenMap {
+			key := ticker + "_" + chainName
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			usdPrice := prices[ticker]
+			if usdPrice <= 0 && (ticker == "USDC" || ticker == "USDT" || ticker == "BUSD") {
+				usdPrice = 1.0
+			}
+			assets = append(assets, BalanceAsset{
+				Ticker: ticker, Amount: 0, USDPrice: usdPrice,
+				USDValue: 0, BSCAddr: addr.Hex(),
+				ChainID: fmt.Sprintf("%d", chainID), ChainName: chainName,
+			})
+		}
+	}
+
+	// Sort by chain then ticker
+	sort.Slice(assets, func(i, j int) bool {
+		if assets[i].ChainName != assets[j].ChainName {
+			return assets[i].ChainName < assets[j].ChainName
+		}
+		return assets[i].Ticker < assets[j].Ticker
+	})
+
+	// Compute total from assets (not balance.Report(), which may have timing differences)
+	totalUSD := 0.0
+	for _, a := range assets {
+		totalUSD += a.USDValue
+	}
 	return assets, totalUSD
+}
+
+// chainInfo returns chain ID + RPC URL for a chain name.
+func chainInfo(name string) (int64, string) {
+	switch name {
+	case "BSC":
+		return 56, "https://bsc-dataseed.binance.org/"
+	case "POLYGON":
+		return 137, "https://polygon.drpc.org"
+	case "OPBNB":
+		return 204, "https://opbnb-mainnet-rpc.bnbchain.org"
+	case "ETHEREUM":
+		return 1, "https://eth.llamarpc.com"
+	default:
+		return 0, ""
+	}
 }

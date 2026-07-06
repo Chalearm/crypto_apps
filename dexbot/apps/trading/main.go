@@ -469,8 +469,20 @@ func startUdpListener(ctx context.Context) {
 	if listenAddr == "" {
 		listenAddr = "127.0.0.1"
 	}
+	if tradingPort == 0 {
+		tradingPort = 8083
+	}
 	addr := net.UDPAddr{Port: tradingPort, IP: net.ParseIP(listenAddr)}
-	conn, err := net.ListenUDP("udp", &addr)
+
+	// Retry with backoff — port may be held by defunct process
+	var conn *net.UDPConn
+	var err error
+	for retry := 0; retry < 5; retry++ {
+		conn, err = net.ListenUDP("udp", &addr)
+		if err == nil { break }
+		infra.Warn(fmt.Sprintf("Trading: UDP bind attempt %d failed: %v — retrying in 1s", retry+1, err))
+		time.Sleep(1 * time.Second)
+	}
 	if err != nil {
 		infra.Error("Trading: Failed to start UDP listener: " + err.Error())
 		return
