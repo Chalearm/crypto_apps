@@ -1,0 +1,448 @@
+/******************************************************************************
+ * File Name       : db.go
+ * File Path       : apps/balance/db.go
+ *
+ * Author          : Gemini 3.1 Pro
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.5.1
+ * Status          : Development
+ * Created Date    : 2026-07-12 14:45:00 (UTC+7)
+ * Modified Date   : 2026-07-12 16:05:00 (UTC+7)
+ *
+ * Description     :
+ *   Handles PostgreSQL database connections, environment checking, and
+ *   core raw queries for user profiles, chains, and tokens.
+ *
+ * Responsibilities:
+ *   - Establish open connection pool to the database context.
+ *   - Fetch chain name dynamically by Chain ID for token relationships.
+ *   - Explicitly handle cascaded deletions at the application level to prevent
+ *     orphaned tokens when DB foreign keys lack ON DELETE CASCADE.
+ *
+ * Usage :
+ *   Directory : apps/balance/
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/infra
+ *
+ *   External :
+ *     - database/sql
+ *     - github.com/lib/pq
+ *
+ * Updated Parts :
+ *   [Functions]
+ *     - DeleteAccountCascade() (Added explicit manual cascading for tokens/chains)
+ *     - DeleteChainCascade() (Added explicit manual cascading for tokens)
+ *
+ * New Parts :
+ *   None
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)       | Author         | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-07-12 14:45:00     | Gemini         | Initial version
+ *   1.5.0   | 2026-07-12 15:45:00     | Gemini         | Matched chain_name schema
+ *   1.5.1   | 2026-07-12 16:05:00     | Gemini         | Explicit app-level cascade
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Implement connection pools throttling mechanisms.
+ ******************************************************************************/
+package main
+
+import (
+	"database/sql"
+	"fmt"
+	"os"
+	"time"
+
+	"dexbot/infra"
+	_ "github.com/lib/pq"
+)
+
+var dbConn *sql.DB
+/******************************************************************************
+ * Function Name : InitDB
+ *
+ * Purpose :
+ *   Extracts variables mapped from configuration, validates critical fields,
+ *   bypasses container DNS for local runs, and establishes the connection.
+ *
+ * Inputs :
+ *   None
+ *
+ * Outputs :
+ *   None
+ *
+ * Return :
+ *   None
+ *
+ * Error Cases :
+ *   - Empty configuration mappings exit target process via code 1.
+ *   - Direct query ping failures abort app startup sequences.
+ *
+ * Dependencies :
+ *   - database/sql
+ *   - infra.Error / infra.Info
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Number Of Lines :
+ *   40
+ ******************************************************************************/
+func InitDB() {
+	host := os.Getenv("DB_HOST")
+	// Fallback to localhost if empty OR if set to the docker alias "db" while running on host
+	if host == "" || host == "db" {
+		host = "localhost"
+	}
+	port := os.Getenv("DB_PORT")
+	if port == "" {
+		port = "5432"
+	}
+	user := os.Getenv("DB_USER")
+	pass := os.Getenv("DB_PASS")
+	dbname := os.Getenv("DB_NAME")
+
+	if user == "" || dbname == "" {
+		infra.Error("Database config error: DB_USER or DB_NAME variables are empty.")
+		os.Exit(1)
+	}
+
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		host, port, user, pass, dbname)
+
+	var err error
+	dbConn, err = sql.Open("postgres", connStr)
+	if err != nil {
+		infra.Error("Failed to open database connection: " + err.Error())
+		os.Exit(1)
+	}
+
+	err = dbConn.Ping()
+	if err != nil {
+		infra.Error("Failed to ping database: " + err.Error())
+		os.Exit(1)
+	}
+
+	infra.Info("Successfully connected to PostgreSQL database.")
+}
+/******************************************************************************
+ * Function Name : GetChainNameByID
+ * Purpose : Maps an ID to a human readable name from user_chains schema.
+ ******************************************************************************/
+func GetChainNameByID(accountHash, chainID string) string {
+	var name string
+	err := dbConn.QueryRow(`SELECT chain_name FROM user_chains WHERE account_key = $1 AND chain_id = $2`, accountHash, chainID).Scan(&name)
+	if err != nil {
+		return ""
+	}
+	return name
+}
+/******************************************************************************
+ * Function Name : CheckUserProfileExists
+ *
+ * Purpose :
+ *   Checks if a given SHA256 account string exists in user_profiles.
+ *
+ * Inputs :
+ *   accountHash
+ *     Type        : string
+ *     Range       : Valid SHA256 string
+ *     Description : Target account hash.
+ *
+ * Outputs :
+ *   None
+ *
+ * Return :
+ *   Type        : bool
+ *   Range       : true/false
+ *   Description : True if exists, false otherwise.
+ *
+ * Error Cases :
+ *   - SQL query error (returns false and logs error).
+ *
+ * Dependencies :
+ *   - dbConn
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Number Of Lines :
+ *   12
+ ******************************************************************************/
+func CheckUserProfileExists(accountHash string) bool {
+	var id string
+	query := `SELECT id FROM user_profiles WHERE id = $1`
+	err := dbConn.QueryRow(query, accountHash).Scan(&id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false
+		}
+		infra.Error("Error checking user profile: " + err.Error())
+		return false
+	}
+	return true
+}
+
+/******************************************************************************
+ * Function Name : InsertUserProfile
+ *
+ * Purpose :
+ *   Creates a new record in user_profiles with timestamps.
+ *
+ * Inputs :
+ *   accountHash
+ *     Type        : string
+ *     Range       : Valid SHA256 string
+ *     Description : The account hash to insert.
+ *
+ * Outputs :
+ *   None
+ *
+ * Return :
+ *   None
+ *
+ * Error Cases :
+ *   - Database execution failure (logs error).
+ *
+ * Dependencies :
+ *   - dbConn
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+func InsertUserProfile(accountHash string) {
+	query := `INSERT INTO user_profiles (id, created_at, updated_at) VALUES ($1, $2, $3)`
+	now := time.Now().UTC()
+	_, err := dbConn.Exec(query, accountHash, now, now)
+	if err != nil {
+		infra.Error("Error inserting user profile: " + err.Error())
+	}
+}
+
+/******************************************************************************
+ * Function Name : InsertUserChain
+ *
+ * Purpose :
+ *   Inserts a new chain mapping for the given account.
+ *
+ * Inputs :
+ *   accountHash, chainName, chainURL, chainID
+ *     Type        : string
+ *     Description : Chain binding details
+ *
+ * Outputs :
+ *   None
+ *
+ * Return :
+ *   None
+ *
+ * Error Cases :
+ *   - Database execution failure.
+ *
+ * Dependencies :
+ *   - dbConn
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+func InsertUserChain(accountHash, chainName, chainID string) {
+	query := `INSERT INTO user_chains (account_key, chain_name, chain_id, created_at) VALUES ($1, $2, $3, $4)`
+	now := time.Now().UTC()
+	_, err := dbConn.Exec(query, accountHash, chainName, chainID, now)
+	if err != nil {
+		infra.Error("Error inserting user chain: " + err.Error())
+	}
+}
+
+/******************************************************************************
+ * Function Name : InsertUserToken
+ *
+ * Purpose :
+ *   Inserts a new token mapping for the given account and chain.
+ *
+ * Inputs :
+ *   accountHash, chainID, ticker, address
+ *     Type        : string
+ *     Description : Token mapping details.
+ *
+ * Outputs :
+ *   None
+ *
+ * Return :
+ *   None
+ *
+ * Error Cases :
+ *   - Database execution failure.
+ *
+ * Dependencies :
+ *   - dbConn
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+func InsertUserToken(accountHash, chainName, ticker, address string) {
+	query := `INSERT INTO user_tokens (account_key, chain_name, ticker, address, created_at) VALUES ($1, $2, $3, $4, $5)`
+	now := time.Now().UTC()
+	_, err := dbConn.Exec(query, accountHash, chainName, ticker, address, now)
+	if err != nil {
+		infra.Error("Error inserting user token: " + err.Error())
+	}
+}
+
+/******************************************************************************
+ * Function Name : DeleteAccountCascade
+ *
+ * Purpose :
+ *   Removes the account profile. Cascades to chains and tokens.
+ *
+ * Inputs :
+ *   accountHash
+ *     Type        : string
+ *     Description : Target account to delete.
+ *
+ * Outputs :
+ *   None
+ *
+ * Return :
+ *   None
+ *
+ * Error Cases :
+ *   - Database execution failure.
+ *
+ * Dependencies :
+ *   - dbConn
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Number Of Lines :
+ *   8
+ ******************************************************************************/
+func DeleteAccountCascade(accountHash string) {
+	// 1. Delete all tokens owned by the account
+	_, err := dbConn.Exec(`DELETE FROM user_tokens WHERE account_key = $1`, accountHash)
+	if err != nil {
+		infra.Warn("Error cleaning up user tokens: " + err.Error())
+	}
+
+	// 2. Delete all chains owned by the account
+	_, err = dbConn.Exec(`DELETE FROM user_chains WHERE account_key = $1`, accountHash)
+	if err != nil {
+		infra.Warn("Error cleaning up user chains: " + err.Error())
+	}
+
+	// 3. Delete the profile itself
+	_, err = dbConn.Exec(`DELETE FROM user_profiles WHERE id = $1`, accountHash)
+	if err != nil {
+		infra.Error("Error deleting account profile: " + err.Error())
+	}
+}
+
+/******************************************************************************
+ * Function Name : DeleteChainCascade
+ *
+ * Purpose :
+ *   Removes a specific chain for an account.
+ *
+ * Inputs :
+ *   accountHash, chainID
+ *     Type        : string
+ *     Description : Identifiers for deletion.
+ *
+ * Outputs :
+ *   None
+ *
+ * Return :
+ *   None
+ *
+ * Error Cases :
+ *   - Database execution failure.
+ *
+ * Dependencies :
+ *   - dbConn
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Number Of Lines :
+ *   8
+ ******************************************************************************/
+func DeleteChainCascade(accountHash, chainID string) {
+	chainName := GetChainNameByID(accountHash, chainID)
+	
+	// If chain exists, manually wipe its tokens first
+	if chainName != "" {
+		_, err := dbConn.Exec(`DELETE FROM user_tokens WHERE account_key = $1 AND chain_name = $2`, accountHash, chainName)
+		if err != nil {
+			infra.Warn("Error cascading token deletions: " + err.Error())
+		}
+	}
+
+	// Delete the chain
+	query := `DELETE FROM user_chains WHERE account_key = $1 AND chain_id = $2`
+	_, err := dbConn.Exec(query, accountHash, chainID)
+	if err != nil {
+		infra.Error("Error deleting user chain: " + err.Error())
+	}
+}
+
+/******************************************************************************
+ * Function Name : DeleteSingleToken
+ *
+ * Purpose :
+ *   Removes a specific token mapping for an account.
+ *
+ * Inputs :
+ *   accountHash, chainID, tokenName
+ *     Type        : string
+ *     Description : Identifiers for token deletion.
+ *
+ * Outputs :
+ *   None
+ *
+ * Return :
+ *   None
+ *
+ * Error Cases :
+ *   - Database execution failure.
+ *
+ * Dependencies :
+ *   - dbConn
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Number Of Lines :
+ *   8
+ ******************************************************************************/
+func DeleteSingleToken(accountHash, chainName, tokenName string) {
+	query := `DELETE FROM user_tokens WHERE account_key = $1 AND chain_name = $2 AND ticker = $3`
+	_, err := dbConn.Exec(query, accountHash, chainName, tokenName)
+	if err != nil {
+		infra.Error("Error deleting user token: " + err.Error())
+	}
+}

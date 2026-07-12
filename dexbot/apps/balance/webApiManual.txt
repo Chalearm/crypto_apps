@@ -1,0 +1,191 @@
+/******************************************************************************
+ * Specification  : DEXBOT DAEMON IPC HTTP API MANUAL
+ * Targeting      : serve.py (Python 3 Middle Server) Integration
+ * API Endpoints  : http://localhost:8085/api/*
+ * Reference Date : 2026-07-12
+ * Status         : Production
+ ******************************************************************************/
+
+OVERVIEW:
+  The Go balance tracking daemon runs as a continuous background service on the
+  host machine. It exposes a private, localized HTTP IPC bridge on port 8085. 
+  Because the frontend UI communicates only with `serve.py` on port 8080, 
+  `serve.py` must act as a reverse proxy to securely pass commands and fetch
+  live dynamic balance data from the Go daemon.
+
+  SECURITY NOTE: 
+  The Go daemon runs on localhost. Private keys passed to the daemon are 
+  hashed using SHA256 instantly for database mapping and are never stored 
+  in plain text.
+
+================================================================================
+1. ENDPOINT SPECIFICATIONS & SCHEMAS
+================================================================================
+
+--------------------------------------------------------------------------------
+A. FETCH LIVE BALANCE (GET)
+--------------------------------------------------------------------------------
+  URL          : http://localhost:8085/api/update
+  Method       : GET
+  Query Params : private-key=[METAMASK_PRIVATE_KEY] (Required, Hex String)
+  Headers      : Accept: application/json
+  Description  : Executes real-time database lookups combined with on-chain 
+                 EVM aggregation and returns the structured portfolio.
+  Response     :
+    {
+      "account": "e3d110c05aa13153...",
+      "total_usd": 1298.50,
+      "total_btc": 0.020289,
+      "live_btc_price": 64000.01,
+      "last_updated_time": "2026-07-12 16:25:38",
+      "chains": [
+        {
+          "name": "BSC",
+          "usd": 885.50,
+          "btc": 0.013835,
+          "tokens": [
+            {"ticker": "WBNB", "usd": 650.00, "qty": 1.00, "btc": 0.010156}
+          ]
+        }
+      ]
+    }
+
+--------------------------------------------------------------------------------
+B. ADD NETWORK CHAIN (POST)
+--------------------------------------------------------------------------------
+  URL     : http://localhost:8085/api/chain/add
+  Method  : POST
+  Headers : Content-Type: application/json
+  Payload :
+    {
+      "account_id": "e3d110c05aa13153...",
+      "name": "BSC",
+      "chain_id": "56"
+    }
+  Response: {"status": "ok", "message": "Chain added successfully"}
+
+--------------------------------------------------------------------------------
+C. ADD WALLET TOKEN ASSET (POST)
+--------------------------------------------------------------------------------
+  URL     : http://localhost:8085/api/token/add
+  Method  : POST
+  Headers : Content-Type: application/json
+  Payload :
+    {
+      "account_id": "e3d110c05aa13153...",
+      "chain_id": "56",
+      "ticker": "SHIB",
+      "address": "0x2859e4544C4bB03966803b044A93563Bd2D0DD4D"
+    }
+  Response: {"status": "ok", "message": "Token bound successfully"}
+
+--------------------------------------------------------------------------------
+D. CASCADE DELETE ACCOUNT PROFILE (POST)
+--------------------------------------------------------------------------------
+  URL     : http://localhost:8085/api/account/delete
+  Method  : POST
+  Headers : Content-Type: application/json
+  Payload :
+    {
+      "account_id": "e3d110c05aa13153..."
+    }
+  Response: {"status": "ok", "message": "Account tracking records purged"}
+
+--------------------------------------------------------------------------------
+E. CASCADE DELETE NETWORK CHAIN (POST)
+--------------------------------------------------------------------------------
+  URL     : http://localhost:8085/api/chain/delete
+  Method  : POST
+  Headers : Content-Type: application/json
+  Payload :
+    {
+      "account_id": "e3d110c05aa13153...",
+      "chain_id": "56"
+    }
+  Response: {"status": "ok", "message": "Chain and associated tokens removed"}
+
+--------------------------------------------------------------------------------
+F. DELETE TARGET TOKEN ASSET (POST)
+--------------------------------------------------------------------------------
+  URL     : http://localhost:8085/api/token/delete
+  Method  : POST
+  Headers : Content-Type: application/json
+  Payload :
+    {
+      "account_id": "e3d110c05aa13153...",
+      "chain_id": "56",
+      "ticker": "SHIB"
+    }
+  Response: {"status": "ok", "message": "Token deleted successfully"}
+
+
+================================================================================
+2. PYTHON SERVER-SIDE PROXY PATCH (`serve.py`)
+================================================================================
+To wire your existing python server's browser interactions directly into the Go 
+daemon securely, inject these blocks into `serve.py`.
+
+A. GET PROXY (Insert into `serve_api(self)`):
+---------------------------------------------
+        # /api/live_balance — proxy to local Go daemon
+        if self.path.startswith("/api/live_balance"):
+            from urllib.parse import urlparse, parse_qs
+            import urllib.request
+            import os
+            
+            qs = parse_qs(urlparse(self.path).query)
+            pk = qs.get('private_key', [''])[0]
+            if not pk:
+                pk = os.environ.get('PRIVATE_KEY', '')
+
+            daemon_url = f"http://localhost:8085/api/update?private-key={pk}"
+            try:
+                req = urllib.request.Request(daemon_url)
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    self.wfile.write(resp.read())
+                return
+            except Exception as e:
+                self.send_error(500, f"Daemon connection error: {e}")
+                return
+
+B. POST PROXY (Insert into `do_POST(self)`):
+--------------------------------------------
+        # Intercept CRUD mutations and tunnel directly to Go Daemon
+        if self.path.startswith("/api/verify/token/") or self.path.startswith("/api/verify/chain/") or self.path.startswith("/api/tokens/delete") or self.path.startswith("/api/account/delete"):
+            import urllib.request
+            
+            content_len = int(self.headers.get('Content-Length', 0))
+            body_data = self.rfile.read(content_len)
+            
+            daemon_route = "/api/token/add"
+            if "token/delete" in self.path or "tokens/delete" in self.path:
+                daemon_route = "/api/token/delete"
+            elif "chain/add" in self.path:
+                daemon_route = "/api/chain/add"
+            elif "chain/delete" in self.path:
+                daemon_route = "/api/chain/delete"
+            elif "account/delete" in self.path:
+                daemon_route = "/api/account/delete"
+
+            daemon_url = f"http://localhost:8085{daemon_route}"
+            
+            try:
+                req = urllib.request.Request(
+                    daemon_url, 
+                    data=body_data, 
+                    headers={'Content-Type': 'application/json'}
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    self.wfile.write(resp.read())
+                return
+            except Exception as e:
+                self.send_error(500, f"Administrative tunnel error: {e}")
+                return
