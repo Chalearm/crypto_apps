@@ -90,6 +90,11 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=OUTPUT_DIR, **kwargs)
 
+    def end_headers(self):
+        """Add no-cache headers to prevent stale browser cache."""
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        super().end_headers()
+
     def _db_connect(self):
         """Lazy PostgreSQL connection for direct DB queries."""
         if not hasattr(self, '_db_conn') or self._db_conn is None or self._db_conn.closed:
@@ -142,6 +147,10 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         """Handle GET — static files + API proxy + URL remapping."""
+        # Strip If-Modified-Since to force fresh page every time (no browser cache)
+        if "If-Modified-Since" in self.headers:
+            del self.headers["If-Modified-Since"]
+        
         if self.path.startswith("/api/"):
             self.serve_api()
             return
@@ -319,8 +328,8 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
         clean_path = path.split('?')[0] if '?' in path else path
         method = self.command
 
-        # Auth check for verify endpoints (skip for token add — UI action, wallet already unlocked)
-        if clean_path not in ('ping',) and not (method == 'POST' and clean_path.startswith('token')):
+        # Auth check for verify endpoints (skip for token/chain — UI action, wallet already unlocked)
+        if clean_path not in ('ping',) and not (method == 'POST' and (clean_path.startswith('token') or clean_path.startswith('chain'))):
             if not self.verify_auth():
                 self.write_json({"error": "unauthorized"}, 403)
                 return
@@ -407,35 +416,95 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
             if clean_path == 'token/add':
                 t = body.get('ticker','').upper()
                 a = body.get('address','')
+                ch = body.get('chain_name','BSC')
+                aid = body.get('account_id','')
                 if not t or not a:
                     self.write_json({"error":"ticker and address required"}, 400)
                     return
-                self.write_json({"status":"ok","ticker":t,"address":a,"chain":body.get('chain_name','BSC')})
+                if aid:
+                    try:
+                        conn = self._db_connect()
+                        if conn:
+                            cur = conn.cursor()
+                            cur.execute(
+                                "INSERT INTO user_tokens (account_key,chain_name,ticker,address) VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                                (aid, ch, t, a))
+                            conn.commit()
+                            cur.close()
+                    except Exception as e:
+                        print(f"[TOKEN_ADD] DB save failed: {e}", flush=True)
+                self.write_json({"status":"ok","ticker":t,"address":a,"chain":ch})
                 return
 
             if clean_path == 'token/delete':
                 t = body.get('ticker','').upper()
+                ch = body.get('chain_name','BSC')
+                aid = body.get('account_id','')
                 if not t:
                     self.write_json({"error":"ticker required"}, 400)
                     return
+                if aid:
+                    try:
+                        conn = self._db_connect()
+                        if conn:
+                            cur = conn.cursor()
+                            cur.execute(
+                                "DELETE FROM user_tokens WHERE account_key=%s AND chain_name=%s AND ticker=%s",
+                                (aid, ch, t))
+                            conn.commit()
+                            cur.close()
+                    except Exception as e:
+                        print(f"[TOKEN_DEL] DB failed: {e}", flush=True)
                 self.write_json({"status":"ok","ticker":t})
                 return
 
             if clean_path == 'chain/add':
                 n = body.get('name','')
-                i = body.get('id','')
+                i = body.get('chain_id','') or body.get('id','')
+                aid = body.get('account_id','')
+                bu = body.get('base_url','')
                 if not n or not i:
                     self.write_json({"error":"name and id required"}, 400)
                     return
-                self.write_json({"status":"ok","chain":n,"id":i,"base_url":body.get('base_url','')})
+                if aid:
+                    try:
+                        conn = self._db_connect()
+                        if conn:
+                            cur = conn.cursor()
+                            cur.execute(
+                                "INSERT INTO user_chains (account_key,chain_name,chain_id,base_url) VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                                (aid, n, i, bu))
+                            conn.commit()
+                            cur.close()
+                    except Exception as e:
+                        print(f"[CHAIN_ADD] DB failed: {e}", flush=True)
+                self.write_json({"status":"ok","chain":n,"id":i,"base_url":bu})
                 return
 
             if clean_path == 'chain/delete':
                 n = body.get('chain_name','')
-                if not n:
-                    self.write_json({"error":"chain_name required"}, 400)
+                aid = body.get('account_id','')
+                if not n or not aid:
+                    self.write_json({"error":"chain_name and account_id required"}, 400)
                     return
-                self.write_json({"status":"error","message":f"{n} chain not found"})
+                try:
+                    conn = self._db_connect()
+                    if conn:
+                        cur = conn.cursor()
+                        # Delete tokens under this chain first (cascade), then the chain
+                        cur.execute(
+                            "DELETE FROM user_tokens WHERE account_key=%s AND chain_name=%s",
+                            (aid, n))
+                        cur.execute(
+                            "DELETE FROM user_chains WHERE account_key=%s AND chain_name=%s",
+                            (aid, n))
+                        conn.commit()
+                        cur.close()
+                        self.write_json({"status":"ok","deleted_chain":n})
+                        return
+                except Exception as e:
+                    print(f"[CHAIN_DEL] DB failed: {e}", flush=True)
+                self.write_json({"status":"error","message":"DB unavailable"})
                 return
 
         self.write_json({"error":"unknown verify endpoint: "+clean_path}, 404)
@@ -540,6 +609,47 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         """Forward action POST to Governance via TCP or handle token CRUD."""
+        # §93: Database row deletion from school page
+        if self.path.startswith("/api/database/delete"):
+            try:
+                content_len = int(self.headers.get('Content-Length', 0))
+                body = self.rfile.read(content_len)
+                data = json.loads(body)
+                table = data.get('table', '').strip()
+                rows_n = data.get('rows', 0)  # 0 = all
+                if not table:
+                    self.send_error(400, "table name required")
+                    return
+                conn = self._db_connect()
+                if not conn:
+                    self.send_error(500, "DB unavailable")
+                    return
+                cur = conn.cursor()
+                if rows_n > 0:
+                    # Delete last N rows (newest first, matching load order)
+                    cols = self._db_columns(table)
+                    orderCol = "id"
+                    for c in ["id", "created_at", "ts", "timestamp"]:
+                        if c in cols:
+                            orderCol = c
+                            break
+                    cur.execute(f"DELETE FROM {table} WHERE {orderCol} IN (SELECT {orderCol} FROM {table} ORDER BY {orderCol} DESC LIMIT {rows_n})")
+                else:
+                    # Delete all rows
+                    cur.execute(f"DELETE FROM {table}")
+                deleted = cur.rowcount
+                conn.commit()
+                cur.close()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "ok", "deleted": deleted}).encode())
+                return
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
+
         # Route verify API POSTs to serve_verify
         if self.path.startswith("/api/verify/"):
             self.serve_verify()
@@ -577,13 +687,18 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
                     lines.append('PRIVATE_KEY=' + pk + '\n')
                 with open(env_path, 'w') as f:
                     f.writelines(lines)
-                # Set env in this process so balance API can see it immediately
                 os.environ['PRIVATE_KEY'] = pk
+
                 # Compute profile ID: SHA256(first 16 chars of PK)
                 import hashlib
                 profile_id = hashlib.sha256(pk[:16].encode()).hexdigest()
+                # Masked key: SHA256(first 16 chars)[:13] — never reveals real PK
+                masked = hashlib.sha256(pk[:16].encode()).hexdigest()[:13]
+
                 # Check if profile exists in DB
                 profile_exists = False
+                chains = []
+                tokens = []
                 try:
                     conn = self._db_connect()
                     if conn:
@@ -593,41 +708,84 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
                         cur.close()
                 except:
                     pass
-                # First-time unlock: save default tokens to user_tokens DB
+
+                # First-time unlock: save default chains + tokens to DB
                 if not profile_exists:
                     try:
                         conn = self._db_connect()
                         if conn:
                             cur = conn.cursor()
-                            # Insert profile
+                            # Insert profile with masked key
                             cur.execute(
-                                "INSERT INTO user_profiles (id) VALUES (%s) ON CONFLICT DO NOTHING",
+                                "INSERT INTO user_profiles (id) VALUES (%s)",
                                 (profile_id,))
-                            # Insert default token list from tokens.go defaults
+                            # Insert 4 default chains
+                            default_chains = [
+                                ("BSC","56","https://bsc-dataseed.binance.org"),
+                                ("POLYGON","137","https://polygon-rpc.com"),
+                                ("ETHEREUM","1","https://eth.llamarpc.com"),
+                                ("OPBNB","204","https://opbnb-mainnet-rpc.bnbchain.org"),
+                            ]
+                            for c in default_chains:
+                                cur.execute(
+                                    "INSERT INTO user_chains (account_key,chain_name,chain_id,base_url) VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                                    (profile_id, c[0], c[1], c[2]))
+                            # Insert default tokens for all chains
                             default_tokens = [
-                                ("BNB","0x0000000000000000000000000000000000000000","56","BSC"),
-                                ("USDT","0x55d398326f99059ff775485246999027b3197955","56","BSC"),
-                                ("USDC","0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d","56","BSC"),
-                                ("CAKE","0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82","56","BSC"),
-                                ("WBNB","0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c","56","BSC"),
-                                ("ETH","0x2170Ed0880ac9A755fd29B2688956BD959F933F8","56","BSC"),
-                                ("BTT","0x352Cb5E19b12FC216548a2677bD0fce83BaE434B","56","BSC"),
-                                ("SHIB","0x2859e4544C4bB03966803b044A93563Bd2D0DD4D","56","BSC"),
-                                ("UNI","0xBf5140A22578168FD562DCcF235E5D43A02ce9B1","56","BSC"),
-                                ("AUTO","0xa184088a740c695E156F91f5cC086a06bb78b827","56","BSC"),
-                                ("BSW","0x965f527d9159dce6288a2219db51fc6eef120dd1","56","BSC"),
+                                # BSC tokens
+                                ("BSC","BNB","0x0000000000000000000000000000000000000000"),
+                                ("BSC","USDT","0x55d398326f99059ff775485246999027b3197955"),
+                                ("BSC","USDC","0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"),
+                                ("BSC","CAKE","0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82"),
+                                ("BSC","WBNB","0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"),
+                                ("BSC","ETH","0x2170Ed0880ac9A755fd29B2688956BD959F933F8"),
+                                ("BSC","BTT","0x352Cb5E19b12FC216548a2677bD0fce83BaE434B"),
+                                ("BSC","SHIB","0x2859e4544C4bB03966803b044A93563Bd2D0DD4D"),
+                                ("BSC","UNI","0xBf5140A22578168FD562DCcF235E5D43A02ce9B1"),
+                                ("BSC","AUTO","0xa184088a740c695E156F91f5cC086a06bb78b827"),
+                                ("BSC","BSW","0x965f527d9159dce6288a2219db51fc6eef120dd1"),
+                                ("BSC","BUSD","0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56"),
+                                ("BSC","BTC","0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c"),
+                                # POLYGON tokens
+                                ("POLYGON","MATIC","0x0000000000000000000000000000000000000000"),
+                                ("POLYGON","USDT","0xc2132d05d31c914a87c6611c10748aeb04b58e8f"),
+                                ("POLYGON","USDC","0x3c499c542cef5e3811e1192ce70d8cc03d5c3359"),
+                                # ETHEREUM tokens
+                                ("ETHEREUM","ETH","0x0000000000000000000000000000000000000000"),
+                                ("ETHEREUM","USDT","0xdac17f958d2ee523a2206206994597c13d831ec7"),
+                                ("ETHEREUM","USDC","0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"),
+                                # OPBNB tokens
+                                ("OPBNB","BNB","0x0000000000000000000000000000000000000000"),
+                                ("OPBNB","USDT","0x9e5aac1ba1a2e6aed6b32689dfcf62a509ca96f3"),
                             ]
                             for t in default_tokens:
                                 cur.execute(
-                                    "INSERT INTO user_tokens (account_key,ticker,address,chain_id,chain_name) VALUES (%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
-                                    (profile_id, t[0], t[1], t[2], t[3]))
-                            conn.commit()
-                            cur.close()
-                            print(f"[UNLOCK] Saved {len(default_tokens)} default tokens for profile {profile_id[:8]}...", flush=True)
+                                    "INSERT INTO user_tokens (account_key,chain_name,ticker,address) VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                                    (profile_id, t[0], t[1], t[2]))
+                        conn.commit()
+                        cur.close()
+                        print(f"[UNLOCK] New profile {profile_id[:8]}... — saved {len(default_chains)} chains + {len(default_tokens)} tokens", flush=True)
                     except Exception as e:
-                        print(f"[UNLOCK] Token save failed (non-fatal): {e}", flush=True)
-                # Trigger governance to restart (picks up new PRIVATE_KEY from config.env)
-                # This causes a full refresh including balance.json regeneration
+                        print(f"[UNLOCK] Seed failed (non-fatal): {e}", flush=True)
+                        try: conn.rollback()
+                        except: pass
+
+                # Load chains + tokens from DB for this profile
+                try:
+                    conn = self._db_connect()
+                    if conn:
+                        cur = conn.cursor()
+                        cur.execute("SELECT chain_name, chain_id, base_url FROM user_chains WHERE account_key=%s ORDER BY chain_name", (profile_id,))
+                        for row in cur.fetchall():
+                            chains.append({"name": row[0], "chain_id": row[1], "base_url": row[2]})
+                        cur.execute("SELECT ticker, address, chain_name FROM user_tokens WHERE account_key=%s ORDER BY chain_name, ticker", (profile_id,))
+                        for row in cur.fetchall():
+                            tokens.append({"ticker": row[0], "address": row[1], "chain_name": row[2]})
+                        cur.close()
+                except Exception as e:
+                    print(f"[UNLOCK] Load failed (non-fatal): {e}", flush=True)
+
+                # Trigger governance restart to regenerate balance.json
                 try:
                     forward_action("governance", "restart")
                 except:
@@ -640,39 +798,151 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps({
                     "status": "ok",
                     "address": addr_preview,
-                    "profile_id": profile_id[:16] + "...",
-                    "profile_exists": profile_exists
+                    "profile_id": profile_id,
+                    "profile_id_display": profile_id[:16] + "...",
+                    "masked_key": masked[:8] + "*****",
+                    "profile_exists": profile_exists,
+                    "chains": chains,
+                    "tokens": tokens
                 }).encode())
                 return
             except Exception as e:
                 self.send_error(500, str(e))
                 return
 
-        #  83-84: Token editor — delete token
+        # 83: Add token to user_tokens DB
+        if self.path.startswith("/api/verify/token/add"):
+            try:
+                content_len = int(self.headers.get('Content-Length', 0))
+                body = self.rfile.read(content_len)
+                data = json.loads(body)
+                ticker = data.get('ticker','').strip().upper()
+                address = data.get('address','').strip()
+                chain_name = data.get('chain_name','BSC')
+                account_id = data.get('account_id','')
+                if not ticker or not address or not account_id:
+                    self.send_error(400, "ticker, address, and account_id required")
+                    return
+                conn = self._db_connect()
+                if not conn:
+                    self.send_error(500, "DB unavailable")
+                    return
+                cur = conn.cursor()
+                cur.execute(
+                    "INSERT INTO user_tokens (account_key,chain_name,ticker,address) VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                    (account_id, chain_name, ticker, address))
+                conn.commit()
+                cur.close()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "ok"}).encode())
+                return
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
+
+        # 83: Add chain to user_chains DB
+        if self.path.startswith("/api/verify/chain/add"):
+            try:
+                content_len = int(self.headers.get('Content-Length', 0))
+                body = self.rfile.read(content_len)
+                data = json.loads(body)
+                name = data.get('name','').strip()
+                cid = data.get('chain_id','').strip()
+                base_url = data.get('base_url','').strip()
+                account_id = data.get('account_id','')
+                if not name or not cid or not account_id:
+                    self.send_error(400, "name, chain_id, and account_id required")
+                    return
+                conn = self._db_connect()
+                if not conn:
+                    self.send_error(500, "DB unavailable")
+                    return
+                cur = conn.cursor()
+                cur.execute(
+                    "INSERT INTO user_chains (account_key,chain_name,chain_id,base_url) VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                    (account_id, name, cid, base_url))
+                conn.commit()
+                cur.close()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "ok"}).encode())
+                return
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
+
+        #  83-84: Token editor — delete token from user_tokens DB
         if self.path.startswith("/api/tokens/delete"):
             try:
                 content_len = int(self.headers.get('Content-Length', 0))
                 body = self.rfile.read(content_len)
                 data = json.loads(body)
-                # JS sends: {"account_id":..., "indices":[i,...], "chain":"BSC"}
                 indices = data.get('indices', [])
-                token_file = os.path.join(OUTPUT_DIR, "api", "tokens.json")
-                token_list = []
-                if os.path.isfile(token_file):
-                    with open(token_file) as f:
-                        raw = json.load(f)
-                        token_list = raw.get('tokens', []) if isinstance(raw, dict) else raw
-                # Remove tokens at the given indices (reverse order to preserve indices)
+                chain = data.get('chain', 'BSC')
+                account_id = data.get('account_id', '')
+                if not account_id:
+                    self.send_error(400, "account_id required")
+                    return
+                conn = self._db_connect()
+                if not conn:
+                    self.send_error(500, "DB unavailable")
+                    return
+                cur = conn.cursor()
+                deleted = 0
+                # indices are positions in the client-side array for this chain
+                # Fetch the current token list for this account+chain
+                cur.execute(
+                    "SELECT ticker FROM user_tokens WHERE account_key=%s AND chain_name=%s ORDER BY ticker",
+                    (account_id, chain))
+                rows = cur.fetchall()
                 for idx in sorted(indices, reverse=True):
-                    if 0 <= idx < len(token_list):
-                        token_list.pop(idx)
-                with open(token_file, 'w') as f:
-                    json.dump({"tokens": token_list}, f, indent=2)
+                    if 0 <= idx < len(rows):
+                        cur.execute(
+                            "DELETE FROM user_tokens WHERE account_key=%s AND chain_name=%s AND ticker=%s",
+                            (account_id, chain, rows[idx][0]))
+                        deleted += 1
+                conn.commit()
+                cur.close()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
-                self.wfile.write(json.dumps({"status": "ok", "message": "token(s) deleted", "count": len(indices)}).encode())
+                self.wfile.write(json.dumps({"status": "ok", "deleted": deleted}).encode())
+                return
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
+
+        # §83: Return user tokens from DB
+        if self.path.startswith("/api/tokens/list"):
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(self.path).query)
+            account_id = qs.get('account_id', [''])[0]
+            chain = qs.get('chain', ['BSC'])[0]
+            if not account_id:
+                self.send_error(400, "account_id required")
+                return
+            try:
+                conn = self._db_connect()
+                if not conn:
+                    self.send_error(500, "DB unavailable")
+                    return
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT ticker, address, chain_name FROM user_tokens WHERE account_key=%s AND chain_name=%s ORDER BY ticker",
+                    (account_id, chain))
+                tokens = [{"ticker": r[0], "address": r[1], "chain_name": r[2]} for r in cur.fetchall()]
+                cur.close()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps({"tokens": tokens, "chain": chain}).encode())
                 return
             except Exception as e:
                 self.send_error(500, str(e))

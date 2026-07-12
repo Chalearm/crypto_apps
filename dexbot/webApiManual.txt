@@ -1,0 +1,159 @@
+================================================================
+DEXBOT WEB API MANUAL
+================================================================
+Version: 2026-07-01
+Path:   /workspace/crypto_apps/dexbot/webApiManual.txt
+Purpose: Curl/wget commands for web page verification and control
+================================================================
+
+PREREQUISITE: All requests to /api/verify/* require authentication.
+Compute SHA256 of the private key from config.env:
+
+  SHA256=$(echo -n "YOUR_PRIVATE_KEY" | sha256sum | awk '{print $1}')
+
+All examples below use this SHA256 hash as the ?auth= parameter.
+
+================================================================
+1. BALANCE QUERIES
+================================================================
+
+  # Get total wallet balance (same as visible on Trading page)
+  curl -s "http://localhost:8080/api/verify/balance?auth=$SHA256"
+
+  # Response: {total_usd, chain_usd, display_masked, display_visible, assets_count}
+  # display_masked = "******" (what shows by default)
+  # display_visible = "$ 11.71" (what shows after eye click)
+
+  # Get BSC-only balance
+  curl -s "http://localhost:8080/api/verify/balance?auth=$SHA256&chain=BSC"
+
+  # Get Polygon-only balance (if Polygon chain added)
+  curl -s "http://localhost:8080/api/verify/balance?auth=$SHA256&chain=Polygon"
+
+================================================================
+2. TOKEN LIST + SINGLE TOKEN
+================================================================
+
+  # Get all tokens with display_format matching the web page
+  curl -s "http://localhost:8080/api/verify/tokens?auth=$SHA256"
+
+  # Get tokens on a specific chain
+  curl -s "http://localhost:8080/api/verify/tokens?auth=$SHA256&chain=BSC"
+
+  # Get a single token value (as displayed on page)
+  curl -s "http://localhost:8080/api/verify/token/BNB?auth=$SHA256"
+
+  # Response: {ticker, amount, usd_value, display_format, chain_name, address}
+  # display_format matches human-readable format on Trading page
+
+  # Get a token on a specific chain
+  curl -s "http://localhost:8080/api/verify/token/HASHPANDA?auth=$SHA256&chain=BSC"
+
+================================================================
+3. TOKEN MANAGEMENT (ADD/DELETE)
+================================================================
+
+  # Add a new token to the registry
+  curl -X POST "http://localhost:8080/api/verify/token/add?auth=$SHA256" \
+    -H "Content-Type: application/json" \
+    -d '{"ticker":"HASH","address":"0x8578Eb576e126f67913a8bC0622e0A22EBa0989A",
+         "chain_id":"56","chain_name":"BSC"}'
+
+  # Response: {"status":"ok","ticker":"HASH","address":"0x8578..."}
+
+  # Delete a token
+  curl -X POST "http://localhost:8080/api/verify/token/delete?auth=$SHA256" \
+    -H "Content-Type: application/json" \
+    -d '{"ticker":"HASH","chain_id":"56"}'
+
+  # Response: {"status":"ok","ticker":"HASH"}
+
+================================================================
+4. CHAIN MANAGEMENT (ADD/DELETE)
+================================================================
+
+  # Add a new chain/network
+  curl -X POST "http://localhost:8080/api/verify/chain/add?auth=$SHA256" \
+    -H "Content-Type: application/json" \
+    -d '{"name":"Polygon","id":"137","base_url":"https://polygon-rpc.com"}'
+
+  # Response: {"status":"ok","chain":"Polygon","id":"137"}
+
+  # Delete a chain (always returns error if not exist — to test)
+  curl -X POST "http://localhost:8080/api/verify/chain/delete?auth=$SHA256" \
+    -H "Content-Type: application/json" \
+    -d '{"chain_name":"Polygon"}'
+
+  # Response: {"status":"error","message":"Polygon chain not found"}
+
+================================================================
+5. DAEMON ACTIONS
+================================================================
+
+  # Restart a daemon
+  curl -X POST "http://localhost:8080/api/daemon/school/restart"
+
+  # Kill a daemon (governance recreates it)
+  curl -X POST "http://localhost:8080/api/daemon/school/kill"
+
+  # Start / Stop a daemon
+  curl -X POST "http://localhost:8080/api/daemon/trading/start"
+  curl -X POST "http://localhost:8080/api/daemon/trading/stop"
+
+  # Get daemon status list
+  curl -s "http://localhost:8080/api/daemons"
+
+================================================================
+6. DATABASE BROWSER
+================================================================
+
+  # List all database tables
+  curl -s "http://localhost:8080/api/database_tables"
+
+  # Query a table
+  curl -s "http://localhost:8080/api/database?table=market_prices&rows=5&sort=newest"
+
+  # Options: rows=1..25, sort=newest|oldest|default
+
+================================================================
+7. PRICE SOURCE
+================================================================
+
+  BNB price: PancakeSwap Router getAmountsOut (BNB → USDC route)
+  BTC price: CoinGecko free API (api.coingecko.com)
+  Token prices: balance.TokenPrices static map (USD-pegged tokens)
+               OR PancakeSwap Router for BSC tokens with USDC path
+
+================================================================
+8. NEGATIVE TESTS
+================================================================
+
+  # Bad authentication
+  curl -s "http://localhost:8080/api/verify/balance?auth=badhash"
+  # Response: {"error":"unauthorized"} (403)
+
+  # Missing token
+  curl -s "http://localhost:8080/api/verify/token/NOEXIST?auth=$SHA256"
+  # Response: {"error":"token NOEXIST not found"} (404)
+
+  # Token on wrong chain
+  curl -s "http://localhost:8080/api/verify/token/MATIX?auth=$SHA256&chain=BSC"
+  # Response: {"ticker":"MATIX","error":"...","found_on_chain":"Polygon"}
+
+================================================================
+9. WGET EQUIVALENT
+================================================================
+
+  wget -qO- "http://localhost:8080/api/verify/balance?auth=$SHA256"
+
+  wget -qO- --post-data '{"ticker":"HASH","address":"0x...","chain_id":"56","chain_name":"BSC"}' \
+    --header "Content-Type: application/json" \
+    "http://localhost:8080/api/verify/token/add?auth=$SHA256"
+
+================================================================
+10. EXTERNAL ACCESS (from host machine)
+================================================================
+
+  Replace localhost:8080 with 192.168.4.219:8081
+  Example:
+    curl -s "http://192.168.4.219:8081/api/verify/balance?auth=$SHA256"

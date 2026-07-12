@@ -1,0 +1,130 @@
+================================================================
+DEXBOT PLATFORM — CLI Manual
+================================================================
+Version: 2026-07-01
+Path:   /workspace/crypto_apps/dexbot/
+
+================================================================
+QUICK START
+================================================================
+
+  # Start all daemons (from dexbot root)
+  go run ./apps/start_all
+
+  # Web dashboard (after starting daemons)
+  http://localhost:8080
+
+================================================================
+GOVERNANCE DAEMON COMMANDS
+================================================================
+
+  # Show all daemon status (JSON)
+  go run ./apps/governance -action=status
+
+  # Show wallet balance (real BSC on-chain via MetaMask private key)
+  go run ./apps/governance -action=balance
+
+  # Reload logger configuration
+  go run ./apps/governance -action=reload-log
+
+  # Reload configuration from config.env (propagated to all daemons)
+  go run ./apps/governance -action=reload-config
+
+  # Restart a specific daemon
+  go run ./apps/governance -action=restart -daemon=school
+
+  # Stop a specific daemon
+  go run ./apps/governance -action=stop -daemon=trading
+
+  # Start a specific daemon
+  go run ./apps/governance -action=start -daemon=school
+
+  # Full system shutdown
+  go run ./apps/governance -action=shutdown
+
+  # Help — list all available commands
+  go run ./apps/governance -action=help
+
+  # Help — show configuration details
+  go run ./apps/governance -action=help-configuration
+
+  # Help — show verbose configuration
+  go run ./apps/governance -action=help-configuration-vvv
+
+  # Add a new token to the balance tracker
+  go run ./apps/governance -action=addToken -name=MYTOKEN -address=0x...
+
+  # Add a new blockchain network
+  go run ./apps/governance -action=addChain -name=Ethereum -id=1 -url=https://mainnet.infura.io
+
+================================================================
+SCHOOL DAEMON COMMANDS
+================================================================
+
+  # Fetch last 5 real market data records
+  go run ./apps/school -action=fetchMarket
+
+  # Fetch last 5 database records
+  go run ./apps/school -action=fetchDB
+
+  # Run school daemon (default — starts training + UDP listener)
+  go run ./apps/school
+
+================================================================
+TRADING DAEMON COMMANDS
+================================================================
+
+  # Start trading daemon with paper-trading mode
+  go run ./apps/trading
+
+================================================================
+TEST DAEMON COMMANDS
+================================================================
+
+  # Run full test suite immediately
+  go run ./testdaemon -action=start
+
+  # Show test run history
+  go run ./testdaemon -action=history
+
+================================================================
+INTEGRATION TESTS
+================================================================
+
+  # Run integration tests against live daemons
+  go test ./integration -v -timeout 60s
+
+  # Run all unit tests
+  go test ./...
+
+  # Run vet only
+  go vet ./...
+
+================================================================
+WEB DASHBOARD PAGES
+================================================================
+
+  /         Governance — daemon status tabs (Start/Stop/Restart/Kill)
+  /trading   Trading    — balance card + portfolio blocks (real/paper)
+  /school    School     — 4-tier training (Primary/Middle/High/Graduate)
+                         + Database browser
+
+================================================================
+CONTAINER SETUP (via docker-compose)
+================================================================
+
+  # Start all services
+  cd /tools/git/other/cWork/crypto_infa
+  docker compose up -d
+
+  # Restart worker1 (applies code changes)
+  docker compose stop worker1 && docker compose up -d worker1
+
+  # Restart worker2 (remote school)
+  docker compose stop worker2 && docker compose up -d worker2
+
+  # SSH into worker1
+  ssh worker1@192.168.4.219 -p 2222
+  # password: 1234567890
+
+================================================================

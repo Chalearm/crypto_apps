@@ -41,7 +41,7 @@ func TestEdit_DeletePersistsAfterOK(t *testing.T) {
 	// saveTokenEdits must set _changesPending
 	saveIdx := strings.Index(html, "function saveTokenEdits")
 	if saveIdx >= 0 {
-		saveBody := html[saveIdx : saveIdx+1500]
+		saveBody := html[saveIdx : saveIdx+2200]
 		if !strings.Contains(saveBody, "_changesPending") {
 			t.Errorf("FAIL: saveTokenEdits does NOT set _changesPending."+
 				" Without this timer, fetchLiveBalance overwrites immediately after OK.")
@@ -147,7 +147,7 @@ func TestEdit_TokenAddPersistsAfterOK(t *testing.T) {
 
 	// _changesPending must be set by saveTokenEdits to prevent immediate overwrite
 	if saveIdx >= 0 {
-		saveBody := html[saveIdx : saveIdx+1500]
+		saveBody := html[saveIdx : saveIdx+2200]
 		if !strings.Contains(saveBody, "_changesPending") {
 			t.Errorf("FAIL: saveTokenEdits does NOT set _changesPending timer")
 		}

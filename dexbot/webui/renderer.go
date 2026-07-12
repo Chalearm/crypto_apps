@@ -295,8 +295,9 @@ func cssBase() string {
              border-bottom:1px solid var(--border);font-size:.8rem;font-family:monospace}
   .asset-row:last-child{border-bottom:none}
   .asset-ticker{font-weight:600;color:var(--accent);min-width:60px}
-  .asset-amount{text-align:right;color:var(--text-primary);word-break:break-all}
-  .asset-usd{color:var(--text-secondary);margin-left:8px;min-width:120px;text-align:right}
+  .asset-price{color:var(--blue);min-width:90px;text-align:right;font-size:.75rem}
+  .asset-amount{text-align:right;color:var(--text-primary);word-break:break-all;min-width:140px}
+  .asset-usd{color:var(--text-secondary);margin-left:8px;min-width:100px;text-align:right}
   .pencil-icon{cursor:pointer;opacity:.5;font-size:1.05rem;transition:opacity .15s;padding:2px 6px}
   .pencil-icon:hover{opacity:1}
   .pencil-icon::before{content:'\270F\FE0F'}
@@ -363,6 +364,9 @@ func writeHead(w http.ResponseWriter, title, active string) {
   }
   fmt.Fprintf(w, `<!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>%s — Dexbot</title>%s</head><body>
 <nav class="nav">%s%s%s</nav>`,
     html.EscapeString(title), cssBase(),
@@ -575,10 +579,7 @@ func (r *Renderer) writeBalanceCard(w http.ResponseWriter) {
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px">
       <select id="chainSelect" onchange="checkChainSelection()" style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-deep);color:var(--text-primary);font-size:.8rem; width:100%%; max-width:550px;">
         <option value="BSC" selected>BSC</option>
-        <option value="POLYGON">POLYGON</option>
-        <option value="ETHEREUM">ETHEREUM</option>
-        <option value="OPBNB">OPBNB</option>
-        <option value="__add__" style="color:var(--accent); font-weight:bold;">+ Add New Chain</option>
+        <option value="__add__" style="color:var(--accent);font-weight:bold">+ Add New Chain</option>
       </select>
       <span class="pencil-icon" title="Edit dynamic tracking records" onclick="openTokenEditor()"></span>
     <label style="display:flex;align-items:center;gap:4px;font-size:.7rem;color:var(--text-muted);cursor:pointer;margin-left:auto">
@@ -594,6 +595,11 @@ func (r *Renderer) writeBalanceCard(w http.ResponseWriter) {
       <input id="chainBaseUrlInput" placeholder="RPC URL" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-deep);color:var(--text-primary);font-size:.75rem;flex:2;min-width:200px">
       <button onclick="saveChain()" class="btn btn-start" style="padding:6px 14px;font-size:.75rem">OK</button>
       <button onclick="cancelChainAdd()" class="btn btn-stop" style="padding:6px 14px;font-size:.75rem">Cancel</button>
+    </div>
+
+    <!-- Chain-delete row (shown in edit mode, each chain with red (-) chip) -->
+    <div id="chainDeleteRow" style="display:none;gap:6px;padding:8px 0;flex-wrap:wrap;align-items:center;border-top:1px solid var(--border);margin-top:4px">
+      <span style="font-size:.7rem;color:var(--rose);margin-right:4px">Delete chain:</span>
     </div>
 
     <div id="assetRows"></div>
@@ -632,7 +638,9 @@ var editMode = false;
 var addTokenMode = false;
 var deletedTokens = {};
 var addedTokens = {};
+var deletedChains = {};
 var _changesPending = 0;
+var userChains = [];
 
 function format9Decimal(v) {
   var neg = v < 0; 
@@ -697,7 +705,8 @@ function renderAssetRows(){
     var sym = btcChecked ? '\u20BF ' : '$ ';
     var dim = isZero ? ' style="opacity:0.35"' : '';
     var delBtn = (editMode && !addTokenMode) ? '<button class="delete-token-btn" onclick="markTokenDeleted('+i+',event)" style="color:var(--rose);opacity:1;font-weight:bold" title="Remove token">\u2212</button>' : '';
-    html+='<div class="asset-row'+(editMode?' editing':'')+'"'+dim+'><span class="asset-ticker">'+a.ticker+'</span><span class="asset-amount">'+(showAllNumbers ? format9Decimal(a.amount||0) : '\u2217\u2217\u2217\u2217\u2217\u2217')+' '+a.ticker+'</span><span class="asset-usd">(' + (showAllNumbers ? sym + format9Decimal(computedVal) : '******') + ')</span>'+delBtn+'</div>';
+    var priceStr = (a.usd_price&&a.usd_price>0) ? (btcChecked ? '\u20BF ' + format9Decimal(a.usd_price/btcPrice) : '$ ' + format9Decimal(a.usd_price)) : '--';
+    html+='<div class="asset-row'+(editMode?' editing':'')+'"'+dim+'><span class="asset-ticker">'+a.ticker+'</span><span class="asset-price">'+priceStr+'</span><span class="asset-amount">'+(showAllNumbers ? format9Decimal(a.amount||0) : '******')+' '+a.ticker+'</span><span class="asset-usd">(' + (showAllNumbers ? sym + format9Decimal(computedVal) : '******') + ')</span>'+delBtn+'</div>';
   }
   document.getElementById('assetRows').innerHTML = html || '<div style="color:var(--text-muted);font-size:.8rem;padding:6px 0">No active assets on ' + selectedChain + '.</div>';
   var globalVal = btcChecked ? totalBTC : totalUSD;
@@ -715,11 +724,47 @@ function toggleEditMode(){
   addTokenMode = false;
   deletedTokens = {};
   addedTokens = {};
+  deletedChains = {};
   document.getElementById('editActions').classList.toggle('visible', editMode);
   document.getElementById('addTokenBtnRow').style.display = editMode ? 'block' : 'none';
   document.getElementById('addTokenFields').style.display = 'none';
   document.getElementById('editOkBtn').disabled = true;
+  // Show/hide chain-delete row for chain deletion
+  var cdr = document.getElementById('chainDeleteRow');
+  if(cdr){
+    cdr.style.display = editMode ? 'flex' : 'none';
+    if(editMode){ populateChainDeleteChips(); }
+  }
   renderAssetRows();
+}
+// Build red (-) chips for each chain in the dropdown
+function populateChainDeleteChips(){
+  var cdr = document.getElementById('chainDeleteRow');
+  if(!cdr) return;
+  var sel = document.getElementById('chainSelect');
+  var html = '<span style="font-size:.7rem;color:var(--rose);margin-right:4px">Delete chain:</span>';
+  for(var i=0; i<sel.options.length; i++){
+    var opt = sel.options[i];
+    if(opt.value === '__add__') continue;
+    if(deletedChains[opt.value]) continue; // don't show chip for already-marked chain
+    html += '<span class="chain-chip" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;background:var(--bg-elevated);font-size:.75rem;color:var(--text-primary)">' +
+      opt.value +
+      ' <button data-chain="' + opt.value + '" onclick="markChainDeleted(this.getAttribute(\'data-chain\'))" style="background:none;border:none;color:var(--rose);cursor:pointer;font-weight:bold;font-size:.9rem;padding:0 4px" title="Remove ' + opt.value + '">\u2212</button>' +
+      '</span>';
+  }
+  cdr.innerHTML = html;
+}
+// Mark a chain for deletion (same pattern as markTokenDeleted — just flag, don't POST yet)
+function markChainDeleted(name){
+  deletedChains[name] = true;
+  // Remove from dropdown immediately (visual feedback), restore on cancel
+  var sel = document.getElementById('chainSelect');
+  for(var i=0; i<sel.options.length; i++){
+    if(sel.options[i].value === name){ sel.remove(i); break; }
+  }
+  populateChainDeleteChips();
+  document.getElementById('editOkBtn').disabled = false;
+  refreshAssetPanel();
 }
 // Green (+) clicked — show add-token form, hide delete buttons + green button
 function showAddTokenFields(){
@@ -735,8 +780,9 @@ function addTokenSubmit(){
   if(!t||!a||!ch||ch==='__add__'){ alert('Ticker, address, and chain required.'); return; }
   if(!/^0x[a-fA-F0-9]{40}$/.test(a)){ alert('Address must be: 0x followed by 40 hex characters (0-9, a-f).'); return; }
   var id = ch==='BSC'?'56':ch==='POLYGON'?'137':ch==='ETHEREUM'?'1':ch==='OPBNB'?'204':ch;
+  var accountId = window._profileKey || window._accountId || 'default';
   fetch('/api/verify/token/add',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({ticker:t,address:a,chain_name:ch,chain_id:id})})
+    body:JSON.stringify({ticker:t,address:a,chain_name:ch,account_id:accountId})})
   .then(r=>r.json()).then(d=>{
     if(d.status==='ok'){
       assetsData.push({ticker:t,amount:0,usd_price:0,usd_value:0,bsc_addr:a,chain_id:id,chain_name:ch});
@@ -765,8 +811,25 @@ function markTokenDeleted(idx, evt){
   renderAssetRows();
 }
 function cancelEditMode(){
+  // Restore chains that were marked for deletion
+  for(var cn in deletedChains){
+    if(!deletedChains[cn]) continue;
+    // Re-add to select dropdown
+    var sel = document.getElementById('chainSelect');
+    var addOpt = sel.querySelector('option[value=__add__]');
+    var opt = document.createElement('option');
+    opt.value = cn; opt.textContent = cn;
+    if(addOpt) sel.insertBefore(opt, addOpt);
+    else sel.appendChild(opt);
+    // Sort alphabetically
+    var opts = [];
+    for(var i=0; i<sel.options.length; i++) opts.push(sel.options[i]);
+    opts.sort(function(a,b){ return a.value < b.value ? -1 : 1; });
+    sel.innerHTML = ''; for(var i=0; i<opts.length; i++) sel.appendChild(opts[i]);
+  }
   deletedTokens = {};
   addedTokens = {};
+  deletedChains = {};
   addTokenMode = false;
   document.getElementById('addTokenFields').style.display='none';
   document.getElementById('tokTicker').value='';document.getElementById('tokAddr').value='';
@@ -777,7 +840,7 @@ function saveTokenEdits(){
   for(var k in deletedTokens){ if(deletedTokens[k]) toDelete.push(parseInt(k)); }
   var promises = [];
   if(toDelete.length > 0){
-    var accountId = window._accountId || 'default';
+    var accountId = window._profileKey || window._accountId || 'default';
     promises.push(fetch('/api/tokens/delete', {method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({account_id:accountId, indices:toDelete, chain:document.getElementById('chainSelect').value})})
     .then(r=>r.json()).then(d=>{
@@ -791,6 +854,16 @@ function saveTokenEdits(){
     if(!a) continue;
     promises.push(fetch('/api/verify/token/add',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({ticker:a.ticker,address:a.bsc_addr,chain_name:a.chain_name,chain_id:a.chain_id})}));
+  }
+  // Persist chain deletions (markChainDeleted flag, not immediate)
+  accountId = window._profileKey || window._accountId || 'default';
+  for(var cn in deletedChains){
+    if(!deletedChains[cn]) continue;
+    promises.push(fetch('/api/verify/chain/delete',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({account_id:accountId,chain_name:cn})})
+    .then(r=>r.json()).then(d=>{
+      if(d.status!=='ok') alert('Chain delete failed: '+(d.message||cn));
+    }));
   }
   // Block balance refresh for 10s after edit
   _changesPending = Date.now() + 10000;
@@ -826,8 +899,9 @@ function saveChain() {
   var id = document.getElementById('chainIdInput').value.trim();
   var baseUrl = document.getElementById('chainBaseUrlInput').value.trim();
   if(!name || !id) { alert('Chain name and ID required.'); return; }
+  var accountId = window._profileKey || window._accountId || 'default';
   fetch('/api/verify/chain/add',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({name:name,id:id,base_url:baseUrl})})
+    body:JSON.stringify({name:name,chain_id:id,base_url:baseUrl,account_id:accountId})})
   .then(r=>r.json()).then(d=>{
     if(d.status==='ok'){
       var sel = document.getElementById('chainSelect');
@@ -862,25 +936,69 @@ function unlockWallet(){
   .then(r=>r.json()).then(d=>{
     if(d.status==='ok'){
       window._accountId = d.profile_id || '';
+      window._profileKey = d.profile_id || '';
       document.getElementById('acctStatus').style.color='var(--green)';
       document.getElementById('acctStatus').textContent = d.address ? 'OK: '+d.address : 'OK';
       document.getElementById('pkInput').style.display='none';
       if(okBtn) okBtn.style.display='none';
-      // Fetch real balance after unlock
+      // Populate chains dropdown from DB
+      var sel = document.getElementById('chainSelect');
+      sel.innerHTML = '';
+      if(d.chains && d.chains.length > 0){
+        for(var i=0; i<d.chains.length; i++){
+          var c = d.chains[i];
+          var opt = document.createElement('option');
+          opt.value = c.name; opt.textContent = c.name;
+          if(i===0) opt.selected = true;
+          sel.appendChild(opt);
+        }
+        userChains = d.chains;
+      } else {
+        // No chains — show empty dropdown with only +Add option
+        var emptyOpt = document.createElement('option');
+        emptyOpt.value = ''; emptyOpt.textContent = '(no chains)';
+        emptyOpt.disabled = true; emptyOpt.selected = true;
+        sel.appendChild(emptyOpt);
+      }
+      // Always show + Add New Chain option at bottom
+      var addOpt = document.createElement('option');
+      addOpt.value = '__add__'; addOpt.textContent = '+ Add New Chain';
+      addOpt.style.color = 'var(--accent)'; addOpt.style.fontWeight = 'bold';
+      sel.appendChild(addOpt);
+      // Populate tokens from DB (assetsData keyed by chain)
+      if(d.tokens && d.tokens.length > 0){
+        assetsData = [];
+        for(var i=0; i<d.tokens.length; i++){
+          var t = d.tokens[i];
+          assetsData.push({ticker:t.ticker, amount:0, usd_price:0, usd_value:0,
+            bsc_addr:t.address, chain_id:'', chain_name:t.chain_name});
+        }
+        refreshAssetPanel();
+        var panel = document.getElementById('chainPanel');
+        if(panel && !panel.classList.contains('open')) panel.classList.add('open');
+      }
+      // Fetch real balance for USD amounts
       return fetch('/api/balance');
     } else { throw new Error(d.error||'Unlock failed'); }
   }).then(r=>r.json()).then(bd=>{
-    if(bd && bd.assets){
-      assetsData = bd.assets;
+    if(bd && bd.assets && bd.assets.length > 0){
+      // Merge real USD amounts into our DB-sourced assetsData
+      for(var i=0; i<bd.assets.length; i++){
+        var ba = bd.assets[i];
+        for(var j=0; j<assetsData.length; j++){
+          if(assetsData[j].ticker === ba.ticker && assetsData[j].chain_name === ba.chain_name){
+            assetsData[j].amount = ba.amount||0;
+            assetsData[j].usd_price = ba.usd_price||0;
+            assetsData[j].usd_value = ba.usd_value||0;
+            break;
+          }
+        }
+      }
       totalUSD = bd.total_usd||0;
       totalBTC = bd.total_btc||0;
       btcPrice = bd.btc_price||0;
       document.getElementById('btcPrice').textContent = format9Decimal(btcPrice);
-      document.getElementById('acctStatus').textContent = (document.getElementById('acctStatus').textContent||'OK') + ' | $' + format9Decimal(totalUSD);
       refreshAssetPanel();
-      // Auto-expand chain panel to show token list
-      var panel = document.getElementById('chainPanel');
-      if(panel && !panel.classList.contains('open')) panel.classList.add('open');
     }
   }).catch(function(e){alert('Unlock failed: '+(e.message||e));});
 }
@@ -898,20 +1016,52 @@ function fetchBTCPrice(){
 fetchBTCPrice();
 setInterval(fetchBTCPrice, 30000);
 
-// ── Live balance refresh ──
+// ── Live balance refresh (USD amounts only — never add new tokens) ──
 function fetchLiveBalance(){
   if(!window._accountId) return;
   if(editMode || addTokenMode) return;
   if(_changesPending > 0 && Date.now() < _changesPending) return;
   fetch('/api/balance').then(r=>r.json()).then(bd=>{
-    if(bd && bd.assets){
-      assetsData = bd.assets;
+    if(bd && bd.assets && bd.assets.length > 0){
+      for(var i=0; i<bd.assets.length; i++){
+        var ba = bd.assets[i];
+        for(var j=0; j<assetsData.length; j++){
+          if(assetsData[j].ticker === ba.ticker && assetsData[j].chain_name === ba.chain_name){
+            assetsData[j].amount = ba.amount||0;
+            assetsData[j].usd_price = ba.usd_price||0;
+            assetsData[j].usd_value = ba.usd_value||0;
+            break;
+          }
+        }
+      }
       totalUSD = bd.total_usd||0;
       totalBTC = bd.total_btc||0;
-      if(bd.btc_price) btcPrice = bd.btc_price;
+      if(bd.btc_price && bd.btc_price > 0) btcPrice = bd.btc_price;
       refreshAssetPanel();
     }
   }).catch(function(){});
+  // Sync new tokens from DB that aren't in assetsData
+  if(window._profileKey){
+    fetch('/api/tokens/list?account_id=' + encodeURIComponent(window._profileKey) + '&chain=' + encodeURIComponent(document.getElementById('chainSelect').value))
+    .then(r=>r.json()).then(d=>{
+      if(d && d.tokens){
+        for(var i=0; i<d.tokens.length; i++){
+          var t = d.tokens[i];
+          var found = false;
+          for(var j=0; j<assetsData.length; j++){
+            if(assetsData[j].ticker === t.ticker && assetsData[j].chain_name === t.chain_name){
+              found = true; break;
+            }
+          }
+          if(!found){
+            assetsData.push({ticker:t.ticker, amount:0, usd_price:0, usd_value:0,
+              bsc_addr:t.address, chain_id:'', chain_name:t.chain_name});
+            refreshAssetPanel();
+          }
+        }
+      }
+    }).catch(function(){});
+  }
 }
 setInterval(fetchLiveBalance, 5000);
 
@@ -1247,11 +1397,35 @@ function toggleTierModel(id){
       <option value="oldest">Oldest first</option>
     </select>
     <span id="dbWarn" style="font-size:.7rem;color:var(--rose);display:none">Max 80 rows</span>
+    <label style="display:flex;align-items:center;gap:4px;font-size:.7rem;color:var(--text-muted);margin-left:12px;cursor:pointer">
+      <input type="checkbox" id="dbDeleteAll" onchange="updateDeleteBtn()"> All
+    </label>
+    <button id="dbDeleteBtn" onclick="deleteDBRows()" class="btn btn-stop" style="padding:4px 12px;font-size:.7rem" disabled>Delete</button>
   </div>
   <div id="dbTableView" style="overflow-x:auto;max-height:400px;overflow-y:auto;font-size:.75rem;color:var(--text-secondary)"></div>
 </div>`)
 fmt.Fprint(w, `<script>
 function validateDBInput(){var v=parseInt(document.getElementById("dbRowCount").value);document.getElementById("dbWarn").style.display=(isNaN(v)||v<1||v>80)?"inline":"none";}
+function updateDeleteBtn(){
+  var t=document.getElementById("dbTableSelect").value;
+  var hasRows = document.getElementById("dbTableView") && document.getElementById("dbTableView").innerHTML.indexOf("No rows")===-1 && document.getElementById("dbTableView").innerHTML.indexOf("Loading")===-1 && document.getElementById("dbTableView").innerHTML.trim()!=="";
+  document.getElementById("dbDeleteBtn").disabled = !t || !hasRows;
+}
+function enableDeleteIfData(){ setTimeout(updateDeleteBtn, 200); }
+function deleteDBRows(){
+  var t=document.getElementById("dbTableSelect").value;
+  if(!t) return;
+  var all = document.getElementById("dbDeleteAll").checked;
+  var n = document.getElementById("dbRowCount").value||5;
+  if(!confirm("Delete "+(all?"ALL rows":"up to "+n+" rows")+" from table "+t+"?")) return;
+  document.getElementById("dbDeleteBtn").disabled = true;
+  fetch("/api/database/delete",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({table:t, rows:all?0:parseInt(n)})})
+  .then(r=>r.json()).then(d=>{
+    if(d.status==="ok"){ loadDBTable(); }
+    else { alert(d.message||d.error||"Delete failed"); document.getElementById("dbDeleteBtn").disabled = false; }
+  }).catch(function(e){ alert("Cannot reach server"); document.getElementById("dbDeleteBtn").disabled = false; });
+}
 function loadDBTable(){
   try{
   var t=document.getElementById("dbTableSelect").value,n=document.getElementById("dbRowCount").value||5,s=document.getElementById("dbSort").value;
@@ -1272,6 +1446,7 @@ function loadDBTable(){
       d.rows.forEach(function(r){h+="<tr>"+r.map(function(v){return"<td>"+v+"</td>";}).join("")+"</tr>";});
     }
     h+="</table>";el.innerHTML=h;
+    enableDeleteIfData();
   }).catch(function(e){el.innerHTML="<div style='color:var(--text-muted);font-size:.8rem;padding:8px'>Cannot load " + t + ": " + e.message + "</div>";});
   }catch(e){console.log("loadDBTable error:",e);}
 }
