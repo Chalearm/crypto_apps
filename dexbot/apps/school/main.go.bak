@@ -1,0 +1,194 @@
+/******************************************************************************
+ * File Name       : main.go
+ * File Path       : apps/school/main.go
+ * Author          : Chalearm Saelim & Gemini
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 2.1.0
+ * Status          : Development
+ * Created Date    : 2026-07-01 19:25:44 (UTC+7)
+ * Modified Date   : 2026-07-22 15:45:00 (UTC+7)
+ *
+ * Description     :
+ *   School Daemon Orchestrator. Managed as a background daemon via daemon_lib.go.
+ *   Integrates with Governance IPC, handles health probes/commands, and
+ *   supervises the GA LSTM Optimizer Python execution pipeline with 
+ *   automatic OOM recovery and zombie worker cleanup.
+ ******************************************************************************/
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"time"
+	"os/signal"
+  "syscall"
+
+	"dexbot/infra"
+)
+func initZombieReaper() {
+    sigChan := make(chan os.Signal, 1)
+    signal.Notify(sigChan, syscall.SIGCHLD)
+    go func() {
+        for range sigChan {
+            // Reap any dead child process non-blockingly
+            for {
+                var status syscall.WaitStatus
+                pid, err := syscall.Wait4(-1, &status, syscall.WNOHANG, nil)
+                if err != nil || pid <= 0 {
+                    break
+                }
+            }
+        }
+    }()
+}
+// ==============================
+// MAIN & CLI ENTRY POINT
+// ==============================
+
+func main() {
+	// 🧟 START ZOMBIE REAPER IMMEDIATELY ON STARTUP
+	initZombieReaper()
+	fs := flag.NewFlagSet("school", flag.ContinueOnError)
+	action := fs.String("action", "start", "Action: start, stop, terminate, status")
+	_ = fs.Parse(os.Args[1:])
+
+	// Handle standard CLI commands via infra/daemon_lib.go (IPC to Governance)
+	if infra.HandleCLI(*action, "school") {
+		return
+	}
+
+	ip := os.Getenv("DAEMON_SCHOOL_IP")
+	if ip == "" {
+		ip = "127.0.0.1"
+	}
+
+	portStr := os.Getenv("DAEMON_SCHOOL_PORT")
+	port := 8082
+	if p, err := strconv.Atoi(portStr); err == nil && p > 0 {
+		port = p
+	}
+
+	// Detach as a daemon and bind UDP IPC loop to Governance via daemon_lib.go
+	infra.RunDaemonApp("school", ip, port, func(ctx context.Context) {
+		infra.Info("🏫 [SCHOOL DAEMON] School Daemon initialized & connected to Governance.")
+
+		// Start supervised GA Python optimizer background loop
+		startGAOptimizerOrchestrator(ctx)
+
+		infra.Info("🏫 [SCHOOL DAEMON] Background jobs cleaned up cleanly.")
+	})
+}
+
+// ==============================
+// GA OPTIMIZER SUPERVISOR
+// ==============================
+
+/*
+Function: startGAOptimizerOrchestrator
+Description:
+  Supervises ga_lstm_optimizer.py execution using the local virtualenv.
+  If the Python process is OOM-Killed by Linux or crashes, it automatically
+  invokes -action=terminate to clean zombie fold workers from /proc, waits 
+  5 seconds, and restarts the evolution pipeline seamlessly.
+*/
+func startGAOptimizerOrchestrator(ctx context.Context) {
+	// 1. Resolve Python Binary (Virtual environment preferred)
+	pyExec := filepath.Join("venv", "bin", "python")
+	if _, err := os.Stat(pyExec); os.IsNotExist(err) {
+		pyExec = filepath.Join("apps", "school", "venv", "bin", "python")
+		if _, err := os.Stat(pyExec); os.IsNotExist(err) {
+			pyExec = "python3" // System fallback
+		}
+	}
+
+	// 2. Resolve Python Script Path
+	scriptPath := "ga_lstm_optimizer.py"
+	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+		scriptPath = filepath.Join("apps", "school", "ga_lstm_optimizer.py")
+		if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+			infra.Error(fmt.Sprintf("❌ [GA ORCHESTRATOR] Script not found: %s", scriptPath))
+			return
+		}
+	}
+
+	infra.Info(fmt.Sprintf("🧬 [GA ORCHESTRATOR] Supervisor active | Python: %s | Script: %s", pyExec, scriptPath))
+
+	// Helper function to sweep zombie multiprocessing workers on crash/stop
+	cleanupZombies := func() {
+		infra.Warn("🧹 [GA ORCHESTRATOR] Executing Linux /proc process sweep...")
+		cleanCmd := exec.Command(pyExec, scriptPath, "-action=terminate")
+		_ = cleanCmd.Run()
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			infra.Info("🏫 [SCHOOL DAEMON] Daemon stopping. Cleaning child processes...")
+			cleanupZombies()
+			return
+		default:
+		}
+
+		infra.Info("🚀 [GA ORCHESTRATOR] Spawning GA LSTM Optimization Pipeline...")
+
+		cmd := exec.CommandContext(ctx, pyExec, scriptPath, "-v")
+		// Create or append to a dedicated Python log file
+		var logFile *os.File
+		logFile, err := os.OpenFile("logs/lstm_engine.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err == nil {
+			cmd.Stdout = logFile
+			cmd.Stderr = logFile
+		} else {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+
+		startTime := time.Now()
+		err = cmd.Run()
+		duration := time.Since(startTime)
+
+		// Explicitly close log file descriptor after each execution pass
+		if logFile != nil {
+			_ = logFile.Close()
+		}
+
+		// Check if shutdown was requested while Python was executing
+		if ctx.Err() != nil {
+			infra.Info("🏫 [SCHOOL DAEMON] Context canceled. Cleaning process tree...")
+			cleanupZombies()
+			return
+		}
+
+		if err != nil {
+			infra.Error(fmt.Sprintf("💥 [GA ORCHESTRATOR] Python engine exited abruptly after %s: %v", duration, err))
+			infra.Warn("🚨 [GA ORCHESTRATOR] Process crash or OOM-Kill detected! Sweeping zombie workers & restarting...")
+			
+			// Clean up orphan child worker processes left behind in /proc
+			cleanupZombies()
+
+			// Brief backoff pause before auto-restart
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(5 * time.Second):
+			}
+		} else {
+			infra.Info(fmt.Sprintf("✅ [GA ORCHESTRATOR] Evolution cycle completed successfully in %s.", duration))
+			infra.Info("⏳ [GA ORCHESTRATOR] Cooldown phase active. Next cycle in 5 minutes...")
+
+			select {
+			case <-ctx.Done():
+				cleanupZombies()
+				return
+			case <-time.After(5 * time.Minute):
+			}
+		}
+	}
+}

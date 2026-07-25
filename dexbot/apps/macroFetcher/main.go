@@ -1,3 +1,19 @@
+/*
+
+./main -asset=bitcoin -ticker=BTC-USD -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -cyclicalTime
+./main -asset=ethereum -ticker=ETH-USD -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -cyclicalTime
+./main -asset=solana -ticker=SOL-USD -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -cyclicalTime
+./main -asset=binance -ticker=BNB-USD -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -cyclicalTime
+./main -asset=uniswap -ticker=UNI7083-USD -start=2022-07-01 -end=2026-06-30 -interval=daily -transformVolume -cyclicalTime
+ 
+# validate
+./main -asset=gold -ticker=GC=F -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -weekend -cyclicalTime
+./main -asset=oil -ticker=BZ=F -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -weekend -cyclicalTime
+./main -asset=spy -ticker=SPY -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -weekend -cyclicalTime
+./main -asset=fed_rate -ticker=^IRX -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -weekend -cyclicalTime
+
+*/
+
 package main
 
 import (

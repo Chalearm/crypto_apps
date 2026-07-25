@@ -65,6 +65,14 @@ import (
 	"strings"
 )
 
+/******************************************************************************
+ * Function Name : handleHelpCommand
+ * Purpose       : Returns the CLI help text describing all governance actions.
+ * Inputs        : args map[string]string (unused)
+ * Return        : string — help text, error — always nil
+ * Error Cases   : none
+ * Number Of Lines : 3
+ ******************************************************************************/
 func handleHelpCommand(args map[string]string) (string, error) {
 	lines := []string{
 		"",
@@ -130,10 +138,26 @@ func handleHelpCommand(args map[string]string) (string, error) {
 	return strings.Join(lines, "\n"), nil
 }
 
+/******************************************************************************
+ * Function Name : handleHelpConfigCommand
+ * Purpose       : Returns configuration variable descriptions via config.Describe().
+ * Inputs        : args map[string]string (unused)
+ * Return        : string — config description, error — always nil
+ * Error Cases   : none
+ * Number Of Lines : 3
+ ******************************************************************************/
 func handleHelpConfigCommand(args map[string]string) (string, error) {
 	return config.Describe(), nil
 }
 
+/******************************************************************************
+ * Function Name : handleHelpConfigVVVCommand
+ * Purpose       : Returns verbose configuration docs via config.DescribeVerbose().
+ * Inputs        : args map[string]string (unused)
+ * Return        : string — verbose config docs, error — always nil
+ * Error Cases   : none
+ * Number Of Lines : 3
+ ******************************************************************************/
 func handleHelpConfigVVVCommand(args map[string]string) (string, error) {
 	return config.DescribeVerbose(), nil
 }

@@ -118,6 +118,9 @@ type PortfolioReport struct {
  *   Time  : O(N) where N is string length.
  *   Space : O(N)
  *
+ * Error Cases :
+ *   - None (always returns formatted string).
+ *
  * Number Of Lines :
  *   30
  ******************************************************************************/
@@ -168,6 +171,9 @@ func formatSpacedNumber(valStr string) string {
  *   Type        : string
  *   Description : Formatted spaced string.
  *
+ * Error Cases :
+ *   - None.
+ *
  * Number Of Lines :
  *   5
  ******************************************************************************/
@@ -188,6 +194,9 @@ func formatFloatSpaced(val float64, decimals int) string {
  * Return :
  *   Type        : float64
  *   Description : Live price or fallback if network fails.
+ *
+ * Error Cases :
+ *   - Network failure returns fallback price.
  *
  * Number Of Lines :
  *   20
@@ -236,6 +245,9 @@ func FetchLiveBTCPrice() float64 {
  *   Type        : string
  *   Description : Hex-encoded SHA256 hash.
  *
+ * Error Cases :
+ *   - None (always returns valid hex).
+ *
  * Number Of Lines :
  *   12
  ******************************************************************************/
@@ -264,6 +276,10 @@ func deriveAccountHash(privateKey string) string {
  * Return :
  *   Type        : *PortfolioReport, error
  *   Description : Structured data model containing all dynamic balances.
+ *
+ * Error Cases :
+ *   - DB query errors return error message.
+ *   - Chain not found skipped gracefully.
  *
  * Number Of Lines :
  *   95
@@ -383,6 +399,9 @@ func GetBalanceReport(privateKey string) (*PortfolioReport, error) {
  *
  * Return :
  *   None
+ *
+ * Error Cases :
+ *   - Daemon not running: error logged.
  *
  * Number Of Lines :
  *   35

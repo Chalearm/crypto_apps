@@ -164,18 +164,26 @@ func HandleHelp() {
  *   72
  ******************************************************************************/
 func parseAndRouteFlags() {
-	actionFlag := flag.String("action", "", "Action to perform")
-	privateKeyFlag := flag.String("private-key", "", "Metamask private key")
-	accountFlag := flag.String("account", "", "Account SHA256 string")
-	chainNameFlag := flag.String("chain-name", "", "Name of the blockchain")
-	chainURLFlag := flag.String("chain-url-based", "", "RPC URL for the chain")
-	chainIDFlag := flag.String("chain-id", "", "Numeric Chain ID")
-	tokenNameFlag := flag.String("token-name", "", "Token Ticker")
-	tokenAddrFlag := flag.String("token-address", "", "Token Contract Address")
+ 
+/*
 
-	flag.Parse()
+    flagAction     = flag.String("action", "", "Action to perform")
+    flagPrivateKey = flag.String("private-key", "", "Metamask private key")
+    flagAccount    = flag.String("account", "", "Account SHA256 string")
+    flagChainName  = flag.String("chain-name", "", "Name of the blockchain")
+    flagChainURL   = flag.String("chain-url-based", "", "RPC URL for the chain")
+    flagChainID    = flag.String("chain-id", "", "Numeric Chain ID")
+    flagTokenName  = flag.String("token-name", "", "Token Ticker")
+    flagTokenAddr  = flag.String("token-address", "", "Token Contract Address")
+*/
 
-	switch *actionFlag {
+
+	if !flag.Parsed() {
+		flag.Parse()
+	}
+ 
+	// 3. Route & Validate Based on Action
+	switch *flagAction {
 	case "help":
 		HandleHelp()
 	case "start":
@@ -187,43 +195,43 @@ func parseAndRouteFlags() {
 		infra.Info("Terminating Daemon...")
 		HandleDaemonTerminate()
 	case "view-balance":
-		if *privateKeyFlag == "" {
+		if *flagPrivateKey == "" {
 			infra.Error("Missing -private-key flag for view-balance")
 			os.Exit(1)
 		}
-		ViewBalance(*privateKeyFlag)
+		ViewBalance(*flagPrivateKey)
 	case "add-chain":
-		if *accountFlag == "" || *chainNameFlag == "" || *chainURLFlag == "" || *chainIDFlag == "" {
+		if *flagAccount == "" || *flagChainName == "" || *flagChainURL == "" || *flagChainID == "" {
 			infra.Error("Missing flags for add-chain")
 			os.Exit(1)
 		}
-		AddChainToAccount(*accountFlag, *chainNameFlag, *chainURLFlag, *chainIDFlag)
+		AddChainToAccount(*flagAccount, *flagChainName, *flagChainURL, *flagChainID)
 	case "add-token":
-		if *accountFlag == "" || *chainIDFlag == "" || *tokenNameFlag == "" || *tokenAddrFlag == "" {
+		if *flagAccount == "" || *flagChainID == "" || *flagTokenName == "" || *flagTokenAddr == "" {
 			infra.Error("Missing flags for add-token")
 			os.Exit(1)
 		}
-		AddTokenToAccount(*accountFlag, *chainIDFlag, *tokenNameFlag, *tokenAddrFlag)
+		AddTokenToAccount(*flagAccount, *flagChainID, *flagTokenName, *flagTokenAddr)
 	case "delete-account":
-		if *accountFlag == "" {
+		if *flagAccount == "" {
 			infra.Error("Missing -account flag for delete-account")
 			os.Exit(1)
 		}
-		HandleDeleteAccount(*accountFlag)
+		HandleDeleteAccount(*flagAccount)
 	case "delete-chain":
-		if *accountFlag == "" || *chainIDFlag == "" {
+		if *flagAccount == "" || *flagChainID == "" {
 			infra.Error("Missing -account or -chain-id for delete-chain")
 			os.Exit(1)
 		}
-		HandleDeleteChain(*accountFlag, *chainIDFlag)
+		HandleDeleteChain(*flagAccount, *flagChainID)
 	case "delete-token":
-		if *accountFlag == "" || *chainIDFlag == "" || *tokenNameFlag == "" {
+		if *flagAccount == "" || *flagChainID == "" || *flagTokenName == "" {
 			infra.Error("Missing flags for delete-token")
 			os.Exit(1)
 		}
-		HandleDeleteToken(*accountFlag, *chainIDFlag, *tokenNameFlag)
+		HandleDeleteToken(*flagAccount, *flagChainID, *flagTokenName)
 	default:
-		infra.Warn("Unknown or malformed action: " + *actionFlag)
+		infra.Warn("Unknown or malformed action: " + *flagAccount)
 		HandleHelp()
 	}
 }

@@ -1,0 +1,31 @@
+export REDIS_URL="redis://<MASTER_IP>:6379/0"
+
+# Now standard commands work seamlessly:
+./school -action=create-work -num=3
+./school -action=status
+
+
+
+
+
+# 1. Ensure python3-venv is installed (if on Debian/Ubuntu system)
+apt-get update && apt-get install -y python3-venv python3-pip redis-tools
+
+# 2. Create virtual environment
+python3 -m venv venv
+
+# 3. Activate virtual environment
+source venv/bin/activate
+
+# 4. Upgrade pip
+pip install --upgrade pip
+
+
+pip install \
+    tensorflow \
+    celery \
+    redis \
+    pandas \
+    numpy \
+    scikit-learn \
+    matplotlib

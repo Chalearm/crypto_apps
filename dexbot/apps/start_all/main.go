@@ -147,6 +147,8 @@ func main() {
 		{Name: "school", Path: "./apps/school", Args: nil, Enabled: singleMode},
 		{Name: "trading", Path: "./apps/trading", Args: nil, Enabled: true},
 		{Name: "testdaemon", Path: "./testdaemon", Args: []string{"-action=start"}, Enabled: true},
+		{Name: "a", Path: "./apps/a", Args: nil, Enabled: true},
+		{Name: "balance", Path: "./apps/balance", Args: []string{"-action=start"}, Enabled: true},
 	}
 
 	// In distributed mode on worker2: override — only school runs

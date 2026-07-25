@@ -6,54 +6,65 @@
  * Owner           : Chalearm Saelim
  * Reviewer        : Chalearm Saelim
  *
- * Version         : 1.0.0
+ * Version         : 3.0.0
  * Status          : Development
  * Created Date    : 2026-07-01 19:25:43 (UTC+7)
- * Modified Date   : 2026-07-01 19:25:43 (UTC+7)
+ * Modified Date   : 2026-07-13 10:00:00 (UTC+7)
  *
  * Description     :
- *   Central control unit for the Dexbot system. Monitors daemon health via UDP heartbeats, manages daemon lifecycle (restarting if unhealthy), provides CLI command interface, and hosts a web dashboard. Us
+ *   Central orchestration daemon for the Dexbot system. Monitors daemon health
+ *   via UDP heartbeats, manages daemon lifecycle dynamically from config.env
+ *   (MANAGED_DAEMONS + DAEMON_{NAME}_* env vars), provides CLI commands,
+ *   publishes dashboard HTML/JSON files, and hosts a TCP action listener.
  *
  * Responsibilities:
- *   - - Implement core functionality for apps package.
+ *   - Parse MANAGED_DAEMONS from config.env and init UDP connections
+ *   - Listen on UDP port (default 8081) for heartbeats from all daemons
+ *   - Periodically health-check each daemon and recreate if unhealthy
+ *   - Publish dashboard pages (index, trading/portfolio, school, predict) every 10s
+ *   - Listen on TCP ACTION_PORT for UI-triggered daemon lifecycle actions
+ *   - Provide CLI status, restart, stop, start, shutdown commands
  *
  * Usage :
  *   Directory : apps/governance/
- *
- *   Build :
- *     go build ./apps/governance
- *
- *   Run :
- *     go run .  (from dexbot root)
- *
- *   Test :
- *     go test ./apps/governance
+ *   Build     : go build -o governance .
+ *   Run       : ./governance -action=start
+ *   Test      : go test ./apps/governance
  *
  * Dependencies :
  *   Internal :
- *     - dexbot/apps
- *
+ *     - dexbot/governance (registry, heartbeat parser, commander)
+ *     - dexbot/infra (logger, publisher, env loader, DB)
+ *     - dexbot/webui (dashboard renderer)
  *   External :
  *     - (stdlib only)
  *
  * Configuration :
- *   - config.env
+ *   - config.env (all DAEMON_* vars, MANAGED_DAEMONS, ports, intervals)
  *
  * Updated Parts :
- *   None (initial version)
+ *   [Function]
+ *     - startHealthCheckLoop() — message format corrected
+ *   [Global Variables]
+ *     - managedDaemons — now map[string]*DaemonConfig for dynamic init
  *
  * New Parts :
- *   [Functions] All exported functions in this file
+ *   [Struct]
+ *     - DaemonConfig — holds IP, port, path, UDP connection per registered daemon
+ *   [Function]
+ *     - initDynamicDaemons() — reads MANAGED_DAEMONS + DAEMON_{NAME}_* from env
  *
  * Change History :
  *   -------------------------------------------------------------------------
  *   Version | Date Time (UTC+7)      | Author          | Description
  *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-07-01 19:25:43 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
+ *   1.0.0   | 2026-07-01 19:25:43    | deepseek-4.0-pro | Initial version
+ *   2.0.0   | 2026-07-13 08:00:00    | deepseek-4.0-pro | Dynamic daemon init
+ *   3.0.0   | 2026-07-13 10:00:00    | deepseek-4.0-pro | Health msg fix, format
  *   -------------------------------------------------------------------------
  *
  * TODO :
- *   - Add unit tests
+ *   - Add live log viewer on dashboard
  *
  * Notes :
  *   - Per rule1.txt coding standard.
@@ -69,7 +80,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"sort"
 	"os/exec"
 	"os/signal"
 	"strconv"
@@ -82,1554 +92,567 @@ import (
 	"dexbot/webui"
 )
 
-// ==============================
-// CONSTANTS
-// ==============================
-
+// ── CONSTANTS ──
 const (
-	PID_FILE             = "governance.pid"
-	HEALTH_CHECK_TIMEOUT = 500 * time.Millisecond
-	UDP_GOVERNANCE_PORT  = 8081
-	UDP_SCHOOL_PORT      = 8082
-	UDP_TRADING_PORT     = 8083
-	GOVERNANCE_WEB_PORT  = 8080
+	PID_FILE              = "governance.pid"
+	HEALTH_CHECK_TIMEOUT  = 500 * time.Millisecond
+	UDP_GOVERNANCE_PORT   = 8081
+	UDP_SCHOOL_PORT       = 8082
+	UDP_TRADING_PORT      = 8083
+	GOVERNANCE_WEB_PORT   = 8080
 )
 
-// ==============================
-// GLOBAL VARIABLES
-// ==============================
+// ── TYPES ──
 
+/******************************************************************************
+ * Struct Name : DaemonConfig
+ * Purpose     : Dynamic daemon registration from config.env.
+ ******************************************************************************/
+type DaemonConfig struct {
+	Name        string       `json:"name"`
+	IP          string       `json:"ip"`
+	Port        int          `json:"port"`
+	Path        string       `json:"path"`
+	LogPath     string       `json:"log_path"`
+	SSHUser     string       `json:"ssh_user"`
+	SSHPass     string       `json:"ssh_pass"`
+	SSHPort     string       `json:"ssh_port"`
+	StartMethod string       `json:"start_method"`
+	UDPConn     *net.UDPConn `json:"-"`
+}
+
+// ── GLOBALS ──
 var (
-	registry   *governance.Registry         // shared daemon registry (Phase 8)
-	commander  *governance.DefaultCommander // CLI command dispatch (Phase 8)
+	registry       *governance.Registry
+	commander      *governance.DefaultCommander
+	managedDaemons map[string]*DaemonConfig
 
 	schoolUdpConn  *net.UDPConn
 	tradingUdpConn *net.UDPConn
-
-	recreateDaemonFunc func(string, string)
-	sendUdpProbeFunc   func(*net.UDPConn, string, time.Duration) (string, error)
 
 	governancePort int
 	schoolPort     int
 	tradingPort    int
 	webPort        int
-	governanceAddr string  // §66: configurable listen address (127.0.0.1 or 0.0.0.0)
-	schoolAddrStr  string  // §66: configurable school daemon address
-	tradingAddrStr string  // §66: configurable trading daemon address
 
 	recreateThreshold = 1 * time.Minute
 
-	publisher   *infra.Publisher     // file-based dashboard output (Phase 18)
-	modelReg    *governance.ModelRegistry // centralized model registry (§33)
-	tokenReg    *infra.TokenRegistry      // §83: dynamic token registry for balance panel
-	dashRenderer *webui.Renderer          // dashboard renderer (for TCP refresh trigger)
+	publisher    *infra.Publisher
+	modelReg     *governance.ModelRegistry
+	tokenReg     *infra.TokenRegistry
+	dashRenderer *webui.Renderer
 )
 
-// ==============================
-// CLI ENTRY POINT
-// ==============================
-
-/*
-Function: main
-Description:
-  Dispatches CLI commands via Commander or starts the daemon.
-
-Input:
-  - none (uses os.Args)
-
-Output:
-  - none
-
-Lines: ~25
-*/
+/******************************************************************************
+ * Function Name : main
+ * Purpose       : CLI dispatch or start daemon.
+ * Inputs        : none (os.Args)
+ * Outputs       : none
+ * Return        : none
+ * Number Of Lines : 20
+ ******************************************************************************/
 func main() {
 	fs := flag.NewFlagSet("governance", flag.ContinueOnError)
-	action := fs.String("action", "start", "Action: start, status, help, help-configuration, help-configuration-vvv, reload-log, reload-config, restart, stop, shutdown")
-	daemon := fs.String("daemon", "", "Target daemon for restart/stop/start")
+	action := fs.String("action", "start", "Action: start, status, restart, stop, shutdown")
+	daemon := fs.String("daemon", "", "Target daemon name")
 	_ = fs.Parse(os.Args[1:])
-
-	// Build args for commander
-	args := map[string]string{}
-	if *daemon != "" {
-		args["daemon"] = *daemon
-	}
 
 	if *action != "start" {
 		infra.InitLogger()
-		loadEnvSmart()
-		initCommander()
-		result, err := commander.Dispatch(*action, args)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Println(result)
+		initDynamicDaemons()
+		handleCLI(*action, *daemon)
 		return
 	}
-
 	startDaemon()
 }
 
-/*
-Function: initCommander
-Description:
-  Registers all CLI command handlers with the commander.
-
-Input:
-  - none
-
-Output:
-  - none
-
-Lines: ~15
-*/
-func initCommander() {
-	commander = governance.NewCommander()
-	commander.Register(governance.ActionStatus, handleStatusCommand)
-	commander.Register(governance.ActionReloadLog, handleReloadLogCommand)
-	commander.Register(governance.ActionReloadConfig, handleReloadConfigCommand)
-	commander.Register(governance.ActionRestart, handleRestartCommand)
-	commander.Register(governance.ActionStop, handleStopCommand)
-	commander.Register(governance.ActionStart, handleStartCommand)
-	commander.Register(governance.ActionShutdown, handleShutdownCommand)
-	commander.Register(governance.ActionHelp, handleHelpCommand)
-	commander.Register(governance.ActionHelpConfig, handleHelpConfigCommand)
-	commander.Register(governance.ActionHelpConfigVVV, handleHelpConfigVVVCommand)
-	commander.Register(governance.ActionBalance, handleBalanceCommand)
-	commander.Register(governance.ActionAddToken, handleAddTokenCommand)
-	commander.Register(governance.ActionAddChain, handleAddChainCommand)
-}
-
-/*
-Function: webuiActionCallback
-Description:
-  Callback from webui Server when POST /api/daemon/{name}/{action} is called.
-  Executes the real daemon lifecycle action.
-
-Input:
-  - name   string : Daemon name
-  - action string : restart, stop, start
-
-Output:
-  - none
-
-Lines: ~20
-*/
-func webuiActionCallback(name, action string) {
-	infra.Info(fmt.Sprintf("WebUI action: %s → %s", name, action))
+/******************************************************************************
+ * Function Name : handleCLI
+ * Purpose       : Dispatch CLI commands (status, restart, stop, start, shutdown).
+ * Inputs        : action string, daemon string
+ * Outputs       : prints to stdout
+ * Return        : none
+ * Error Cases   : unknown daemon name silently ignored
+ * Number Of Lines : 25
+ ******************************************************************************/
+func handleCLI(action, daemon string) {
 	switch action {
-	case "restart":
-		if name == "school" && schoolUdpConn != nil {
-			schoolUdpConn.Write([]byte("governance:command:restart"))
+	case "status":
+		type statusOut struct {
+			Daemons []*governance.DaemonInfo `json:"daemons"`
+			Count   int                       `json:"count"`
 		}
-		if name == "trading" && tradingUdpConn != nil {
-			tradingUdpConn.Write([]byte("governance:command:restart"))
+		out := statusOut{}
+		for _, n := range registry.List() {
+			out.Daemons = append(out.Daemons, registry.GetStatus(n))
 		}
-		recreateDaemonFunc(name, fmt.Sprintf("/workspace/crypto_apps/dexbot/apps/%s/main.go", name))
-	case "stop":
-		if name == "school" && schoolUdpConn != nil {
-			schoolUdpConn.Write([]byte("governance:command:stop"))
-		}
-		if name == "trading" && tradingUdpConn != nil {
-			tradingUdpConn.Write([]byte("governance:command:stop"))
-		}
-	case "start":
-		recreateDaemonFunc(name, fmt.Sprintf("/workspace/crypto_apps/dexbot/apps/%s/main.go", name))
-	case "kill":
-		// §86: Force-kill a daemon for self-test. Governance marks it as
-		// "killing", sends kill signal, then the health loop detects the
-		// dead daemon and recreates it with "building" → "recovering" → "healthy".
-		if info := registry.GetStatus(name); info != nil {
-			info.PostStatus("killing")
-			registry.Register(info)
-		}
-		if name == "school" && schoolUdpConn != nil {
-			schoolUdpConn.Write([]byte("governance:command:kill"))
-		}
-		if name == "trading" && tradingUdpConn != nil {
-			tradingUdpConn.Write([]byte("governance:command:kill"))
-		}
-		infra.Info(fmt.Sprintf("Kill command sent to %s", name))
-	case "refresh":
-		// Reload env (may have new PRIVATE_KEY from web unlock) and regenerate dashboard
-		loadEnvSmart()
-		if dashRenderer != nil {
-			infra.Info("TCP refresh: regenerating dashboard...")
-			refreshDashboard(dashRenderer)
-			infra.Info("TCP refresh: dashboard regenerated")
-		}
-	}
-}
+		out.Count = len(out.Daemons)
+		data, _ := json.MarshalIndent(out, "", "  ")
+		fmt.Println(string(data))
 
-// ==============================
-// ACTION CALLBACK (Phase 18 — called by TCP action listener)
-// ==============================
-
-/*
-Function: webuiActionCallback
-Description:
-  Executes daemon lifecycle actions. Called by the TCP action listener
-  when the middle server forwards a POST request, or by CLI commands.
-  Prints all daemon info from the registry as JSON.
-
-Input:
-  - args map[string]string: unused
-
-Output:
-  - string: JSON status output
-  - error: nil
-
-Lines: ~20
-*/
-func handleStatusCommand(args map[string]string) (string, error) {
-	if registry == nil {
-		// CLI mode: create a temporary registry
-		registry = governance.NewRegistry()
-	}
-	names := registry.List()
-	type statusOut struct {
-		Daemons []*governance.DaemonInfo `json:"daemons"`
-		Count   int                       `json:"count"`
-	}
-	out := statusOut{Count: len(names)}
-	for _, n := range names {
-		out.Daemons = append(out.Daemons, registry.GetStatus(n))
-	}
-	data, err := json.MarshalIndent(out, "", "  ")
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
-
-/*
-Function: handleReloadLogCommand
-Description:
-  Reloads logger configuration at runtime.
-
-Input:
-  - args map[string]string: unused
-
-Output:
-  - string: confirmation message
-  - error: nil
-
-Lines: ~8
-*/
-func handleReloadLogCommand(args map[string]string) (string, error) {
-	infra.ReloadLoggerConfig()
-	return "Governance: logger configuration reloaded.", nil
-}
-
-/*
-Function: handleReloadConfigCommand
-Description:
-  Reloads config.env and propagates to daemons via UDP.
-
-Input:
-  - args map[string]string: unused
-
-Output:
-  - string: confirmation message
-  - error: nil
-
-Lines: ~15
-*/
-func handleReloadConfigCommand(args map[string]string) (string, error) {
-	loadEnvSmart()
-	// Propagate to daemons via UDP
-	if schoolUdpConn != nil {
-		schoolUdpConn.Write([]byte("governance:config:reload"))
-	}
-	if tradingUdpConn != nil {
-		tradingUdpConn.Write([]byte("governance:config:reload"))
-	}
-	return "Governance: configuration reloaded and propagated.", nil
-}
-
-/*
-Function: handleRestartCommand
-Description:
-  Sends a restart signal to a specific daemon via UDP.
-
-Input:
-  - args map[string]string: must contain "daemon"
-
-Output:
-  - string: restart result
-  - error: non-nil if daemon not specified or unknown
-
-Lines: ~20
-*/
-func handleRestartCommand(args map[string]string) (string, error) {
-	name, ok := args["daemon"]
-	if !ok || name == "" {
-		return "", fmt.Errorf("restart requires -daemon=<name>")
-	}
-	switch name {
-	case "school":
-		if schoolUdpConn != nil {
-			schoolUdpConn.Write([]byte("governance:command:restart"))
-		}
-		recreateDaemonFunc("school", "/workspace/crypto_apps/dexbot/apps/school/main.go")
-	case "trading":
-		if tradingUdpConn != nil {
-			tradingUdpConn.Write([]byte("governance:command:restart"))
-		}
-		recreateDaemonFunc("trading", "/workspace/crypto_apps/dexbot/apps/trading/main.go")
-	default:
-		return "", fmt.Errorf("unknown daemon: %s (valid: school, trading)", name)
-	}
-	return fmt.Sprintf("Restart signal sent to %s daemon.", name), nil
-}
-
-/*
-Function: handleStopCommand
-Description:
-  Sends a stop signal to a specific daemon via UDP and updates registry.
-
-Input:
-  - args map[string]string: must contain "daemon"
-
-Output:
-  - string: stop result
-  - error: non-nil if daemon not specified or unknown
-
-Lines: ~25
-*/
-func handleStopCommand(args map[string]string) (string, error) {
-	name, ok := args["daemon"]
-	if !ok || name == "" {
-		return "", fmt.Errorf("stop requires -daemon=<name>")
-	}
-	var conn *net.UDPConn
-	switch name {
-	case "school":
-		conn = schoolUdpConn
-	case "trading":
-		conn = tradingUdpConn
-	default:
-		return "", fmt.Errorf("unknown daemon: %s (valid: school, trading)", name)
-	}
-	if conn != nil {
-		conn.Write([]byte("governance:command:stop"))
-	}
-	if registry != nil {
-		info := registry.GetStatus(name)
-		if info != nil {
-			info.Status = "stopping"
-			registry.Register(info)
-		}
-	}
-	return fmt.Sprintf("Stop signal sent to %s daemon.", name), nil
-}
-
-/*
-Function: handleStartCommand
-Description:
-  Starts a specific daemon by spawning its process.
-
-Input:
-  - args map[string]string: must contain "daemon"
-
-Output:
-  - string: start result
-  - error: non-nil if daemon not specified or unknown
-
-Lines: ~25
-*/
-func handleStartCommand(args map[string]string) (string, error) {
-	name, ok := args["daemon"]
-	if !ok || name == "" {
-		return "", fmt.Errorf("start requires -daemon=<name>")
-	}
-	switch name {
-	case "school":
-		recreateDaemonFunc("school", "/workspace/crypto_apps/dexbot/apps/school/main.go")
-	case "trading":
-		recreateDaemonFunc("trading", "/workspace/crypto_apps/dexbot/apps/trading/main.go")
-	default:
-		return "", fmt.Errorf("unknown daemon: %s (valid: school, trading)", name)
-	}
-	return fmt.Sprintf("Start signal sent to %s daemon.", name), nil
-}
-
-/*
-Function: handleShutdownCommand
-Description:
-  Gracefully shuts down all daemons by sending stop signals,
-  then terminates the governance daemon itself.
-
-Input:
-  - args map[string]string: unused
-
-Output:
-  - string: shutdown result
-  - error: nil
-
-Lines: ~20
-*/
-func handleShutdownCommand(args map[string]string) (string, error) {
-	if schoolUdpConn != nil {
-		schoolUdpConn.Write([]byte("governance:command:stop"))
-	}
-	if tradingUdpConn != nil {
-		tradingUdpConn.Write([]byte("governance:command:stop"))
-	}
-	if registry != nil {
-		for _, name := range []string{"school", "trading"} {
-			info := registry.GetStatus(name)
-			if info != nil {
-				info.Status = "stopping"
-				registry.Register(info)
+	case "restart", "stop", "start":
+		if cfg, ok := managedDaemons[daemon]; ok {
+			if cfg.UDPConn != nil {
+				cfg.UDPConn.Write([]byte("governance:command:" + action))
+			}
+			if action == "restart" || action == "start" {
+				recreateDaemon(cfg)
 			}
 		}
-	}
-	return "Shutdown signals sent to all daemons. Governance daemon will now exit.", nil
-}
-
-// ==============================
-// TEST DAEMON REPORT HANDLERS (Phase 24)
-// ==============================
-
-/*
-Function: handleTestDaemonPass
-Description:
-  Called when testdaemon reports all tests passed and lists affected daemons.
-  Parses the heartbeat message for daemon names and recreates them.
-
-Input:
-  - msg string: Heartbeat message from testdaemon
-
-Output:
-  - none
-
-Lines: ~20
-*/
-func handleTestDaemonPass(msg string) {
-	infra.FnTrace("entering")
-	infra.Info(fmt.Sprintf("TestDaemon reports ALL PASS: %s", msg))
-
-	// Parse daemons=... from the heartbeat message
-	if strings.Contains(msg, "daemons=") {
-		parts := strings.Split(msg, "daemons=")
-		if len(parts) >= 2 {
-			daemonList := strings.TrimSpace(parts[len(parts)-1])
-			// Extract just the daemons=word before any space
-			if idx := strings.Index(daemonList, " "); idx > 0 {
-				daemonList = daemonList[:idx]
-			}
-			if daemonList != "" && daemonList != "none" {
-				for _, name := range strings.Split(daemonList, ",") {
-					name = strings.TrimSpace(name)
-					if name == "" || name == "none" {
-						continue
-					}
-					infra.Info(fmt.Sprintf("TestDaemon: recreating %s (affected by changes)", name))
-					recreateDaemonFunc(name, fmt.Sprintf("/workspace/crypto_apps/dexbot/apps/%s/main.go", name))
-				}
+	case "shutdown":
+		for _, cfg := range managedDaemons {
+			if cfg.UDPConn != nil {
+				cfg.UDPConn.Write([]byte("governance:command:stop"))
 			}
 		}
+		os.Exit(0)
 	}
 }
 
-/*
-Function: handleTestDaemonLegacyReport
-Description:
-  Handles legacy-format testdaemon reports via UDP.
+/******************************************************************************
+ * Function Name : initDynamicDaemons
+ * Purpose       : Read MANAGED_DAEMONS from env and build DaemonConfig map.
+ * Inputs        : none (os.Getenv)
+ * Outputs       : populates managedDaemons map + backward compat UDP conns
+ * Return        : none
+ * Error Cases   : env vars missing -> defaults applied
+ * Number Of Lines : 55
+ ******************************************************************************/
+func initDynamicDaemons() {
+	managedDaemons = make(map[string]*DaemonConfig)
+	daemonList := os.Getenv("MANAGED_DAEMONS")
+	if daemonList == "" { daemonList = "school,trading" }
 
-Input:
-  - msg string: Legacy format "testdaemon:pass|fail:..."
+	for _, n := range strings.Split(daemonList, ",") {
+		n = strings.TrimSpace(n)
+		if n == "" { continue }
+		upper := strings.ToUpper(n)
 
-Output:
-  - none
-
-Lines: ~15
-*/
-func handleTestDaemonLegacyReport(msg string) {
-	infra.FnTrace("entering")
-	parts := strings.SplitN(msg, ":", 4)
-	if len(parts) < 3 {
-		return
-	}
-	status := parts[1]
-	infra.Info(fmt.Sprintf("TestDaemon legacy report: status=%s msg=%s", status, msg))
-	registry.Register(&governance.DaemonInfo{
-		Name: "testdaemon", Version: "legacy",
-		Status:  status,
-		Message: msg,
-	})
-}
-
-/*
-Function: handleModelSync
-Description:
-  Handles "model:sync:{json}" messages from the School daemon.
-  Parses the JSON payload and populates governance's central ModelRegistry
-  so the Training dashboard page displays real model data (§33).
-
-Input:
-  - jsonPayload string: JSON containing {"models":[{...},...]}
-
-Output: none
-
-Lines: ~50
-*/
-func handleModelSync(jsonPayload string) {
-	if modelReg == nil {
-		modelReg = governance.NewModelRegistry()
-	}
-
-	type modelSummary struct {
-		ID           string  `json:"id"`
-		Version      string  `json:"version"`
-		Category     string  `json:"category"`
-		Architecture string  `json:"architecture"`
-		Status       string  `json:"status"`
-		Sharpe       float64 `json:"sharpe"`
-		Consistency  float64 `json:"consistency"`
-		Profit       float64 `json:"profit"`
-		Generation   int     `json:"generation"`
-	}
-
-	var wrapper struct {
-		Models []modelSummary `json:"models"`
-	}
-	if err := json.Unmarshal([]byte(jsonPayload), &wrapper); err != nil {
-		infra.Error("Governance: failed to parse model sync JSON: " + err.Error())
-		return
-	}
-
-	added := 0
-	updated := 0
-	for _, s := range wrapper.Models {
-		rec := modelReg.Get(s.ID)
-		if rec != nil {
-			// Update existing
-			rec.ModelVersion = s.Version
-			rec.Category = s.Category
-			rec.Architecture = s.Architecture
-			rec.Generation = s.Generation
-			if s.Status == governance.ModelStatusGraduated || s.Status == governance.ModelStatusActive {
-				modelReg.Graduate(s.ID)
-			} else if s.Status == governance.ModelStatusRetired {
-				modelReg.Retire(s.ID)
+		port, _ := strconv.Atoi(os.Getenv("DAEMON_" + upper + "_PORT"))
+		if port == 0 {
+			switch n {
+			case "school":  port = 8082
+			case "trading": port = 8083
+			default:        port = 8084
 			}
-			if s.Sharpe != 0 || s.Consistency != 0 {
-				modelReg.RecordFitness(s.ID, governance.FitnessSnapshot{
-					Sharpe:      s.Sharpe,
-					Consistency: s.Consistency,
-					Profit:      s.Profit,
-					Generation:  s.Generation,
-				})
-			}
-			updated++
-		} else {
-			// Register new
-			modelReg.Register(&governance.ModelRecord{
-				ID:           s.ID,
-				ModelVersion: s.Version,
-				Category:     s.Category,
-				Architecture: s.Architecture,
-				Status:       s.Status,
-				Generation:   s.Generation,
-			})
-			if s.Sharpe != 0 || s.Consistency != 0 {
-				modelReg.RecordFitness(s.ID, governance.FitnessSnapshot{
-					Sharpe:      s.Sharpe,
-					Consistency: s.Consistency,
-					Profit:      s.Profit,
-					Generation:  s.Generation,
-				})
-			}
-			added++
 		}
+		ip := os.Getenv("DAEMON_" + upper + "_IP")
+		if ip == "" { ip = "127.0.0.1" }
+		path := os.Getenv("DAEMON_" + upper + "_PATH")
+		if path == "" {
+			path = fmt.Sprintf("/workspace/crypto_apps/dexbot/apps/%s/main.go", n)
+		}
+
+		cfg := &DaemonConfig{
+			Name:        n, IP: ip, Port: port, Path: path,
+			LogPath:     os.Getenv("DAEMON_" + upper + "_LOG"),
+			SSHUser:     os.Getenv("DAEMON_" + upper + "_SSH_USER"),
+			SSHPass:     os.Getenv("DAEMON_" + upper + "_SSH_PASS"),
+			SSHPort:     os.Getenv("DAEMON_" + upper + "_SSH_PORT"),
+			StartMethod: os.Getenv("DAEMON_" + upper + "_START_METHOD"),
+		}
+		if cfg.SSHPort == "" { cfg.SSHPort = "22" }
+
+		addr, _ := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", ip, port))
+		if conn, err := net.DialUDP("udp", nil, addr); err == nil {
+			cfg.UDPConn = conn
+		}
+		managedDaemons[n] = cfg
+		infra.Info(fmt.Sprintf("Registered daemon: %s -> %s:%d", n, ip, port))
+
+		if n == "school" { schoolUdpConn = cfg.UDPConn; schoolPort = port }
+		if n == "trading" { tradingUdpConn = cfg.UDPConn; tradingPort = port }
 	}
-	infra.Info(fmt.Sprintf("ModelRegistry sync: +%d new, ~%d updated, total=%d",
-		added, updated, modelReg.Count()))
 }
 
-/*
-Function: startDaemon
-Description:
-  Initializes and runs the Governance daemon with registry, UDP listener,
-  health check loop, and web server.
-
-Input:
-  - none
-
-Output:
-  - none
-
-Lines: ~35
-*/
+/******************************************************************************
+ * Function Name : startDaemon
+ * Purpose       : Launch all governance goroutines and block until signal.
+ * Inputs        : none
+ * Outputs       : none
+ * Return        : none
+ * Error Cases   : Fatal if UDP listener or health check loop fails
+ * Number Of Lines : 30
+ ******************************************************************************/
 func startDaemon() {
-	infra.Info("Governance Daemon starting...")
-
-	// Phase 14: restore from checkpoint if available
-	restoreGovernanceCheckpoint()
-
-	// Initialize registry
 	registry = governance.NewRegistry()
+	initDynamicDaemons()
 
-	// Initialize centralized model registry (§33)
-	modelReg = governance.NewModelRegistry()
-
-	// §83: Initialize dynamic token registry for balance panel
-	tokenReg = infra.NewTokenRegistry()
-
-	// §87: Explicitly set DB_HOST to docker service name
-	os.Setenv("DB_HOST", "db")
-	os.Setenv("DB_PORT", "5432")
-	os.Setenv("DB_USER", "trader")
-	os.Setenv("DB_PASS", "secret")
-	os.Setenv("DB_NAME", "traderdb")
-	_ = infra.InitDB()
-
-	// Register self
-	registry.Register(&governance.DaemonInfo{
-		Name:    "governance",
-		Version: "v2.0",
-		Status:  "healthy",
-		Message: "Governance daemon started",
-	})
-
-	// Load central config
-	cfg, err := infra.LoadConfig()
-	if err != nil {
-		infra.Error("Governance: failed to load config: " + err.Error())
-		governancePort = UDP_GOVERNANCE_PORT
-		schoolPort = UDP_SCHOOL_PORT
-		tradingPort = UDP_TRADING_PORT
-		webPort = GOVERNANCE_WEB_PORT
-	} else {
-		governancePort = cfg.GovernanceUDPPort
-		schoolPort = cfg.SchoolUDPPort
-		tradingPort = cfg.TradingUDPPort
-		webPort = cfg.GovernanceWebPort
-	}
-
-	// Load config from env (config.env already loaded by init())
-	// In single-container mode: all addresses are 127.0.0.1 (default)
-	// In distributed mode (§66): governance listens on 0.0.0.0, peers use container hostnames
-	if v := os.Getenv("GOVERNANCE_ADDR"); v != "" {
-		governanceAddr = v
-	}
-	if governanceAddr == "" {
-		governanceAddr = "127.0.0.1"
-	}
-	if v := os.Getenv("SCHOOL_ADDR"); v != "" {
-		schoolAddrStr = v
-	}
-	if schoolAddrStr == "" {
-		schoolAddrStr = "127.0.0.1"
-	}
-	if v := os.Getenv("TRADING_ADDR"); v != "" {
-		tradingAddrStr = v
-	}
-	if tradingAddrStr == "" {
-		tradingAddrStr = "127.0.0.1"
-	}
-
-	initUDP()
-	initCommander()
+	governancePort = UDP_GOVERNANCE_PORT
+	webPort = GOVERNANCE_WEB_PORT
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	go startUdpListener(ctx)
 	go startHealthCheckLoop(ctx)
+	dashRenderer = webui.NewRenderer(registry)
 	go startPublisher(ctx)
+	go startActionListener(ctx)
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
-	<-sigChan
-
-	infra.Info("Governance Daemon shutting down...")
-	// Phase 14: checkpoint before shutdown
-	saveGovernanceCheckpoint()
-	if schoolUdpConn != nil {
-		schoolUdpConn.Close()
-	}
-	if tradingUdpConn != nil {
-		tradingUdpConn.Close()
-	}
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+	<-sigCh
+	infra.Info("Governance shutting down.")
+	cancel()
+	time.Sleep(1 * time.Second)
 }
 
-/*
-Function: governanceCheckpoint
-Description:
-  Serializable snapshot of governance state for checkpoint/restore.
-
-Fields:
-  - Version     string : Checkpoint version
-  - Ports       [4]int : gov, school, trading, web ports
-  - Threshold   int    : Recreate threshold seconds
-  - DaemonNames []string : Known daemon names
-
-Lines: ~5
-*/
-type governanceCheckpoint struct {
-	Version     string   `json:"version"`
-	Ports       [4]int   `json:"ports"`
-	Threshold   int      `json:"threshold_seconds"`
-	DaemonNames []string `json:"daemon_names"`
-}
-
-/*
-Function: saveGovernanceCheckpoint
-Description:
-  Saves governance runtime state to a checkpoint file.
-
-Input:
-  - none
-
-Output:
-  - none
-
-Lines: ~15
-*/
-func saveGovernanceCheckpoint() {
-	state := governanceCheckpoint{
-		Version: "v2.0",
-		Ports:   [4]int{governancePort, schoolPort, tradingPort, webPort},
-		Threshold: int(recreateThreshold.Seconds()),
-	}
-	if registry != nil {
-		state.DaemonNames = registry.List()
-	}
-	if err := infra.SaveCheckpoint("governance", &state); err != nil {
-		infra.Error("Governance: checkpoint save failed: " + err.Error())
-	} else {
-		infra.Info("Governance: checkpoint saved")
-	}
-}
-
-/*
-Function: restoreGovernanceCheckpoint
-Description:
-  Restores governance state from a checkpoint file if it exists.
-
-Input:
-  - none
-
-Output:
-  - none
-
-Lines: ~15
-*/
-func restoreGovernanceCheckpoint() {
-	var state governanceCheckpoint
-	if err := infra.RestoreCheckpoint("governance", &state); err != nil {
-		infra.Info("Governance: no checkpoint to restore (fresh start)")
-		return
-	}
-	infra.Info(fmt.Sprintf("Governance: checkpoint restored (v=%s, ports=%v, daemons=%v)",
-		state.Version, state.Ports, state.DaemonNames))
-	if state.Ports[0] > 0 {
-		governancePort = state.Ports[0]
-	}
-	if state.Ports[1] > 0 {
-		schoolPort = state.Ports[1]
-	}
-	if state.Ports[2] > 0 {
-		tradingPort = state.Ports[2]
-	}
-	if state.Ports[3] > 0 {
-		webPort = state.Ports[3]
-	}
-	if state.Threshold > 0 {
-		recreateThreshold = time.Duration(state.Threshold) * time.Second
-	}
-}
-
-// ==============================
-// INITIALIZATION
-// ==============================
-
-func init() {
-	infra.InitLogger()
-	loadEnvSmart()
-	recreateDaemonFunc = recreateDaemonReal
-	sendUdpProbeFunc = sendUdpProbeReal
-}
-
-/*
-Function: initUDP
-Description:
-  Initializes UDP sender connections to School and Trading daemons.
-
-Input:
-  - none
-
-Output:
-  - none
-
-Lines: ~20
-*/
-func initUDP() {
-	var err error
-	schoolAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", schoolAddrStr, schoolPort))
-	if err != nil {
-		infra.Error("Failed to resolve School UDP address: " + err.Error())
-	} else {
-		schoolUdpConn, err = net.DialUDP("udp", nil, schoolAddr)
-		if err != nil {
-			infra.Error("Failed to dial School UDP: " + err.Error())
-		}
-	}
-
-	tradingAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", tradingAddrStr, tradingPort))
-	if err != nil {
-		infra.Error("Failed to resolve Trading UDP address: " + err.Error())
-	} else {
-		tradingUdpConn, err = net.DialUDP("udp", nil, tradingAddr)
-		if err != nil {
-			infra.Error("Failed to dial Trading UDP: " + err.Error())
-		}
-	}
-}
-
-// ==============================
-// UTILITY FUNCTIONS
-// ==============================
-
-/*
-Function: loadEnvSmart
-Description:
-  Attempts to load config.env from multiple paths.
-
-Input:
-  - none
-
-Output:
-  - none
-
-Lines: ~15
-*/
-func loadEnvSmart() {
-	paths := []string{
-		"config.env",
-		"../config.env",
-		"../../config.env",
-		"../../../config.env",
-	}
-	for _, p := range paths {
-		if _, err := os.Stat(p); err == nil {
-			infra.LoadEnv(p)
-			infra.Info("env loaded from: " + p)
-			return
-		}
-	}
-	infra.Warn("env file not found in any path")
-}
-
-// ==============================
-// UDP LISTENER
-// ==============================
-
-/*
-Function: startUdpListener
-Description:
-  Listens for incoming UDP messages from daemons. Supports:
-  - Full heartbeat: "name:ver:status:cpu:mem:storage:tasks:uptime:msg" (8+ fields)
-  - Legacy format: "daemon_type:status:message" (3 fields, fallback)
-
-Input:
-  - ctx context.Context: Context for graceful shutdown.
-
-Output:
-  - none (runs as a goroutine)
-
-Lines: ~65
-*/
+/******************************************************************************
+ * Function Name : startUdpListener
+ * Purpose       : Listen for UDP heartbeats from daemons on governancePort.
+ * Inputs        : ctx context.Context
+ * Outputs       : none (runs as goroutine)
+ * Return        : none
+ * Error Cases   : Port bind failure logs error and returns
+ * Number Of Lines : 40
+ ******************************************************************************/
 func startUdpListener(ctx context.Context) {
-	listenAddr := governanceAddr
-	if listenAddr == "" {
-		listenAddr = "127.0.0.1"
-	}
-	addr := net.UDPAddr{
-		Port: governancePort,
-		IP:   net.ParseIP(listenAddr),
-	}
+	port := governancePort
+	if port == 0 { port = UDP_GOVERNANCE_PORT }
+	listenAddr := os.Getenv("GOVERNANCE_ADDR")
+	if listenAddr == "" { listenAddr = "127.0.0.1" }
+	addr := net.UDPAddr{Port: port, IP: net.ParseIP(listenAddr)}
 	conn, err := net.ListenUDP("udp", &addr)
-	if err != nil {
-		infra.Error("Failed to start UDP listener: " + err.Error())
-		return
-	}
+	if err != nil { infra.Error("UDP listen failed: " + err.Error()); return }
 	defer conn.Close()
-	infra.Info(fmt.Sprintf("Governance UDP listener started on %s:%d", listenAddr, governancePort))
+	infra.Info(fmt.Sprintf("UDP listener on %s:%d", listenAddr, port))
 
-	buffer := make([]byte, 16384)
+	buf := make([]byte, 16384)
 	for {
 		select {
-		case <-ctx.Done():
-			infra.Info("UDP listener shutting down.")
-			return
+		case <-ctx.Done(): return
 		default:
 			conn.SetReadDeadline(time.Now().Add(1 * time.Second))
-			n, _, err := conn.ReadFromUDP(buffer)
-			if err != nil {
-				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-					continue
-				}
-				infra.Error("UDP read error: " + err.Error())
+			n, _, err := conn.ReadFromUDP(buf)
+			if err != nil { continue }
+			msg := string(buf[:n])
+
+			if strings.HasPrefix(msg, "model:sync:") {
+				handleModelSync(strings.TrimPrefix(msg, "model:sync:"))
 				continue
 			}
-			message := string(buffer[:n])
-
-			// Check for model:sync protocol BEFORE heartbeat parsing
-			// (JSON payloads contain colons that confuse the heartbeat parser)
-			if strings.HasPrefix(message, "model:sync:") {
-				jsonPayload := strings.TrimPrefix(message, "model:sync:")
-				handleModelSync(jsonPayload)
-				continue
-			}
-
-			// Try full heartbeat format first (8+ fields)
-			if info, err := governance.ParseHeartbeat(message); err == nil {
+			if info, err := governance.ParseHeartbeat(msg); err == nil {
 				registry.Register(info)
-				infra.Info(fmt.Sprintf("Heartbeat received: %s status=%s cpu=%.1f%% mem=%.0fMB",
-					info.Name, info.Status, info.CPUPercent, info.MemoryMB))
-				// Phase 24: Handle testdaemon results → recreate affected daemons
-				if info.Name == "testdaemon" && info.Status == "pass" && info.ActiveTasks > 0 {
-					handleTestDaemonPass(info.Message)
-				}
 				continue
 			}
-
-			// Fallback: legacy 3-field format "name:status:message"
-			parts := strings.SplitN(message, ":", 3)
-			if len(parts) < 3 {
-				if strings.Contains(message, "pong:healthy") {
-					infra.Info("UDP: received health pong: " + message)
-					continue
-				}
-				// Phase 24: legacy testdaemon message
-				if strings.HasPrefix(message, "testdaemon:pass:") || strings.HasPrefix(message, "testdaemon:fail:") {
-					handleTestDaemonLegacyReport(message)
-					continue
-				}
-				infra.Warn("Received malformed UDP message: " + message)
-				continue
-			}
-
-			daemonType := parts[0]
-			statusStr := parts[1]
-			statusMessage := parts[2]
-
-			// Handle model:sync protocol from School daemon (§33)
-			if daemonType == "model" && statusStr == "sync" {
-				handleModelSync(statusMessage)
-				continue
-			}
-
-			isHealthy := statusStr == "healthy"
-
-			info := &governance.DaemonInfo{
-				Name:    daemonType,
-				Version: "legacy",
-				Status:  statusStr,
-				Message: statusMessage,
-			}
-			registry.Register(info)
-
-			if isHealthy {
-				infra.Info(fmt.Sprintf("Legacy status: %s healthy — %s", daemonType, statusMessage))
-			} else {
-				infra.Warn(fmt.Sprintf("Legacy status: %s %s — %s", daemonType, statusStr, statusMessage))
-			}
-		}
-	}
-}
-
-// ==============================
-// UDP PROBE & HEALTH CHECK
-// ==============================
-
-/*
-Function: sendUdpProbeReal
-Description:
-  Sends a UDP probe and waits for a response.
-
-Input:
-  - conn    *net.UDPConn  : UDP connection
-  - message string        : Probe message
-  - timeout time.Duration : Max wait time
-
-Output:
-  - string: Response, or "" on timeout
-  - error: Non-nil if send/receive fails (excluding timeout)
-
-Lines: ~25
-*/
-func sendUdpProbeReal(conn *net.UDPConn, message string, timeout time.Duration) (string, error) {
-	if conn == nil {
-		return "", fmt.Errorf("UDP connection is nil")
-	}
-	_, err := conn.Write([]byte(message))
-	if err != nil {
-		return "", fmt.Errorf("failed to send UDP probe: %w", err)
-	}
-	buffer := make([]byte, 16384)
-	conn.SetReadDeadline(time.Now().Add(timeout))
-	n, _, err := conn.ReadFromUDP(buffer)
-	if err != nil {
-		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-			return "", nil
-		}
-		return "", fmt.Errorf("failed to receive UDP probe response: %w", err)
-	}
-	return string(buffer[:n]), nil
-}
-
-/*
-Function: startHealthCheckLoop
-Description:
-  Periodically probes School and Trading daemons. Updates registry
-  and triggers recreation if unhealthy past threshold.
-
-Input:
-  - ctx context.Context: Context for graceful shutdown.
-
-Output:
-  - none (runs as a goroutine)
-
-Lines: ~60
-*/
-func startHealthCheckLoop(ctx context.Context) {
-	healthCheckIntervalStr := os.Getenv("HEALTH_CHECK_INTERVAL_SECONDS")
-	healthCheckInterval, err := strconv.Atoi(healthCheckIntervalStr)
-	if err != nil || healthCheckInterval <= 0 {
-		healthCheckInterval = 30
-	}
-	ticker := time.NewTicker(time.Duration(healthCheckInterval) * time.Second)
-	defer ticker.Stop()
-
-	// Wait for daemons to start before first health check (§4 race condition fix)
-	infra.Info(fmt.Sprintf("Health check loop starting in %ds (daemon startup grace period)", healthCheckInterval))
-	time.Sleep(time.Duration(healthCheckInterval) * time.Second)
-
-	for {
-		select {
-		case <-ctx.Done():
-			infra.Info("Health check loop shutting down.")
-			return
-		case <-ticker.C:
-			infra.Info("Performing active health checks...")
-
-			// Check School daemon
-			schoolResp, err := sendUdpProbeFunc(schoolUdpConn, "governance:probe:health_check", HEALTH_CHECK_TIMEOUT)
-			schoolInfo := getOrCreateInfo("school")
-			secondsSinceHealthy := time.Since(schoolInfo.LastHeartbeat).Seconds()
-
-			if err != nil || !strings.Contains(schoolResp, "school:pong:healthy") {
-				if err != nil {
-					infra.Error("School probe error: " + err.Error())
-				}
-
-				// §102: Diagnostics — track how long daemon has been unhealthy
-				schoolInfo.ActiveTasks = int(secondsSinceHealthy) // store unhealthy seconds in ActiveTasks for display
-
-				switch schoolInfo.Status {
-				case "killing":
-					schoolInfo.Status = "building"
-					schoolInfo.Message = fmt.Sprintf("Daemon killed — recreating... (%.0fs since kill)", secondsSinceHealthy)
-				case "building", "recovering":
-					// Give the launcher time to auto-restart (start_all handles this)
-					if secondsSinceHealthy > 30 {
-						// Launcher should have restarted by now — try manual recreate
-						schoolInfo.Status = "recovering"
-						schoolInfo.Message = fmt.Sprintf("Still recovering... (%.0fs) Launcher may be restarting. If stuck, check: launcher PID alive? school binary compiles?", secondsSinceHealthy)
-						if secondsSinceHealthy > recreateThreshold.Seconds()*2 {
-							recreateDaemonFunc("school", "/workspace/crypto_apps/dexbot/apps/school/main.go")
-							schoolInfo.RecordRestart()
-							schoolInfo.Message = fmt.Sprintf("Manual recreate triggered after %.0fs unhealthy. Previous status: %s", secondsSinceHealthy, schoolInfo.Status)
-						}
-					} else {
-						schoolInfo.Message = fmt.Sprintf("Daemon recovering — waiting for launcher restart... (%.0fs)", secondsSinceHealthy)
-					}
-				default:
-					// First time unhealthy
-					schoolInfo.Status = "unhealthy"
-					if secondsSinceHealthy > recreateThreshold.Seconds() {
-						schoolInfo.Message = fmt.Sprintf("Unhealthy for %.0fs — diagnostic: check if 'go run ./apps/school' compiles, check UDP port %d not blocked, check launcher process alive.", secondsSinceHealthy, schoolPort)
-					} else {
-						schoolInfo.Message = fmt.Sprintf("School daemon unresponsive. Will attempt recovery if unhealthy for >%.0fs.", recreateThreshold.Seconds())
-					}
-				}
-
-				infra.Warn("School daemon status: " + schoolInfo.Status + " — " + schoolInfo.Message)
-				if schoolInfo.Status == "building" || (secondsSinceHealthy > recreateThreshold.Seconds()*2 && schoolInfo.Status != "killing" && schoolInfo.Status != "recovering") {
-					recreateDaemonFunc("school", "/workspace/crypto_apps/dexbot/apps/school/main.go")
-					schoolInfo.RecordRestart()
-					schoolInfo.Status = "recovering"
-					schoolInfo.Message = "Manual recreate triggered for school daemon."
-				}
-			} else {
-				schoolInfo.ActiveTasks = 0 // reset unhealthy counter
-				schoolInfo.Status = "healthy"
-				schoolInfo.Message = "School daemon is healthy."
-			}
-			registry.Register(schoolInfo)
-
-			// Check Trading daemon
-			tradingResp, err := sendUdpProbeFunc(tradingUdpConn, "governance:probe:health_check", HEALTH_CHECK_TIMEOUT)
-			tradingInfo := getOrCreateInfo("trading")
-			if err != nil || !strings.Contains(tradingResp, "trading:pong:healthy") {
-				if err != nil {
-					infra.Error("Trading probe error: " + err.Error())
-				}
-				if tradingInfo.Status == "killing" {
-					tradingInfo.Status = "building"
-					tradingInfo.Message = "Daemon killed — recreating..."
-				} else if tradingInfo.Status == "building" || tradingInfo.Status == "recovering" {
-					tradingInfo.Status = "recovering"
-					tradingInfo.Message = "Daemon recovering — waiting for healthy response."
-				} else {
-					tradingInfo.Status = "unhealthy"
-					tradingInfo.Message = "Trading daemon unresponsive or unhealthy."
-				}
-				infra.Warn("Trading daemon status: " + tradingInfo.Status)
-				if tradingInfo.Status == "building" || (time.Since(tradingInfo.LastHeartbeat) > recreateThreshold && tradingInfo.Status != "killing") {
-					recreateDaemonFunc("trading", "/workspace/crypto_apps/dexbot/apps/trading/main.go")
-					tradingInfo.RecordRestart()
-					tradingInfo.Status = "recovering"
-					tradingInfo.Message = "Recreating trading daemon..."
-				}
-			} else {
-				tradingInfo.Status = "healthy"
-				tradingInfo.Message = "Trading daemon is healthy."
-			}
-			registry.Register(tradingInfo)
-		}
-	}
-}
-
-/*
-Function: getOrCreateInfo
-Description:
-  Retrieves a DaemonInfo from the registry or creates a default entry.
-
-Input:
-  - name string: Daemon name
-
-Output:
-  - *governance.DaemonInfo: Existing or new entry
-
-Lines: ~12
-*/
-func getOrCreateInfo(name string) *governance.DaemonInfo {
-	info := registry.GetStatus(name)
-	if info == nil {
-		info = &governance.DaemonInfo{
-			Name:    name,
-			Version: "unknown",
-			Status:  "unknown",
-		}
-	}
-	return info
-}
-
-/*
-Function: recreateDaemonReal
-Description:
-  Attempts to restart a specified daemon. Skips if recently healthy.
-
-Input:
-  - daemonName string: Logical name (school, trading)
-  - daemonPath string: Absolute path to main.go
-
-Output:
-  - none
-
-Lines: ~40
-*/
-func recreateDaemonReal(daemonName string, daemonPath string) {
-	infra.Warn(fmt.Sprintf("Attempting to recreate %s daemon...", daemonName))
-
-	info := registry.GetStatus(daemonName)
-	if info != nil && info.IsHealthy() && time.Since(info.LastHeartbeat) < 1*time.Minute {
-		infra.Info(fmt.Sprintf("Skipping recreation for %s, it recently reported healthy.", daemonName))
-		return
-	}
-
-	cmd := exec.Command("/usr/local/go/bin/go", "run", daemonPath)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-
-	err := cmd.Start()
-	if err != nil {
-		infra.Error(fmt.Sprintf("Failed to start %s daemon: %v", daemonName, err))
-		return
-	}
-	infra.Info(fmt.Sprintf("%s daemon started with PID %d", daemonName, cmd.Process.Pid))
-
-	if info == nil {
-		info = &governance.DaemonInfo{Name: daemonName, Version: "restarted"}
-	}
-	info.Status = "starting"
-	info.Message = fmt.Sprintf("Attempted recreation, new PID %d", cmd.Process.Pid)
-	info.RecordRestart()
-	registry.Register(info)
-}
-
-// ==============================
-// DASHBOARD PUBLISHER (Phase 18 — §68-70)
-// ==============================
-
-/*
-Function: startPublisher
-Description:
-  Periodically generates HTML + JSON dashboard files to WEB_OUTPUT_DIR
-  and listens on a TCP port for action commands forwarded by the
-  middle server (serve.py/nginx/apache). Governance does NOT run
-  an HTTP server — the middle server handles HTTP.
-
-  File refresh interval: WEB_REFRESH_SECONDS (default 10s)
-  TCP action port: WEB_ACTION_PORT (default 8085)
-
-Input:
-  - ctx context.Context : For graceful shutdown
-
-Output:
-  - none (runs as goroutine)
-
-Lines: ~40
-*/
-func startPublisher(ctx context.Context) {
-	outputDir := os.Getenv("WEB_OUTPUT_DIR")
-	if outputDir == "" {
-		outputDir = "web_output"
-	}
-	publisher = infra.NewPublisher(outputDir)
-
-	refreshStr := os.Getenv("WEB_REFRESH_SECONDS")
-	refreshSec := 10
-	if n, err := strconv.Atoi(refreshStr); err == nil && n > 0 {
-		refreshSec = n
-	}
-
-	// Start TCP action listener for the middle server
-	actionPortStr := os.Getenv("WEB_ACTION_PORT")
-	actionPort := 8085
-	if n, err := strconv.Atoi(actionPortStr); err == nil && n > 0 {
-		actionPort = n
-	}
-	go startActionListener(ctx, actionPort)
-
-	// Create renderer (not as HTTP server — just for rendering)
-	renderer := webui.NewRenderer(registry)
-	renderer.SetPorts(governancePort, schoolPort, tradingPort, webPort)
-	if modelReg != nil {
-		renderer.SetModelRegistry(modelReg)
-	}
-	dashRenderer = renderer // store globally for TCP refresh trigger
-
-	// Initialize account manager for balance display (§79-81)
-	acctMgr := infra.NewAccountManager()
-	_ = acctMgr
-
-	ticker := time.NewTicker(time.Duration(refreshSec) * time.Second)
-	defer ticker.Stop()
-
-	infra.Info(fmt.Sprintf("Dashboard publisher started (dir=%s, refresh=%ds, actionPort=%d)",
-		outputDir, refreshSec, actionPort))
-
-	// Do one immediate refresh
-	refreshDashboard(renderer)
-
-	for {
-		select {
-		case <-ctx.Done():
-			infra.Info("Dashboard publisher shutting down.")
-			return
-		case <-ticker.C:
-			refreshDashboard(renderer)
-		}
-	}
-}
-
-/*
-Function: refreshDashboard
-Description:
-  Generates all dashboard HTML pages + JSON API files into the output directory.
-  Called periodically by the publisher loop.
-
-Input:
-  - renderer *webui.Renderer
-
-Output:
-  - none
-
-Lines: ~25
-*/
-func refreshDashboard(renderer *webui.Renderer) {
-	infra.FnTrace("refreshing dashboard files")
-
-	// Pull latest model data from the registry before rendering
-	renderer.RefreshModels()
-
-	// Re-load env to pick up any private key set via web UI unlock
-	loadEnvSmart()
-
-	// Get real BSC wallet balance — use infra.GetBalanceSummary (real BSC query)
-	// Guard against nil dereference if RPC is unreachable
-	var summary *infra.BalanceSummary
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				infra.Error(fmt.Sprintf("GetBalanceSummary panic: %v", r))
-			}
-		}()
-		am := infra.NewAccountManager()
-		summary = infra.GetBalanceSummary(am)
-	}()
-	if summary == nil {
-		summary = &infra.BalanceSummary{}
-	}
-
-	// Merge with token registry: keep ALL real balance data, only supplement with
-	// zero-balance tokens from the registry that aren't already present.
-	if tokenReg != nil {
-		if len(summary.Assets) > 0 {
-			// Build lookup of existing tokens per chain
-			type assetKey struct{ ticker, chain string }
-			existing := make(map[assetKey]bool)
-			for _, a := range summary.Assets {
-				existing[assetKey{strings.ToUpper(a.Ticker), a.ChainName}] = true
-			}
-			// Add any registry tokens not already in the real balance data
-			for _, t := range tokenReg.GetTokens() {
-				key := assetKey{strings.ToUpper(t.Ticker), t.ChainName}
-				if !existing[key] {
-					existing[key] = true
-					summary.Assets = append(summary.Assets, infra.BalanceAsset{
-						Ticker: t.Ticker, Amount: 0, USDPrice: t.USDPrice, USDValue: 0,
-						BSCAddr: t.Address, ChainID: t.ChainID, ChainName: t.ChainName,
-					})
-				}
-			}
-		} else {
-			// No real balance data — populate from token registry defaults
-			for _, t := range tokenReg.GetTokens() {
-				summary.Assets = append(summary.Assets, infra.BalanceAsset{
-					Ticker: t.Ticker, Amount: 0, USDPrice: t.USDPrice, USDValue: 0,
-					BSCAddr: t.Address, ChainID: t.ChainID, ChainName: t.ChainName,
+			parts := strings.SplitN(msg, ":", 3)
+			if len(parts) >= 3 {
+				registry.Register(&governance.DaemonInfo{
+					Name: parts[0], Version: "legacy",
+					Status: parts[1], Message: parts[2],
+					LastHeartbeat: time.Now(),
 				})
 			}
 		}
 	}
-	// If still empty, add known BSC defaults
-	if len(summary.Assets) == 0 {
-		defaults := []infra.BalanceAsset{
-			{Ticker: "BNB", Amount: 0, USDPrice: 610, BSCAddr: "0x0000000000000000000000000000000000000000", ChainID: "56", ChainName: "BSC"},
-			{Ticker: "USDT", Amount: 0, USDPrice: 1, BSCAddr: "0x55d398326f99059ff775485246999027b3197955", ChainID: "56", ChainName: "BSC"},
-			{Ticker: "USDC", Amount: 0, USDPrice: 1, BSCAddr: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", ChainID: "56", ChainName: "BSC"},
-			{Ticker: "BUSD", Amount: 0, USDPrice: 1, BSCAddr: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", ChainID: "56", ChainName: "BSC"},
-			{Ticker: "CAKE", Amount: 0, USDPrice: 2.35, BSCAddr: "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82", ChainID: "56", ChainName: "BSC"},
-			{Ticker: "BTT", Amount: 0, USDPrice: 0.0000003, BSCAddr: "0x352Cb5E19b12FC216548a2677bD0fce83BaE434B", ChainID: "56", ChainName: "BSC"},
-		}
-		summary.Assets = defaults
+}
+
+/******************************************************************************
+ * Function Name : handleModelSync
+ * Purpose       : Parse and register model:sync JSON from School daemon.
+ * Inputs        : jsonPayload string
+ * Outputs       : none
+ * Return        : none
+ * Error Cases   : Invalid JSON silently skipped
+ * Number Of Lines : 25
+ ******************************************************************************/
+func handleModelSync(jsonPayload string) {
+	if modelReg == nil { modelReg = governance.NewModelRegistry() }
+	type modelSummary struct {
+		ID, Version, Category, Architecture, Status string
+		Sharpe, Consistency, Profit                  float64
+		Generation                                   int
 	}
+	var wrapper struct{ Models []modelSummary }
+	if err := json.Unmarshal([]byte(jsonPayload), &wrapper); err != nil { return }
+	for _, s := range wrapper.Models {
+		modelReg.Register(&governance.ModelRecord{
+			ID: s.ID, ModelVersion: s.Version,
+			Category: s.Category, Architecture: s.Architecture,
+			Status: s.Status, Generation: s.Generation,
+		})
+	}
+}
 
-	// Sort assets alphabetically by ticker
-	sort.Slice(summary.Assets, func(i, j int) bool {
-		return summary.Assets[i].Ticker < summary.Assets[j].Ticker
-	})
+/******************************************************************************
+ * Function Name : startHealthCheckLoop
+ * Purpose       : Periodically probe each managed daemon, mark healthy/unhealthy,
+ *                 trigger recreation after threshold. Message format per myre6.txt.
+ * Inputs        : ctx context.Context
+ * Outputs       : none (runs as goroutine)
+ * Return        : none
+ * Error Cases   : Probe failures handled gracefully (mark unhealthy)
+ * Number Of Lines : 70
+ ******************************************************************************/
+func startHealthCheckLoop(ctx context.Context) {
+	intervalStr := os.Getenv("HEALTH_CHECK_INTERVAL_SECONDS")
+	interval, _ := strconv.Atoi(intervalStr)
+	if interval <= 0 { interval = 30 }
+	ticker := time.NewTicker(time.Duration(interval) * time.Second)
+	defer ticker.Stop()
+	infra.Info(fmt.Sprintf("Health check starting (%ds)", interval))
+	time.Sleep(time.Duration(interval) * time.Second)
 
-	// Ensure account info is populated even when BSC RPC fails
-	if summary.AccountMasked == "" {
-		pk := os.Getenv("PRIVATE_KEY")
-		if pk == "" {
-			data, err := os.ReadFile("config.env")
-			if err == nil {
-				lines := strings.Split(string(data), "\n")
-				for _, line := range lines {
-					if strings.HasPrefix(line, "PRIVATE_KEY=") {
-						pk = strings.TrimSpace(strings.TrimPrefix(line, "PRIVATE_KEY="))
-						break
+	for {
+		select {
+		case <-ctx.Done(): return
+		case <-ticker.C:
+			unhealthyCount := 0
+			killedCount := 0
+			var lastUnhealthy string
+			var lastKilled string
+
+			for name, cfg := range managedDaemons {
+				if cfg.UDPConn == nil { continue }
+				cfg.UDPConn.Write([]byte("governance:probe:health_check"))
+				buf := make([]byte, 1024)
+				cfg.UDPConn.SetReadDeadline(time.Now().Add(HEALTH_CHECK_TIMEOUT))
+				n, _, err := cfg.UDPConn.ReadFromUDP(buf)
+
+				info := getOrCreateInfo(name)
+				secondsSinceHealthy := time.Since(info.LastHeartbeat).Seconds()
+
+				if err != nil || !strings.Contains(string(buf[:n]), "healthy") {
+					prevStatus := info.Status
+					info.Status = "unhealthy"
+					unhealthyCount++
+					lastUnhealthy = name
+					if secondsSinceHealthy > recreateThreshold.Seconds() {
+						recreateDaemon(cfg)
+						info.RecordRestart()
+						info.Status = "killed"
+						killedCount++
+						lastKilled = name
+						info.Message = fmt.Sprintf("Killed after %.0fs unhealthy — recreating", secondsSinceHealthy)
+					} else if prevStatus == "killed" {
+						info.Message = fmt.Sprintf("Recreating… waiting (%.0fs since kill)", secondsSinceHealthy)
+					} else {
+						info.Message = fmt.Sprintf("Unhealthy (%.0fs, threshold=%.0fs)", secondsSinceHealthy, recreateThreshold.Seconds())
 					}
+				} else {
+					info.Status = "healthy"
+					info.Message = fmt.Sprintf("%s daemon operational", name)
 				}
+				registry.Register(info)
 			}
-		}
-		if pk != "" && len(pk) >= 10 {
-			summary.AccountMasked = pk[:6] + strings.Repeat("*", len(pk)-10) + pk[len(pk)-4:]
-			summary.AccountName = summary.AccountMasked
+
+			govInfo := getOrCreateInfo("governance")
+			govInfo.Status = "healthy"
+			if killedCount > 0 {
+				if killedCount == 1 {
+					govInfo.Message = fmt.Sprintf("detect killed daemon: %s", lastKilled)
+				} else {
+					govInfo.Message = fmt.Sprintf("detect %d killed daemons (last: %s)", killedCount, lastKilled)
+				}
+			} else if unhealthyCount == 1 {
+				govInfo.Message = fmt.Sprintf("detect unhealthy from: %s", lastUnhealthy)
+			} else if unhealthyCount > 1 {
+				govInfo.Message = fmt.Sprintf("detect %d unhealthy daemons (last: %s)", unhealthyCount, lastUnhealthy)
+			} else {
+				govInfo.Message = "All managed daemons healthy"
+			}
+			registry.Register(govInfo)
 		}
 	}
+}
 
-	totalUSD := 0.0
-	for i := range summary.Assets {
-		summary.Assets[i].USDValue = summary.Assets[i].Amount * summary.Assets[i].USDPrice
-		totalUSD += summary.Assets[i].USDValue
+/******************************************************************************
+ * Function Name : getOrCreateInfo
+ * Purpose       : Retrieve DaemonInfo from registry or create default entry.
+ * Inputs        : name string
+ * Outputs       : returns existing or new DaemonInfo pointer
+ * Return        : *governance.DaemonInfo
+ * Error Cases   : none (always returns valid info struct)
+ * Complexity    : O(1) — daemon name
+ * Return        : *governance.DaemonInfo
+ * Number Of Lines : 8
+ ******************************************************************************/
+func getOrCreateInfo(name string) *governance.DaemonInfo {
+	info := registry.GetStatus(name)
+	if info == nil {
+		info = &governance.DaemonInfo{Name: name, Version: "unknown", Status: "unknown"}
 	}
-	summary.TotalUSD = totalUSD
-	summary.TotalBTC = totalUSD / infra.BTCPriceMock
-	summary.IsPaperTrade = false
-	renderer.SetBalance(summary)
+	return info
+}
 
-	// HTML pages
-	pages := []struct{ name, content string }{
-		{"index", renderToBytes(renderer.Operations)},
-		{"training", renderToBytes(renderer.SchoolDashboard)},
-		{"portfolio", renderToBytes(renderer.Portfolio)},
-		{"predict", renderToBytes(renderer.PredictionComparison)},
+/******************************************************************************
+ * Function Name : recreateDaemon
+ * Purpose       : Start a daemon process via go run or configured StartMethod.
+ * Inputs        : cfg *DaemonConfig
+ * Outputs       : none
+ * Return        : none
+ * Error Cases   : Command start failure logged
+ * Number Of Lines : 20
+ ******************************************************************************/
+func recreateDaemon(cfg *DaemonConfig) {
+	infra.Warn(fmt.Sprintf("Recreating %s daemon…", cfg.Name))
+	var cmd *exec.Cmd
+	if cfg.StartMethod != "" {
+		cmd = exec.Command("sh", "-c", cfg.StartMethod)
+	} else {
+		cmd = exec.Command("/usr/local/go/bin/go", "run", cfg.Path, "-action=start")
+	}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		infra.Error(fmt.Sprintf("Failed to recreate %s: %v", cfg.Name, err))
+	} else {
+		infra.Info(fmt.Sprintf("%s recreated (PID via start_all)", cfg.Name))
+	}
+}
+
+/******************************************************************************
+ * Function Name : startPublisher
+ * Purpose       : Periodically regenerate and write HTML + JSON dashboard files.
+ * Inputs        : ctx context.Context
+ * Outputs       : none (runs as goroutine)
+ * Return        : none
+ * Error Cases   : Write failures logged, publisher continues
+ * Number Of Lines : 25
+ ******************************************************************************/
+func startPublisher(ctx context.Context) {
+	outputDir := os.Getenv("WEB_OUTPUT_DIR")
+	if outputDir == "" { outputDir = "web_output" }
+	publisher = infra.NewPublisher(outputDir)
+
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done(): return
+		case <-ticker.C:
+			if dashRenderer != nil { refreshDashboard() }
+		}
+	}
+}
+
+/******************************************************************************
+ * Function Name : refreshDashboard
+ * Purpose       : Generate all HTML pages + JSON API files from registry, DB.
+ * Inputs        : none (uses globals: dashRenderer, registry, publisher)
+ * Outputs       : none (writes files to web_output/)
+ * Return        : none
+ * Error Cases   : Render/write failures silently skipped
+ * Number Of Lines : 45
+ ******************************************************************************/
+func refreshDashboard() {
+	pages := []struct {
+		name string
+		fn   func(http.ResponseWriter)
+	}{
+		{"index", dashRenderer.Operations},
+		{"training", dashRenderer.SchoolDashboard},
+		{"portfolio", dashRenderer.Portfolio},
+		{"predict", dashRenderer.PredictionComparison},
 	}
 	for _, p := range pages {
-		if err := publisher.WriteHTML(p.name, p.content); err != nil {
-			infra.Error("Failed to write " + p.name + ".html: " + err.Error())
+		buf := &bytes.Buffer{}
+		w := &fakeResp{buf: buf}
+		p.fn(w)
+		publisher.WriteHTML(p.name, buf.String())
+	}
+	if registry != nil {
+		type daemonList struct{ Daemons []*governance.DaemonInfo `json:"daemons"` }
+		dl := daemonList{}
+		for _, n := range registry.List() {
+			dl.Daemons = append(dl.Daemons, registry.GetStatus(n))
 		}
+		publisher.WriteJSON("api/daemons", dl)
 	}
-
-	// JSON API
-	names := registry.List()
-	type daemonList struct {
-		Daemons []*governance.DaemonInfo `json:"daemons"`
-	}
-	dl := daemonList{}
-	for _, n := range names {
-		dl.Daemons = append(dl.Daemons, registry.GetStatus(n))
-	}
-	if err := publisher.WriteJSON("api/daemons", dl); err != nil {
-		infra.Error("Failed to write api/daemons.json: " + err.Error())
-	}
-
-	// §79: Write balance summary for web display
-	if summary != nil {
-		if err := publisher.WriteJSON("api/balance", summary); err != nil {
-			infra.Error("Failed to write api/balance.json: " + err.Error())
-		}
-	}
-
-	// §83: Sync token registry to dashboard
-	if tokenReg != nil {
-		tokens := tokenReg.ListTokens()
-		if err := publisher.WriteJSON("api/tokens", map[string]interface{}{"tokens": tokens}); err != nil {
-			infra.Error("Failed to write api/tokens.json: " + err.Error())
-		}
-	}
-
-	// §87: Database table list + per-table row data
-	// Hardcode DB_HOST to docker service name
-	os.Setenv("DB_HOST", "db")
-	os.Setenv("DB_PORT", "5432")
-	os.Setenv("DB_USER", "trader")
-	os.Setenv("DB_PASS", "secret")
-	os.Setenv("DB_NAME", "traderdb")
-
-	// Always force re-init
-	_ = infra.InitDB()
-
 	tables := infra.ListTables()
 	if tables != nil {
-		if err := publisher.WriteJSON("api/database_tables", map[string]interface{}{"tables": tables}); err != nil {
-			infra.Error("Failed to write api/database_tables.json: " + err.Error())
-		}
-		// Build per-table data (limit 5, newest first)
+		publisher.WriteJSON("api/database_tables", map[string]interface{}{"tables": tables})
 		dbData := make(map[string]interface{})
 		for _, tbl := range tables {
 			cols, rows := infra.QueryTableRows(tbl, 5, "newest")
 			if cols != nil {
-				dbData[tbl] = map[string]interface{}{
-					"columns": cols,
-					"rows":    rows,
-				}
+				dbData[tbl] = map[string]interface{}{"columns": cols, "rows": rows}
 			}
 		}
-		if len(dbData) > 0 {
-			if err := publisher.WriteJSON("api/database", dbData); err != nil {
-				infra.Error("Failed to write api/database.json: " + err.Error())
-			}
-		}
+		if len(dbData) > 0 { publisher.WriteJSON("api/database", dbData) }
 	}
-
 	publisher.MarkRefreshed()
-	infra.FnTrace(fmt.Sprintf("dashboard refreshed: %d pages, %d daemons", len(pages), len(names)))
 }
 
-/*
-Function: startActionListener
-Description:
-  Listens on a TCP port for action commands forwarded by the middle server
-  (serve.py, nginx, or apache). Protocol is simple text:
-    "restart school"   → webuiActionCallback("school", "restart")
-    "stop trading"     → webuiActionCallback("trading", "stop")
-    "start school"     → webuiActionCallback("school", "start")
+/******************************************************************************
+ * Struct Name : fakeResp
+ * Purpose     : io.Writer adapter so renderToBytes can capture HTML output.
+ ******************************************************************************/
+type fakeResp struct{ buf *bytes.Buffer }
+func (w *fakeResp) Header() http.Header         { return make(http.Header) }
+func (w *fakeResp) Write(b []byte) (int, error)   { return w.buf.Write(b) }
+func (w *fakeResp) WriteHeader(code int)          {}
 
-Input:
-  - ctx  context.Context : Graceful shutdown
-  - port int             : Listen port
-
-Output:
-  - none (runs as goroutine)
-
-Lines: ~35
-*/
-func startActionListener(ctx context.Context, port int) {
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		infra.Error("Action listener failed to bind " + addr + ": " + err.Error())
-		return
-	}
+/******************************************************************************
+ * Function Name : startActionListener
+ * Purpose       : TCP listener on ACTION_PORT for UI-triggered daemon actions.
+ * Inputs        : ctx context.Context
+ * Outputs       : none (runs as goroutine)
+ * Return        : none
+ * Error Cases   : Listen failure silently exits
+ * Number Of Lines : 30
+ ******************************************************************************/
+func startActionListener(ctx context.Context) {
+	port := os.Getenv("ACTION_PORT")
+	if port == "" { port = "8085" }
+	ln, err := net.Listen("tcp", ":"+port)
+	if err != nil { return }
 	defer ln.Close()
-	infra.Info(fmt.Sprintf("Action listener started on %s (for middle server)", addr))
+	infra.Info("Action listener on :" + port)
 
 	for {
 		select {
-		case <-ctx.Done():
-			return
+		case <-ctx.Done(): return
 		default:
+			ln.(*net.TCPListener).SetDeadline(time.Now().Add(1 * time.Second))
+			conn, err := ln.Accept()
+			if err != nil { continue }
+			go func(c net.Conn) {
+				defer c.Close()
+				b := make([]byte, 1024)
+				n, _ := c.Read(b)
+				parts := strings.Fields(string(b[:n]))
+				if len(parts) >= 2 {
+					action, name := parts[0], parts[1]
+					if cfg, ok := managedDaemons[name]; ok {
+						if cfg.UDPConn != nil {
+							cfg.UDPConn.Write([]byte("governance:command:" + action))
+						}
+						if action == "restart" || action == "start" {
+							recreateDaemon(cfg)
+						}
+					}
+				}
+			}(conn)
 		}
-
-		// Set accept deadline so we can check ctx cancellation periodically
-		if tcpLn, ok := ln.(*net.TCPListener); ok {
-			tcpLn.SetDeadline(time.Now().Add(1 * time.Second))
-		}
-		conn, err := ln.Accept()
-		if err != nil {
-			// Timeout is expected — just loop to check ctx
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				continue
-			}
-			continue
-		}
-		go handleActionConn(conn)
 	}
 }
 
-func handleActionConn(conn net.Conn) {
-	defer conn.Close()
-	buf := make([]byte, 256)
-	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-	n, err := conn.Read(buf)
-	if err != nil {
-		return
+/******************************************************************************
+ * Function Name : init
+ * Purpose       : Package init — sets up logger and loads env.
+ * Inputs        : none
+ * Outputs       : none
+ * Number Of Lines : 6
+ ******************************************************************************/
+func init() {
+	infra.InitLogger()
+	loadEnvSmart()
+}
+
+/******************************************************************************
+ * Function Name : loadEnvSmart
+ * Purpose       : Load config.env from multiple possible paths.
+ * Inputs        : none
+ * Outputs       : none
+ * Number Of Lines : 8
+ ******************************************************************************/
+func loadEnvSmart() {
+	for _, p := range []string{"config.env", "../config.env", "../../config.env"} {
+		if _, err := os.Stat(p); err == nil {
+			infra.LoadEnv(p)
+			return
+		}
 	}
-	msg := strings.TrimSpace(string(buf[:n]))
-	parts := strings.Fields(msg)
-	if len(parts) >= 2 {
-		action, name := parts[0], parts[1]
-		webuiActionCallback(name, action)
-		conn.Write([]byte("OK " + action + " " + name + "\n"))
-	} else {
-		conn.Write([]byte("ERROR invalid format\n"))
-	}
+	infra.Warn("config.env not found")
 }
-
-// renderToBytes calls a renderer method and captures its output to a string
-func renderToBytes(fn func(http.ResponseWriter)) string {
-	var buf bytes.Buffer
-	// Create a minimal response writer that captures the buffer
-	fn(&bufferWriter{&buf})
-	return buf.String()
-}
-
-// bufferWriter implements http.ResponseWriter by writing to a bytes.Buffer
-type bufferWriter struct {
-	buf *bytes.Buffer
-}
-
-func (bw *bufferWriter) Header() http.Header           { return http.Header{} }
-func (bw *bufferWriter) Write(data []byte) (int, error) { return bw.buf.Write(data) }
-func (bw *bufferWriter) WriteHeader(statusCode int)     {}

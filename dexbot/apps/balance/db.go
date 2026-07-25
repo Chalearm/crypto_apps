@@ -69,39 +69,29 @@ var dbConn *sql.DB
  * Function Name : InitDB
  *
  * Purpose :
- *   Extracts variables mapped from configuration, validates critical fields,
- *   bypasses container DNS for local runs, and establishes the connection.
+ *   Initializes the database connection. Probes the primary configured host
+ *   (e.g., Docker container name 'db') and automatically rolls back to a local
+ *   localhost interface if connection handshakes are refused.
  *
  * Inputs :
- *   None
- *
- * Outputs :
  *   None
  *
  * Return :
  *   None
  *
  * Error Cases :
- *   - Empty configuration mappings exit target process via code 1.
- *   - Direct query ping failures abort app startup sequences.
- *
- * Dependencies :
- *   - database/sql
- *   - infra.Error / infra.Info
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
+ *   - Empty user/dbname properties trigger process termination.
+ *   - Failure to establish network connectivity on both targets exits with code 1.
  *
  * Number Of Lines :
- *   40
+ *   52
  ******************************************************************************/
 func InitDB() {
-	host := os.Getenv("DB_HOST")
-	// Fallback to localhost if empty OR if set to the docker alias "db" while running on host
-	if host == "" || host == "db" {
-		host = "localhost"
+	primaryHost := os.Getenv("DB_HOST")
+	if primaryHost == "" {
+		primaryHost = "db"
 	}
+	
 	port := os.Getenv("DB_PORT")
 	if port == "" {
 		port = "5432"
@@ -115,27 +105,70 @@ func InitDB() {
 		os.Exit(1)
 	}
 
+	// Stage 1: Attempt connection using the primary target host option (Docker)
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, pass, dbname)
+		primaryHost, port, user, pass, dbname)
 
 	var err error
 	dbConn, err = sql.Open("postgres", connStr)
+	if err == nil {
+		err = dbConn.Ping()
+		if err == nil {
+			infra.Info(fmt.Sprintf("Successfully connected to database via primary host layout target: %s", primaryHost))
+			return
+		}
+	}
+
+	// Stage 2: Fallback route triggered if the primary path is blocked or running outside container
+	infra.Warn(fmt.Sprintf("Primary database target host (%s) unreachable: %v. Swapping connection fallback to localhost...", primaryHost, err))
+	
+	if dbConn != nil {
+		dbConn.Close()
+	}
+
+	fallbackHost := "localhost"
+	fallbackConnStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		fallbackHost, port, user, pass, dbname)
+
+	dbConn, err = sql.Open("postgres", fallbackConnStr)
 	if err != nil {
-		infra.Error("Failed to open database connection: " + err.Error())
+		infra.Error("Failed to open fallback database connection: " + err.Error())
 		os.Exit(1)
 	}
 
 	err = dbConn.Ping()
 	if err != nil {
-		infra.Error("Failed to ping database: " + err.Error())
+		infra.Error("Critical: Failed to connect to database on both primary and fallback localhost networks: " + err.Error())
 		os.Exit(1)
 	}
 
-	infra.Info("Successfully connected to PostgreSQL database.")
+	infra.Info("Successfully connected to database using local machine network fallback layout.")
 }
 /******************************************************************************
  * Function Name : GetChainNameByID
- * Purpose : Maps an ID to a human readable name from user_chains schema.
+ *
+ * Purpose :
+ *   Maps a numeric Chain ID to its human-readable chain name from
+ *   the user_chains database schema.
+ *
+ * Inputs :
+ *   accountHash
+ *     Type        : string
+ *     Description : SHA256 account identifier
+ *
+ *   chainID
+ *     Type        : string
+ *     Description : Numeric chain ID
+ *
+ * Return :
+ *   Type        : string
+ *   Description : Chain name or empty if not found.
+ *
+ * Error Cases :
+ *   - DB nil or query failure returns empty string.
+ *
+ * Number Of Lines :
+ *   10
  ******************************************************************************/
 func GetChainNameByID(accountHash, chainID string) string {
 	var name string

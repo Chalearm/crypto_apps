@@ -68,15 +68,30 @@
 package main
 
 import (
+    "context" 
     "bufio"
     "fmt"
     "os"
+    "flag"
     "strings"
+    "strconv"
+    "net/http"
 
     "dexbot/auth"
     "dexbot/balance"
     "dexbot/infra"
     "dexbot/tokens"
+)
+// Centralized Global CLI flags defined once for the entire main package space
+var (
+    flagAction     = flag.String("action", "", "Action to perform")
+    flagPrivateKey = flag.String("private-key", "", "Metamask private key")
+    flagAccount    = flag.String("account", "", "Account SHA256 string")
+    flagChainName  = flag.String("chain-name", "", "Name of the blockchain")
+    flagChainURL   = flag.String("chain-url-based", "", "RPC URL for the chain")
+    flagChainID    = flag.String("chain-id", "", "Numeric Chain ID")
+    flagTokenName  = flag.String("token-name", "", "Token Ticker")
+    flagTokenAddr  = flag.String("token-address", "", "Token Contract Address")
 )
 
 /******************************************************************************
@@ -164,25 +179,64 @@ func LoadEnvConfig() {
  *   Space : O(1)
  *
  * Number Of Lines :
- *   22
+ *   23
  ******************************************************************************/
 func main() {
+    // 1. Directory and Env setup (Kept exactly as you had it)
     if _, err := os.Stat("config.env"); os.IsNotExist(err) {
         if _, err := os.Stat("../../config.env"); err == nil {
             os.Chdir("../..")
         }
     }
 
-    LoadEnvConfig()
+    LoadEnvConfig() // Make sure this matches your local function name
     infra.InitLogger()
     infra.SetDaemonID("balance-app")
 
-    if len(os.Args) > 1 {
-        parseAndRouteFlags()
+    flag.Parse()
+
+    if *flagAction == "" && len(os.Args) == 1 {
+        runLegacyBalance()
         return
     }
 
-    infra.Info("Starting legacy balance execution mode")
+    if *flagAction == "start" {
+        HandleDaemonStart()
+        return
+    }
+
+    parseAndRouteFlags()
+    return
+}
+
+/******************************************************************************
+ * Function Name : runLegacyBalance
+ * Purpose :
+ *   Execute legacy text-mode balance report for all chains (BSC/POLYGON/OPBNB).
+ * Inputs :
+ *   none (uses private key from env/CLI args)
+ * Return :
+ *   none (prints to stdout)
+ * Error Cases :
+/******************************************************************************
+ * Function Name : runLegacyBalance
+ *
+ * Purpose :
+ *   Execute legacy text-mode balance report for all chains (BSC/POLYGON/OPBNB).
+ *
+ * Inputs :
+ *   none (uses private key from env/CLI args)
+ *
+ * Return :
+ *   none (prints to stdout)
+ *
+ * Error Cases :
+ *   - nil pointer if chain RPC unreachable (panics from GetWalletForChain).
+ *
+ * Number Of Lines :
+ *   5
+ ******************************************************************************/
+func runLegacyBalance() {
     pk := auth.LoadPrivateKey()
 
     fmt.Println("NETWORK: BINANCE SMART CHAIN")
@@ -220,4 +274,89 @@ func main() {
     fmt.Printf("TOTAL opBNB BALANCE    : $%s USD\n", prettyTotalOpBNB)
     fmt.Printf("TOTAL GLOBAL BALANCE   : $%s USD\n", prettyGlobal)
     fmt.Println("============================================================")
+}
+/******************************************************************************
+ * Function Name : bootDaemon
+ *
+ * Purpose :
+ *   Wraps the background HTTP API routing server logic inside the generalized 
+ *   high-availability infrastructure package callback loop, mounting both web UI
+ *   data endpoints and internal CLI tracking pathways.
+ *
+ * Inputs :
+ *   None
+ *
+ * Outputs :
+ *   None
+ *
+ * Return :
+ *   None
+ *
+ * Error Cases :
+ *   - Obstructed port maps crash the background web thread loop.
+ *
+ * Dependencies :
+ *   - net/http
+ *   - context
+ *   - dexbot/infra
+ *
+ * Complexity :
+ *   Time  : O(1) concurrent socket scheduling loops
+ *   Space : O(1) allocation frames
+ *
+ * Number Of Lines :
+ *   48
+ ******************************************************************************/
+func bootDaemon() {
+    udpPort, _ := strconv.Atoi(os.Getenv("DAEMON_BALANCE_PORT"))
+    if udpPort == 0 { 
+        udpPort = 8086 
+    } 
+
+    apiPort := os.Getenv("DAEMON_BALANCE_HTTP_PORT")
+    if apiPort == "" { 
+        apiPort = "8087" // FIXED: Default to 8087 to match your custom config.env spec
+    }
+
+    ip := os.Getenv("DAEMON_BALANCE_IP")
+    if ip == "" { 
+        ip = "127.0.0.1" 
+    }
+
+    workerLoop := func(ctx context.Context) {
+        infra.Info(fmt.Sprintf("Balance HTTP API starting on port %s", apiPort))
+        
+        // 1. Dedicated CLI status tracking loop endpoint
+        http.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
+            w.Header().Set("Content-Type", "application/json")
+            w.WriteHeader(http.StatusOK)
+            w.Write([]byte(`{"status":"healthy","service":"balance"}`))
+        })
+        
+        // 2. Canonical web UI card data endpoints
+        http.HandleFunc("/api/update", handleAPIUpdateRoute)
+        http.HandleFunc("/api/balance", handleAPIBalanceRoute)
+        
+        // 3. Relational data sync route handlers
+        http.HandleFunc("/api/chain/add", handleAPIChainAddRoute)
+        http.HandleFunc("/api/token/add", handleAPITokenAddRoute)
+        http.HandleFunc("/api/chain/delete", handleAPIChainDeleteRoute)
+        http.HandleFunc("/api/token/delete", handleAPITokenDeleteRoute)
+        http.HandleFunc("/api/account/delete", handleAPIAccountDeleteRoute)
+        
+        server := &http.Server{Addr: ":" + apiPort}
+        
+        // Execute listener context in a parallel non-blocking thread routine
+        go func() {
+            if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+                infra.Error(fmt.Sprintf("Balance HTTP API failed: %v", err))
+            }
+        }()
+        
+        <-ctx.Done()
+        _ = server.Shutdown(context.Background())
+    }
+
+    // Hand off execution completely to the shared infrastructure library!
+    infra.RunDaemonApp("balance", ip, udpPort, workerLoop)
 }
