@@ -247,6 +247,13 @@ func cssBase() string {
   .badge-starting{background:rgba(251,191,36,.12);color:var(--amber)}
   .badge-stopping{background:rgba(251,191,36,.12);color:var(--amber)}
   .badge-unknown{background:rgba(100,116,139,.12);color:var(--text-muted)}
+  /* Task Manager Table Styles */
+  table.task-manager {width:100%; border-collapse:collapse; background:var(--bg-card); border-radius:8px; overflow:hidden;}
+  table.task-manager th {background:var(--bg-surface); text-align:left; padding:12px; font-size:.8rem; color:var(--text-secondary); font-weight:600; text-transform:uppercase; border-bottom:1px solid var(--border);}
+  table.task-manager td {padding:14px 12px; font-size:.875rem; border-bottom:1px solid var(--border); vertical-align:middle;}
+  table.task-manager tr:last-child td {border-bottom:none;}
+  table.task-manager tr:hover {background:var(--bg-elevated);}
+
   .metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
                  gap:12px;margin:8px 0}
   .metric{background:var(--bg-elevated);border-radius:10px;padding:12px 14px}
@@ -384,124 +391,82 @@ func writeFoot(w http.ResponseWriter, ports string) {
 // OPERATIONS DASHBOARD
 // ==============================
 
+// ── Governance Dashboard (single table, expand-on-click log) ──
 func (r *Renderer) Operations(w http.ResponseWriter) {
   writeHead(w, "Governance", "gov")
-  fmt.Fprint(w, `<h1>Governance — Daemon Status</h1>`)
+  fmt.Fprint(w, `<h1>Governance — Daemon Status</h1>
+<div style="display:flex;align-items:center;gap:16px;margin-bottom:10px;font-size:.7rem;color:var(--text-muted)">
+  <label style="cursor:pointer;display:flex;align-items:center;gap:4px">
+    <input type="checkbox" id="chkEVENT" checked onchange="refreshLogFilter()"> [EVENT]
+  </label>
+  <label style="cursor:pointer;display:flex;align-items:center;gap:4px">
+    <input type="checkbox" id="chkCYCLC" onchange="refreshLogFilter()"> [CYCLC]
+  </label>
+  <span id="logFilterInfo" style="color:var(--text-muted)"></span>
+</div>
+<div class="card">
+<table style="width:100%">
+<thead><tr>
+  <th>Daemon</th><th>Status</th><th>Message</th><th>CPU</th><th>Mem</th><th>Uptime</th><th>Actions</th>
+</tr></thead>
+<tbody id="daemonTableBody">`)
 
   names := r.registry.List()
   for _, name := range names {
-    // Filter out test/transient daemons from dashboard display
-    if strings.HasPrefix(name, "integration_test") {
-      continue
-    }
+    if strings.HasPrefix(name, "integration_test") { continue }
     d := r.registry.GetStatus(name)
-    if d == nil {
-      continue
-    }
-    r.writeDaemonTab(w, d)
+    if d == nil { continue }
+    badge := "badge-healthy"
+    if d.Status == "unhealthy" || d.Status == "unknown" { badge = "badge-unhealthy" }
+    crown := ""
+    if d.Name == "governance" { crown = "\U0001F451 " }
+    fmt.Fprintf(w, `<tr id="row_%s" onclick="toggleLog('%s')" style="cursor:pointer">
+      <td style="font-weight:600;color:var(--accent)">%s%s</td>
+      <td id="s_%s"><span class="badge %s">%s</span></td>
+      <td id="m_%s" style="font-size:.7rem;color:var(--text-secondary);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">%s</td>
+      <td id="c_%s">%.1f%%</td><td id="r_%s">%.0fMB</td>
+      <td>%s</td>
+      <td><div style="display:flex;gap:3px">
+        <button class="btn btn-start" onclick="event.stopPropagation();actDaemon('%s','start')" style="font-size:.6rem;padding:1px 5px">S</button>
+        <button class="btn btn-stop" onclick="event.stopPropagation();actDaemon('%s','stop')" style="font-size:.6rem;padding:1px 5px">T</button>
+        <button class="btn btn-restart" onclick="event.stopPropagation();actDaemon('%s','restart')" style="font-size:.6rem;padding:1px 5px">R</button>
+      </div></td>
+    </tr>
+    <tr id="log_%s" style="display:none"><td colspan="7"><pre id="logp_%s" style="margin:0;padding:8px;background:var(--bg-deep);color:var(--text-secondary);font-size:.65rem;max-height:180px;overflow-y:auto;white-space:pre-wrap;border-radius:6px">Click to load log...</pre></td></tr>`,
+      d.Name, d.Name, crown, strings.ToUpper(d.Name),
+      d.Name, badge, d.Status,
+      d.Name, html.EscapeString(d.Message),
+      d.Name, d.CPUPercent, d.Name, d.MemoryMB,
+      d.Uptime.Round(time.Second).String(),
+      d.Name, d.Name, d.Name,
+      d.Name, d.Name,
+    )
   }
 
-  fmt.Fprint(w, `<script>
-function actDaemon(name,action){
-  var colors = {start:'#60a5fa',stop:'#60a5fa',restart:'#2dd4bf',kill:'#f87171',create:'#f472b6'};
-  var msgs = {start:'Running.',stop:'Stopped.',restart:'Restarting...',kill:'Killed. Governance will recreate.',create:'Already alive.'};
-  fetch('/api/daemon/'+name+'/'+action,{method:'POST'}).then(r=>r.json()).then(d=>{
-    var el=document.getElementById('msg_'+name);
-    if(!el) return;
-    var color = colors[action]||'#94a3b8';
-    if(d.status==='ok'){
-      el.innerHTML='<span style="color:'+color+'">'+msgs[action]+'</span>';
-      setTimeout(function(){ pollDaemonStatus(name); }, 2000);
-    } else {
-      el.innerHTML='<span style="color:var(--rose)">'+d.message+'</span>';
-    }
-  }).catch(function(e){
-    var el=document.getElementById('msg_'+name);
-    if(el) el.innerHTML='<span style="color:var(--rose)">Action failed: '+e+'</span>';
-  });
-}
-function pollDaemonStatus(name){
-  fetch('/api/daemons').then(r=>r.json()).then(d=>{
-    var daemons=d.daemons||d;
-    for(var i=0;i<daemons.length;i++){
-      var dd=daemons[i];
-      var badge=document.getElementById('badge_'+dd.Name);
-      var msgEl=document.getElementById('msg_'+dd.Name);
-      if(badge){
-        badge.className='badge';
-        if(dd.Status==='healthy'||dd.Status==='pass') badge.className='badge badge-healthy';
-        else if(dd.Status==='unhealthy'||dd.Status==='critical'||dd.Status==='killing') badge.className='badge badge-unhealthy';
-        else badge.className='badge badge-starting';
-        badge.textContent=dd.Status;
-      }
-      if(msgEl) msgEl.innerHTML='<span style="color:var(--text-muted);font-size:.75rem">'+dd.Message.substring(0,80)+'</span>';
-    }
-  });
-}
-function toggleDaemonTab(name){
-  var el=document.getElementById('detail_'+name);
-  el.style.display = el.style.display==='none'?'block':'none';
-  document.getElementById('dots_'+name).textContent = el.style.display==='none'?'...':'−';
-}
+  fmt.Fprint(w, `</tbody></table></div>
+<script>
+function actDaemon(n,a){fetch('/api/daemon/'+n+'/'+a,{method:'POST'}).then(function(r){return r.json()}).then(function(d){if(d.status!=='ok')alert(d.message);setTimeout(pollDS,2000)}).catch(function(e){alert('Action failed: '+e)})}
+function toggleLog(n){var r=document.getElementById('log_'+n);if(r.style.display==='none'||!r.style.display){r.style.display='table-row';fetch('/api/daemon/'+n+'/log').then(function(r){return r.json()}).then(function(d){document.getElementById('logp_'+n).textContent=d.lines||'No log available'})}else{r.style.display='none'}}
+function refreshLogFilter(){loadAllMessages();}
+function filterLogLines(text){if(!text)return'';var cyc=document.getElementById('chkCYCLC');var evt=document.getElementById('chkEVENT');var lines=text.split(String.fromCharCode(10));var out=[];for(var i=0;i<lines.length;i++){var l=lines[i];var isCyc=l.indexOf('[CYCLC')>=0;var isEvt=l.indexOf('[EVENT')>=0;if((!isCyc||cyc.checked)&&(!isEvt||evt.checked))out.push(l)}return out.join(String.fromCharCode(10))}
+function loadLogMsg(n){fetch('/api/daemon/'+n+'/log').then(function(r){return r.json()}).then(function(d){var t=(d.lines||'').trim();var ft=filterLogLines(t);var i=ft.lastIndexOf(String.fromCharCode(10));var last=i>=0?ft.substring(i+1):ft;if(last.length>0){var m=document.getElementById('m_'+n);if(m)m.textContent=last.substring(0,120)}}).catch(function(){})}
+function loadAllMessages(){var rs=document.querySelectorAll('tr[id^=row_]');for(var i=0;i<rs.length;i++){loadLogMsg(rs[i].id.replace('row_',''))}}
+function pollDS(){fetch('/api/daemons').then(function(r){return r.json()}).then(function(d){var dd=d.daemons||d;for(var i=0;i<dd.length;i++){var x=dd[i];var s=document.getElementById('s_'+x.Name);if(s)s.innerHTML='<span class="badge '+(x.Status==='healthy'||x.Status==='pass'?'badge-healthy':'badge-unhealthy')+'">'+x.Status+'</span>';var c=document.getElementById('c_'+x.Name);if(c)c.textContent=(x.CPUPercent||0).toFixed(1)+'%';var r=document.getElementById('r_'+x.Name);if(r)r.textContent=(x.MemoryMB||0).toFixed(0)+'MB';loadLogMsg(x.Name)}})}
+(function(){var rs=document.querySelectorAll('tr[id^=row_]');for(var i=0;i<rs.length;i++){loadLogMsg(rs[i].id.replace('row_',''))}})()
+setInterval(pollDS,5000)
 </script>`)
-
-  writeFoot(w, fmt.Sprintf("UDP: Governance %d · School %d · Trading %d",
-    r.govPort, r.schoolPort, r.tradingPort))
+  writeFoot(w, "UDP: All daemons via config.env (MANAGED_DAEMONS)")
 }
 
-func (r *Renderer) writeDaemonTab(w http.ResponseWriter, d *governance.DaemonInfo) {
-  fmt.Fprintf(w, `<div class="daemon-tab" id="daemonTab_%s">
-  <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;
-    background:var(--bg-card);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
-    <span style="font-weight:600;font-size:.9rem;min-width:100px">%s</span>
-    <span class="badge %s" id="badge_%s">%s</span>
-    <span style="color:var(--text-muted);font-size:.75rem;flex:1">%s</span>
-    <button class="btn btn-start" onclick="actDaemon('%s','start')" style="font-size:.65rem;padding:3px 8px">Start</button>
-    <button class="btn btn-stop" onclick="actDaemon('%s','stop')" style="font-size:.65rem;padding:3px 8px">Stop</button>
-    <button class="btn btn-restart" onclick="actDaemon('%s','restart')" style="font-size:.65rem;padding:3px 8px">Restart</button>
-    <button class="btn btn-kill" onclick="actDaemon('%s','kill')" style="font-size:.65rem;padding:3px 8px">Kill</button>
-    <span id="dots_%s" onclick="toggleDaemonTab('%s')" style="cursor:pointer;font-size:1.1rem;color:var(--accent)" title="Expand">...</span>
-  </div>
-  <div id="detail_%s" style="display:none;background:var(--bg-card);border:1px solid var(--border);
-    border-radius:8px;padding:14px;margin-bottom:6px">
-    <div class="metrics-grid">
-      <div class="metric"><div class="metric-label">Version</div><div class="metric-value" style="font-size:.8rem">%s</div></div>
-      <div class="metric"><div class="metric-label">CPU</div><div class="metric-value">%.1f<span class="metric-unit">%%</span></div></div>
-      <div class="metric"><div class="metric-label">Memory</div><div class="metric-value">%.0f<span class="metric-unit">MB</span></div></div>
-      <div class="metric"><div class="metric-label">Storage</div><div class="metric-value">%.0f<span class="metric-unit">MB</span></div></div>
-      <div class="metric"><div class="metric-label">Tasks</div><div class="metric-value">%d</div></div>
-      <div class="metric"><div class="metric-label">Uptime</div><div class="metric-value">%s</div></div>
-    </div>
-    <div style="margin-top:8px;font-size:.8rem;color:var(--text-secondary)">%s</div>
-    <div style="margin-top:6px">%s %s</div>
-    <div id="msg_%s" style="margin-top:6px;font-size:.75rem"></div>
-  </div>
-</div>`,
-    d.Name,
-    html.EscapeString(strings.Title(d.Name)),
-    map[bool]string{true: "badge-healthy", false: "badge-unhealthy"}[d.IsHealthy()],
-    d.Name, d.Status,
-    html.EscapeString(d.Message)[:minInt3(80, len(d.Message))],
-    d.Name, d.Name, d.Name, d.Name, d.Name, d.Name,
-    d.Name,
-    html.EscapeString(d.Version),
-    d.CPUPercent, d.MemoryMB, d.StorageMB, d.ActiveTasks,
-    d.Uptime.Round(time.Second).String(),
-    html.EscapeString(d.Message),
-    trendBars(d.CPUPercent, 7, "#2dd4bf"),
-    trendBars(d.MemoryMB/1024, 7, "#60a5fa"),
-    d.Name,
-  )
-}
+// ── End of Governance Dashboard ──
 
-func minInt3(a, b int) int {
-  if a < b { return a }
-  return b
+// ── BALANCE CARD (UPDATED WORKSPACE) ──
+func (r *Renderer) Portfolio(w http.ResponseWriter) {
+  writeHead(w, "Trading", "trade")
+  fmt.Fprint(w, `<h1>Trading — Portfolio &amp; Balance</h1>`)
+  r.writeBalanceCard(w)
+  writeFoot(w, fmt.Sprintf("Portfolio data refreshed each trading cycle."))
 }
-
-// ==============================
-// ACCOUNT BALANCE CARD (UPDATED WORKSPACE)
-// ==============================
 
 func (r *Renderer) writeBalanceCard(w http.ResponseWriter) {
 	if r.balance == nil {
@@ -1301,17 +1266,6 @@ func (r *Renderer) Training(w http.ResponseWriter) {
     }
     fmt.Fprint(w, `</table></div>`)
   }
-  writeFoot(w, "")
-}
-
-// ==============================
-// PORTFOLIO PAGE
-// ==============================
-
-func (r *Renderer) Portfolio(w http.ResponseWriter) {
-  writeHead(w, "Trading", "trade")
-  fmt.Fprint(w, `<h1>Trading — Portfolio &amp; Balance</h1>`)
-  r.writeBalanceCard(w)
   writeFoot(w, "")
 }
 

@@ -145,6 +145,26 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
         cur.close()
         return cols
 
+    def _proxy_crud_to_balance(self, route, body):
+        """Try routing a CRUD POST to the balance daemon. Returns True on success."""
+        balance_port = os.environ.get("DAEMON_BALANCE_HTTP_PORT", "8085")
+        balance_ip = os.environ.get("DAEMON_BALANCE_IP", "127.0.0.1")
+        import urllib.request
+        target = f"http://{balance_ip}:{balance_port}{route}"
+        try:
+            req = urllib.request.Request(target, data=body,
+                headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(resp.read())
+                return True
+        except Exception as e:
+            print(f"[proxy] balance daemon unreachable ({route}): {e}", flush=True)
+            return False
+
     def do_GET(self):
         """Handle GET — static files + API proxy + URL remapping."""
         # Strip If-Modified-Since to force fresh page every time (no browser cache)
@@ -170,11 +190,93 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def serve_api(self):
-        """Serve cached JSON from output_dir/api/."""
-        # /api/verify/balance — SHA256 auth, returns page-visible values
-        if self.path.startswith("/api/verify/"):
-            self.serve_verify()
-            return
+        """Serve cached JSON from output_dir/api/ or proxy to balance daemon."""
+        # /api/daemons -- serve cached daemon status
+        if self.path == "/api/daemons":
+            fpath = os.path.join(OUTPUT_DIR, "api", "daemons.json")
+            if os.patis.isfile(fpath):
+                with open(fpath, "r") as f:
+                    data = json.load(f)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(data).encode())
+                return
+        # /api/daemon/{name}/log — serve last N log lines filtered by daemon name
+        if self.path.startswith("/api/daemon/") and "/log" in self.path:
+            parts = self.path.strip("/").split("/")
+            if len(parts) >= 4 and parts[-1] == "log":
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                name = parts[-2]
+                lines = self._tail_daemon_log(name, 15)
+                self.wfile.write(json.dumps({"lines": lines, "count": lines.count(chr(10))}).encode())
+                return
+
+        # /api/daemons — serve cached daemon status from governance publisher
+        if self.path == "/api/daemons":
+            fpath = os.path.join(OUTPUT_DIR, "api", "daemons.json")
+            if os.path.isfile(fpath):
+                with open(fpath, "r") as f:
+                    data = json.load(f)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(data).encode())
+                return
+
+        # /api/daemons — serve cached daemon status from governance publisher
+        if self.path == "/api/daemons":
+            fpath = os.path.join(OUTPUT_DIR, "api", "daemons.json")
+            if os.path.isfile(fpath):
+                with open(fpath, "r") as f:
+                    data = json.load(f)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(data).encode())
+                return
+        # /api/balance — proxy to apps/balance daemon HTTP API
+        if self.path.startswith("/api/balance"):
+            balance_port = os.environ.get("DAEMON_BALANCE_HTTP_PORT", "8085")
+            balance_ip = os.environ.get("DAEMON_BALANCE_IP", "127.0.0.1")
+            pk = ""
+            # Try to get private_key from query string
+            if "?" in self.path:
+                from urllib.parse import urlparse, parse_qs
+                qs = parse_qs(urlparse(self.path).query)
+                pk = qs.get("private_key", [""])[0]
+            if not pk:
+                pk = os.environ.get("PRIVATE_KEY", "")
+            try:
+                import urllib.request
+                target_url = f"http://{balance_ip}:{balance_port}/api/balance"
+                if pk:
+                    target_url += f"?private_key={pk}"
+                req = urllib.request.Request(target_url, headers={"X-Private-Key": pk} if pk else {})
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    data = json.loads(resp.read().decode())
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(data).encode())
+                return
+            except Exception as e:
+                # Fallback: try cached balance.json
+                print(f"[proxy] balance daemon unreachable ({e}), trying cached", flush=True)
+                data = self._load_balance()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(data).encode())
+                return
 
         # /api/balance
         if self.path.startswith("/api/balance"):
@@ -810,11 +912,13 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(500, str(e))
                 return
 
-        # 83: Add token to user_tokens DB
+        # 83: Add token to user_tokens DB (proxy to balance daemon first)
         if self.path.startswith("/api/verify/token/add"):
             try:
                 content_len = int(self.headers.get('Content-Length', 0))
                 body = self.rfile.read(content_len)
+                if self._proxy_crud_to_balance("/api/token/add", body):
+                    return
                 data = json.loads(body)
                 ticker = data.get('ticker','').strip().upper()
                 address = data.get('address','').strip()
@@ -843,11 +947,13 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(500, str(e))
                 return
 
-        # 83: Add chain to user_chains DB
+        # 83: Add chain to user_chains DB (proxy to balance daemon first)
         if self.path.startswith("/api/verify/chain/add"):
             try:
                 content_len = int(self.headers.get('Content-Length', 0))
                 body = self.rfile.read(content_len)
+                if self._proxy_crud_to_balance("/api/chain/add", body):
+                    return
                 data = json.loads(body)
                 name = data.get('name','').strip()
                 cid = data.get('chain_id','').strip()
@@ -876,11 +982,13 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(500, str(e))
                 return
 
-        #  83-84: Token editor — delete token from user_tokens DB
+        #  83-84: Token editor — delete token from user_tokens DB (proxy to balance daemon first)
         if self.path.startswith("/api/tokens/delete"):
             try:
                 content_len = int(self.headers.get('Content-Length', 0))
                 body = self.rfile.read(content_len)
+                if self._proxy_crud_to_balance("/api/token/delete", body):
+                    return
                 data = json.loads(body)
                 indices = data.get('indices', [])
                 chain = data.get('chain', 'BSC')
@@ -953,6 +1061,9 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
             parts = self.path.replace("/api/daemon/", "").split("/")
             if len(parts) >= 2:
                 name, action = parts[0], parts[1]
+                if action == "log":
+                    self._serve_daemon_log(name)
+                    return
                 result = forward_action(name, action)
                 ok = result.startswith("OK")
                 self.send_response(200 if ok else 500)
@@ -964,6 +1075,45 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps(resp).encode())
                 print(f"[WEB] POST /api/daemon/{name}/{action} → {result}", flush=True)
                 return
+
+        self.send_error(400, "Invalid POST request")
+
+    def _tail_daemon_log(self, name, line_count=15):
+        """Return last N lines from system.log filtered by daemon name (word boundary)."""
+        log_path = os.path.join(OUTPUT_DIR, "..", "logs", "system.log")
+        if not os.path.isfile(log_path):
+            log_path = os.path.join("logs", "system.log")
+        try:
+            import re
+            with open(log_path, "r") as f:
+                all_lines = f.readlines()
+            # Word-boundary match: standalone daemon name, not part of other words
+            pattern = re.compile(r'\b' + re.escape(name) + r'\b', re.IGNORECASE)
+            filtered = [l for l in all_lines if pattern.search(l)]
+            if not filtered:
+                filtered = [l for l in all_lines if name.lower() in l.lower()]
+            return "".join(filtered[-line_count:])
+        except Exception as e:
+            return "Cannot read log: " + str(e)
+
+    def _serve_daemon_log(self, name, lines=15):
+        """Serve the last N lines of a daemon's log file."""
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        log_path = os.path.join(OUTPUT_DIR, "..", "logs", "system.log")
+        if not os.path.isfile(log_path):
+            log_path = os.path.join("logs", "system.log")
+        try:
+            with open(log_path, "r") as f:
+                all_lines = f.readlines()
+            # Filter by daemon name
+            filtered = [l for l in all_lines if name.lower() in l.lower()]
+            result = filtered[-lines:]
+            self.wfile.write(json.dumps({"lines": "".join(result), "count": len(result)}).encode())
+        except Exception as e:
+            self.wfile.write(json.dumps({"lines": "Cannot read log: " + str(e), "count": 0}).encode())
 
         self.send_error(400, "Invalid POST request")
 

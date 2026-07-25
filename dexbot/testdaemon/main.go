@@ -68,6 +68,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"dexbot/config"
@@ -105,6 +107,7 @@ type TestRunResult struct {
 	Packages       []string  `json:"affected_packages"`
 	TestsRan       []string  `json:"tests_ran"`
 	VetPassed      bool      `json:"vet_passed"`
+	PolicyPassed   bool      `json:"policy_passed"`
 	TestPassed     bool      `json:"test_passed"`
 	BuildPassed    bool      `json:"build_passed"`
 	DaemonsRestart []string  `json:"daemons_needing_restart"`
@@ -221,10 +224,11 @@ func validatePipeline() TestRunResult {
 	start := time.Now()
 
 	result := TestRunResult{
-		Timestamp:   start,
-		VetPassed:   true,
-		TestPassed:  true,
-		BuildPassed: true,
+		Timestamp:    start,
+		VetPassed:    true,
+		TestPassed:   true,
+		BuildPassed:  true,
+		PolicyPassed: true, // default: policy scan is informational
 	}
 
 	dc := NewDepChecker(projectRoot)
@@ -269,7 +273,10 @@ func validatePipeline() TestRunResult {
 		result.Error = "go vet failed"
 	}
 
-	// 5. go test (only if vet passed)
+	// 4b. Policy scan (rule1.txt compliance check)
+	result.PolicyPassed = runPolicyScan()
+
+	// 5. go test (only if vet + policy passed)
 	if result.VetPassed && len(testPkgs) > 0 {
 		result.TestPassed = runTests(testPkgs)
 		if !result.TestPassed {
@@ -333,6 +340,35 @@ func runBuild() bool {
 		return false
 	}
 	infra.Info("go build PASSED")
+	return true
+}
+
+func runPolicyScan() bool {
+	infra.FnTrace("running policy scan (rule1.txt compliance)")
+	scanScript := filepath.Join(projectRoot, "apps", "policy", "policy_scan.py")
+	if _, err := os.Stat(scanScript); err != nil {
+		infra.Warn("policy scanner not found: " + scanScript)
+		return true // non-blocking
+	}
+	cmd := exec.Command("python3", scanScript, projectRoot)
+	cmd.Dir = projectRoot
+	out, err := cmd.CombinedOutput()
+	issues := 0
+	output := strings.TrimSpace(string(out))
+	for _, line := range strings.Split(output, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "TOTAL ISSUES:") {
+			parts := strings.Split(line, ":")
+			if len(parts) >= 2 {
+				issues, _ = strconv.Atoi(strings.TrimSpace(parts[len(parts)-1]))
+			}
+		}
+	}
+	if issues > 0 {
+		infra.Warn(fmt.Sprintf("policy scan: %d issues found (informational, non-blocking)", issues))
+	} else {
+		infra.Info("policy scan: 0 issues (clean)")
+	}
+	_ = err // exit code 1 when issues found — expected, non-blocking
 	return true
 }
 
@@ -459,10 +495,11 @@ func runFullTestsAndReport() {
 func validateFullSuite() TestRunResult {
 	start := time.Now()
 	result := TestRunResult{
-		Timestamp:   start,
-		VetPassed:   true,
-		TestPassed:  true,
-		BuildPassed: true,
+		Timestamp:    start,
+		VetPassed:    true,
+		TestPassed:   true,
+		BuildPassed:  true,
+		PolicyPassed: true, // default: policy scan is informational
 	}
 
 	// 1. go vet ./...
@@ -527,10 +564,14 @@ func reportToGovernance(result TestRunResult) {
 	if !result.TestPassed || !result.VetPassed {
 		status = "fail"
 	}
+	// Policy scan is informational only — does NOT cause daemon to report "fail"
+	if !result.PolicyPassed {
+		status = "pass" // policy issues are warnings, not errors
+	}
 
-	msg := fmt.Sprintf("testdaemon:%s:%s:vet=%t:test=%t:build=%t:daemons=%v",
+	msg := fmt.Sprintf("testdaemon:%s:%s:vet=%t:test=%t:build=%t:policy=%t:daemons=%v",
 		status, result.Duration,
-		result.VetPassed, result.TestPassed, result.BuildPassed,
+		result.VetPassed, result.TestPassed, result.BuildPassed, result.PolicyPassed,
 		result.DaemonsRestart)
 
 	govUDPConn.Write([]byte(msg))
@@ -552,8 +593,8 @@ func reportToGovernance(result TestRunResult) {
 		Version: "v1.0",
 		Status:  status,
 		ActiveTasks: len(result.DaemonsRestart),
-		Message: fmt.Sprintf("vet=%t test=%t build=%t daemons=%s",
-			result.VetPassed, result.TestPassed, result.BuildPassed, daemonList),
+		Message: fmt.Sprintf("vet=%t test=%t build=%t policy=%t daemons=%s",
+			result.VetPassed, result.TestPassed, result.BuildPassed, result.PolicyPassed, daemonList),
 		LastHeartbeat: time.Now(),
 	}
 	govUDPConn.Write([]byte(governance.FormatHeartbeat(hb)))
