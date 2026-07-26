@@ -1,0 +1,92 @@
+==============================================================================
+1. TOP-LEVEL FILE HEADER TEMPLATE
+==============================================================================
+
+/******************************************************************************
+ * File Name       : <filename>.<ext>
+ * File Path       : <relative_path>/<filename>.<ext>
+ *
+ * Author          : Chalearm Saelim
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : YYYY-MM-DD HH:MM:SS (UTC+7)
+ * Modified Date   : YYYY-MM-DD HH:MM:SS (UTC+7)
+ *
+ * Description     :
+ *   <Brief description of what this file does and its role in the system.>
+ *
+ * Responsibilities:
+ *   - <Key responsibility 1>
+ *   - <Key responsibility 2>
+ *
+ * Usage :
+ *   Directory : <working_directory>/
+ *
+ *   Build :
+ *     go build -o <binary_name> .
+ *
+ *   Run :
+ *     ./<binary_name>
+ *
+ * Dependencies :
+ *   Internal :
+ *     - <internal_package_1>
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Updated Parts :
+ *   [Function]
+ *     - <modified_function_name>()
+ *
+ * New Parts :
+ *   [Function]
+ *     - <new_function_name>()
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)        | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | YYYY-MM-DD HH:MM:SS      | Chalearm Saelim | Initial version
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - <Pending task or improvement>
+ *
+ * Notes :
+ *   - Per regulator code standard rules.
+ ******************************************************************************/
+
+
+==============================================================================
+2. FUNCTION DOC-COMMENT TEMPLATE
+==============================================================================
+
+/******************************************************************************
+ * Function Name : <function_name>
+ *
+ * Purpose :
+ *   <Clear description of what this function achieves.>
+ *
+ * Inputs :
+ *   <param_1>, <param_2>
+ *     Type        : <data_type>
+ *     Description : <explanation of input parameters>
+ *
+ * Return :
+ *   Type        : <return_type>
+ *   Description : <explanation of returned value or errors>
+ *
+ * Complexity :
+ *   Time  : O(N)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - <Description of potential error scenario or "None">
+ *
+ * Number Of Lines :
+ *   <line_count>
+ ******************************************************************************/
