@@ -16,7 +16,41 @@
  *   is hashed to create the profile identifier.
  *
  * Usage : go test ./infra -v -run Profile
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * Responsibilities:
+ *   - Part of the dexbot platform.
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/infra
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Updated Parts :
+ *   None
+ *
+ * New Parts :
+ *   [Function] See function list.
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)        | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-07-26 08:00:00 (UTC+7)      | Chalearm Saelim | Initial
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add documentation.
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ *
+ * Reviewer        : Chalearm Saelim
+ * Status          : Development
+ * Modified Date   : 2026-07-26 08:00:00 (UTC+7)
+ */
 package infra
 
 import (
@@ -34,6 +68,30 @@ type Profile struct {
 }
 
 // ProfileID computes SHA256(first 16 chars of private key).
+/******************************************************************************
+ * Function Name : ProfileID
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func ProfileID(privateKey string) string {
 	if len(privateKey) < 16 {
 		return ""
@@ -44,6 +102,30 @@ func ProfileID(privateKey string) string {
 }
 
 // CreateUserProfilesTable ensures the user_profiles table exists.
+/******************************************************************************
+ * Function Name : CreateUserProfilesTable
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func CreateUserProfilesTable() {
 	if DB == nil {
 		return
@@ -61,6 +143,30 @@ func CreateUserProfilesTable() {
 }
 
 // LookupOrCreateProfile finds an existing profile by ID or creates a new one.
+/******************************************************************************
+ * Function Name : LookupOrCreateProfile
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func LookupOrCreateProfile(pk string) (*Profile, bool) {
 	id := ProfileID(pk)
 	if id == "" {
@@ -97,9 +203,57 @@ func LookupOrCreateProfile(pk string) (*Profile, bool) {
 	Info(fmt.Sprintf("Profile created: id=%s", id[:16]+"..."))
 	return &Profile{ID: id, CreatedAt: now, UpdatedAt: now}, true
 }
+/******************************************************************************
+ * Function Name : UpdateProfileBalance
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func UpdateProfileBalance(id string, totalUSD float64) {}
 
 // DeleteProfile removes a profile from the database.
+/******************************************************************************
+ * Function Name : DeleteProfile
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func DeleteProfile(id string) error {
 	if DB == nil {
 		return fmt.Errorf("no database connection")

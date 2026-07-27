@@ -81,11 +81,59 @@ var deepLearningModelCategories = map[string]string{
 	ModelDLNBeats: CategoryLongTerm, ModelDLAutoEncoder: CategoryRisk,
 	ModelDLVAE: CategoryRisk,
 }
+/******************************************************************************
+ * Function Name : AllDeepLearningModels
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func AllDeepLearningModels() []string {
 	return []string{ModelDLMLP, ModelDLCNN, ModelDLLSTM, ModelDLGRU,
 		ModelDLTransformer, ModelDLTFT, ModelDLNBeats, ModelDLAutoEncoder, ModelDLVAE}
 }
+/******************************************************************************
+ * Function Name : NewDeepLearningModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func NewDeepLearningModel(modelType string, modelIndex int) *ModelMetadata {
 	cat, _ := deepLearningModelCategories[modelType]
@@ -99,14 +147,86 @@ func NewDeepLearningModel(modelType string, modelIndex int) *ModelMetadata {
 		Fitness: &FitnessHistory{Timestamp: time.Now()},
 	}
 }
+/******************************************************************************
+ * Function Name : ValidateDeepLearningModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func ValidateDeepLearningModel(modelType string) bool {
 	_, ok := deepLearningModelCategories[modelType]; return ok
 }
+/******************************************************************************
+ * Function Name : IsDeepLearningModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func IsDeepLearningModel(m *ModelMetadata) bool {
 	return m != nil && ValidateDeepLearningModel(m.Architecture)
 }
+/******************************************************************************
+ * Function Name : CategoryForDeepLearningModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func CategoryForDeepLearningModel(modelType string) string {
 	if cat, ok := deepLearningModelCategories[modelType]; ok { return cat }

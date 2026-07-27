@@ -1,36 +1,94 @@
 #!/usr/bin/env python3
-#/******************************************************************************
-#* File Name        : train_worker.py
-#* Path             : apps/school/train_worker.py
-#* Author           : Chalearm Saelim & Gemini
-#* System Role      : Distributed Fold Training Engine / Worker Node
-#* Architecture     : Distributed Client-Server / Master-Worker (Celery + Redis)
-#* 
-#* DEPENDENCY TREE & STRUCTURAL MAP:
-#* ─────────────────────────────────────────────────────────────────────────────
-#* [celery_tasks.py] (Celery Task Router)
-#*    └── Calls ──> [train_worker.py] (Isolated Training Engine)
-#*                   │
-#*                   ├── Imports ──> [utils.py] (resolve_target_directories)
-#*                   ├── Deserializes JSON arrays to NumPy (X_train, y_train, X_val, y_val)
-#*                   ├── Builds Dynamic TensorFlow/Keras LSTM Architecture
-#*                   ├── Trains Model with EarlyStopping & Adam Optimizer
-#*                   ├── Evaluates Validation Inference & Metrics:
-#*                   │    ├── Directional Accuracy (Baseline DA, Model DA, Skill DA)
-#*                   │    └── Portfolio Backtest (Sharpe, MaxDD, RMSE, CAGR, Profit Factor)
-#*                   │
-#*                   ├── Logs Fold Lifecycle ──> [logs/<run_id>/folds_lifecycle.log]
-#*                   └── Returns JSON Result Dictionary to Redis Master Queue
-#*
-#* FUNCTION DEPENDENCY MATRIX (Internal Methods):
-#* ─────────────────────────────────────────────────────────────────────────────
-#* execute_fold_training(payload)
-#*  ├── utils.resolve_target_directories(run_id)
-#*  ├── _build_lstm_model(num_timesteps, num_features, num_targets, chromosome)
-#*  ├── _evaluate_directional_accuracy(y_val, predictions, target_cols)
-#*  ├── _backtest_portfolio_strategy(y_val, predictions, target_cols, horizon)
-#*  └── _log_fold_audit_metrics(logger_obj, ...)
-#******************************************************************************/
+# ##############################################################################
+# File Name        : train_worker.py
+# File Path        : apps/school/train_worker.py
+#
+# Author           : Chalearm Saelim & Gemini
+# Owner            : Chalearm Saelim
+# Reviewer         : Chalearm Saelim
+#
+# Version          : 1.0.1
+# Status           : Development
+# Created Date     : 2026-07-26 08:00:00 (UTC+7)
+# Modified Date    : 2026-07-27 16:30:00 (UTC+7)
+#
+# Description      :
+#    Isolated worker engine node that executes LSTM fold cross-validation training
+#    tasks dispatched via Celery over a Redis message broker. Loads feature tensors
+#    from local disk cache (.npz), constructs dynamic Keras LSTM networks with Seq2Seq
+#    headers, executes training with EarlyStopping, computes directional accuracy and
+#    portfolio backtest metrics, and logs execution audit trails to disk.
+#
+#    DEPENDENCY TREE & STRUCTURAL MAP:
+#    ───────────────────────────────────────────────────────────────────────────
+#    [celery_tasks.py] (Celery Task Router)
+#        └── Calls ──> [train_worker.py] (Isolated Training Engine)
+#                        │
+#                        ├── Imports ──> [utils.py] (resolve_target_directories)
+#                        ├── Loads .npz Tensors from Disk (X_train, y_train, X_val, y_val)
+#                        ├── Builds Dynamic TensorFlow/Keras LSTM Architecture
+#                        ├── Trains Model with EarlyStopping & Adam Optimizer
+#                        ├── Evaluates Validation Inference & Metrics:
+#                        │    ├── Directional Accuracy (Baseline DA, Model DA, Skill DA)
+#                        │    └── Portfolio Backtest (Sharpe, MaxDD, RMSE, CAGR, Profit Factor)
+#                        │
+#                        ├── Logs Fold Lifecycle ──> [logs/<run_id>/folds_lifecycle.log]
+#                        └── Returns JSON Result Dictionary to Redis Master Queue
+#
+#    FUNCTION DEPENDENCY MATRIX (Internal Methods):
+#    ───────────────────────────────────────────────────────────────────────────
+#    execute_fold_training(payload)
+#     ├── utils.resolve_target_directories(run_id)
+#     ├── _build_and_compile_lstm(chromosome, input_shape, num_targets, forecast_horizon)
+#     ├── _evaluate_directional_accuracy(y_val, predictions, target_cols)
+#     ├── _backtest_portfolio_strategy(y_val, predictions, target_cols, horizon)
+#     └── _log_fold_audit_metrics(logger_obj, ...)
+#
+# Responsibilities :
+#    - Deserializes dataset slice indices and loads cached array tensors.
+#    - Dynamically builds and fits Keras LSTM neural network models per fold.
+#    - Computes financial backtest metrics and directional accuracy statistics.
+#    - Audits training lifecycle and releases worker RAM/GPU sessions on completion.
+#
+# Usage :
+#    Directory : apps/school/
+#
+#    Build :
+#      N/A (Interpreted Python Script)
+#
+#    Run :
+#      Executed internally by Celery worker pool via tasks.run_fold_training_task
+#
+# Dependencies :
+#    Internal :
+#      - utils (resolve_target_directories)
+#
+#    External :
+#      - numpy, tensorflow, scikit-learn
+#
+# Updated Parts :
+#    [Function]
+#      - _build_and_compile_lstm() (Used Keras 3 Input(shape) object & Reshape layer)
+#      - _backtest_portfolio_strategy() (Clipped cumsum log returns to eliminate exp float overflow)
+#      - execute_fold_training() (Fixed function call alignment and added full print telemetry)
+#
+# New Parts :
+#    None
+#
+# Change History :
+#    -------------------------------------------------------------------------
+#    Version | Date Time (UTC+7)        | Author          | Description
+#    -------------------------------------------------------------------------
+#    1.0.0   | 2026-07-26 08:00:00      | Chalearm Saelim | Initial release
+#    1.0.1   | 2026-07-27 16:30:00      | Chalearm Saelim | Fixed exp overflow & Keras 3 input shape
+#    -------------------------------------------------------------------------
+#
+# TODO :
+#    - Add mixed-precision training support for acceleration.
+#
+# Notes :
+#    - Per regulator coding standard rules.
+# ##############################################################################
 
 import os
 import sys
@@ -39,62 +97,153 @@ import time
 import socket
 import logging
 import numpy as np
-import tensorflow as tf
 
-from utils import resolve_target_directories
 # 1. Force CPU-only mode (stops CUDA cuInit attempts entirely)
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
-# 2. Suppress TensorFlow C++ log output (0=ALL, 1=NO_INFO, 2=NO_WARNING, 3=NO_ERROR)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
-# Now import TensorFlow safely
+# --- Memory & Thread Safeguards for Celery Workers ---
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
 import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Input, LSTM, Dense, Dropout, Reshape
+
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_inter_op_parallelism_threads(1)
 tf.get_logger().setLevel('ERROR')
+
+from sklearn.metrics import root_mean_squared_error
+from utils import resolve_target_directories
 
 
 # ==============================================================================
 # HELPER SUB-ROUTINES FOR TRAINING & METRICS EVALUATION
 # ==============================================================================
 
-def _build_lstm_model(num_timesteps: int, num_features: int, num_targets: int, chromosome: dict):
-    """
-    Constructs and compiles a Sequential Keras LSTM network using chromosome genes.
-    """
-    import tensorflow as tf
+# ##############################################################################
+# Function Name : _build_and_compile_lstm
+#
+# Purpose :
+#    Constructs and compiles a Sequential Keras LSTM network using depth, node,
+#    learning rate, and dropout parameters defined in the chromosome dictionary,
+#    supporting direct sequence-to-sequence output horizon matrix shapes.
+#
+# Inputs :
+#    chromosome
+#        Type        : dict
+#        Description : Hyperparameter dictionary containing architecture genes.
+#    input_shape
+#        Type        : tuple
+#        Description : Shape tuple (lookback_timesteps, num_features).
+#    num_targets
+#        Type        : int
+#        Description : Number of target features being forecasted.
+#    forecast_horizon
+#        Type        : int
+#        Description : Number of future steps in forecast target window.
+#
+# Return :
+#    Type        : tensorflow.keras.Model
+#    Description : Compiled Keras LSTM model ready for fold training.
+#
+# Complexity :
+#    Time  : O(L) where L is the number of LSTM layers.
+#    Space : O(W) where W is network weight parameter count.
+#
+# Error Cases :
+#    - Invalid network architecture parameters fallback to default node size.
+#
+# Number Of Lines :
+#    35
+# ##############################################################################
+def _build_and_compile_lstm(chromosome: dict, input_shape: tuple, num_targets: int, forecast_horizon: int) -> tf.keras.Model:
+    units = int(chromosome.get('nodes_per_layer', [64])[0] if isinstance(chromosome.get('nodes_per_layer'), list) else chromosome.get('lstm_units', 64))
+    dropout_rate = float(chromosome.get('dropout_rate', 0.2))
+    num_layers = int(chromosome.get('lstm_layers', chromosome.get('num_layers', 2)))
 
-    model = tf.keras.Sequential()
-    model.add(tf.keras.Input(shape=(num_timesteps, num_features)))
-
-    num_layers = chromosome['lstm_layers']
-    nodes = chromosome['nodes_per_layer']
-    dropout_rate = chromosome['dropout_rate']
-
-    for i in range(num_layers):
-        is_last = (i == num_layers - 1)
-        node_count = nodes[i] if i < len(nodes) else nodes[0]
-        model.add(tf.keras.layers.LSTM(node_count, return_sequences=not is_last))
-        model.add(tf.keras.layers.Dropout(dropout_rate))
-
-    model.add(tf.keras.layers.Dense(num_targets))
-
-    optimizer = tf.keras.optimizers.Adam(
-        learning_rate=chromosome['learning_rate'],
-        clipnorm=1.0  # Clip norm applied to prevent exploding gradients / NaN loss
-    )
+    model = Sequential()
+    
+    # Keras 3 Compliant Input Layer
+    model.add(Input(shape=input_shape))
+    
+    # 1. First LSTM Layer
+    model.add(LSTM(
+        units=units, 
+        return_sequences=(num_layers > 1)
+    ))
+    model.add(Dropout(dropout_rate))
+    
+    # 2. Hidden LSTM Layers
+    for i in range(1, num_layers):
+        model.add(LSTM(
+            units=units, 
+            return_sequences=(i < num_layers - 1)
+        ))
+        model.add(Dropout(dropout_rate))
+        
+    # 3. Direct Multi-Target Output Header
+    # Total dense units = forecast_horizon * active_target_features
+    model.add(Dense(forecast_horizon * num_targets))
+    model.add(Reshape((forecast_horizon, num_targets)))
+    
+    # 4. Optimizer
+    lr = min(float(chromosome.get('learning_rate', 0.001)), 0.001)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=lr, clipvalue=0.5)
     model.compile(optimizer=optimizer, loss='mse')
+    
     return model
 
 
+# ##############################################################################
+# Function Name : _evaluate_directional_accuracy
+#
+# Purpose :
+#    Calculates Baseline DA, Model DA, and Skill DA (edge over naive baseline)
+#    for each target feature channel.
+#
+# Inputs :
+#    y_val
+#        Type        : numpy.ndarray
+#        Description : Ground truth validation target values.
+#    predictions
+#        Type        : numpy.ndarray
+#        Description : Predicted values output by LSTM model.
+#    target_cols
+#        Type        : list
+#        Description : Names of active target feature columns.
+#
+# Return :
+#    Type        : tuple (dict, float)
+#    Description : (asset_skills dictionary, avg_skill float)
+#
+# Complexity :
+#    Time  : O(N * C) where N is validation sample count, C is channel count.
+#    Space : O(C)
+#
+# Error Cases :
+#    - Returns 0.0 average skill if target sample count is zero.
+#
+# Number Of Lines :
+#    35
+# ##############################################################################
 def _evaluate_directional_accuracy(y_val: np.ndarray, predictions: np.ndarray, target_cols: list):
-    """
-    Calculates Baseline DA, Model DA, and Skill DA (edge over naive baseline) per asset target channel.
-    """
     asset_skills = {}
     fold_assets_skill_list = []
 
+    # Flatten time steps if 3D arrays are provided for evaluation
+    y_val_flat = y_val.reshape(-1, y_val.shape[-1]) if len(y_val.shape) == 3 else y_val
+    preds_flat = predictions.reshape(-1, predictions.shape[-1]) if len(predictions.shape) == 3 else predictions
+
     for target_idx, raw_col in enumerate(target_cols):
+        if target_idx >= y_val_flat.shape[1]:
+            continue
+
         if raw_col.startswith('price_log_return_'):
             asset_label = f"{raw_col.replace('price_log_return_', '').upper()} [PRICE]"
         elif raw_col.startswith('volume_log_change_'):
@@ -102,7 +251,7 @@ def _evaluate_directional_accuracy(y_val: np.ndarray, predictions: np.ndarray, t
         else:
             asset_label = raw_col.upper()
 
-        asset_targets = y_val[:, target_idx]
+        asset_targets = y_val_flat[:, target_idx]
         tot_count = len(asset_targets)
         if tot_count == 0:
             continue
@@ -112,7 +261,7 @@ def _evaluate_directional_accuracy(y_val: np.ndarray, predictions: np.ndarray, t
         baseline_da = max(pos_count / tot_count, neg_count / tot_count)
 
         asset_actual_s = np.sign(asset_targets)
-        asset_pred_s = np.sign(predictions[:, target_idx])
+        asset_pred_s = np.sign(preds_flat[:, target_idx])
         model_da = np.sum(asset_actual_s == asset_pred_s) / tot_count
         skill_da = float(model_da - baseline_da)
 
@@ -127,18 +276,52 @@ def _evaluate_directional_accuracy(y_val: np.ndarray, predictions: np.ndarray, t
     return asset_skills, avg_skill
 
 
+# ##############################################################################
+# Function Name : _backtest_portfolio_strategy
+#
+# Purpose :
+#    Simulates a long/short portfolio backtest accounting for transaction fees,
+#    computing Sharpe ratio, Max Drawdown, CAGR, Profit Factor, and Calmar ratio.
+#
+# Inputs :
+#    y_val
+#        Type        : numpy.ndarray
+#        Description : Validation ground truth returns.
+#    predictions
+#        Type        : numpy.ndarray
+#        Description : Predicted return directional signals.
+#    target_cols
+#        Type        : list
+#        Description : Active feature channel columns.
+#    horizon
+#        Type        : int
+#        Description : Forecast horizon days for annualization calculations.
+#
+# Return :
+#    Type        : dict
+#    Description : Dictionary containing backtest performance metrics.
+#
+# Complexity :
+#    Time  : O(N * P) where N is days, P is price indices count.
+#    Space : O(N)
+#
+# Error Cases :
+#    - Handles zero variance returns by falling back to default penalty values.
+#
+# Number Of Lines :
+#    58
+# ##############################################################################
 def _backtest_portfolio_strategy(y_val: np.ndarray, predictions: np.ndarray, target_cols: list, horizon: int):
-    """
-    Simulates a long/short portfolio backtest accounting for trading fees, 
-    computing Sharpe ratio, Max Drawdown, CAGR, Profit Factor, and Calmar ratio.
-    """
-    pred_signs = np.sign(predictions)
+    y_val_flat = y_val.reshape(-1, y_val.shape[-1]) if len(y_val.shape) == 3 else y_val
+    preds_flat = predictions.reshape(-1, predictions.shape[-1]) if len(predictions.shape) == 3 else predictions
+
+    pred_signs = np.sign(preds_flat)
     price_indices = [idx for idx, col in enumerate(target_cols) if 'price_log_return' in col]
     if not price_indices:
         price_indices = [0]
 
     clean_pred_signs = pred_signs[:, price_indices]
-    clean_y_val = y_val[:, price_indices]
+    clean_y_val = y_val_flat[:, price_indices]
 
     raw_strategy_returns = clean_pred_signs * clean_y_val
     position_changes = np.abs(np.diff(clean_pred_signs, axis=0, prepend=clean_pred_signs[:1]))
@@ -163,13 +346,22 @@ def _backtest_portfolio_strategy(y_val: np.ndarray, predictions: np.ndarray, tar
     crypto_ann_factor = float(np.sqrt(365.0 / max(1, horizon)))
     sharpe = float((mean_ret / daily_std * crypto_ann_factor)) if daily_std > 1e-6 else -5.0
 
-    equity_curve = np.exp(np.cumsum(portfolio_returns))
+    # Safe Cumulative Log Return Calculation (Clips max growth to prevent e^700 overflow)
+    cum_returns = np.clip(np.cumsum(portfolio_returns), -50.0, 50.0)
+    equity_curve = np.exp(cum_returns)
+    equity_curve = np.nan_to_num(equity_curve, nan=1.0, posinf=1e6, neginf=1e-6)
+
     running_max = np.maximum.accumulate(equity_curve)
-    drawdowns = (equity_curve - running_max) / running_max
-    max_dd = float(abs(np.min(drawdowns))) if len(drawdowns) > 0 else 1.0
+    
+    # Safe Drawdown Calculation (Prevents inf/inf and 0/0 NaNs)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        drawdowns = np.where(running_max > 0, (equity_curve - running_max) / running_max, 0.0)
+        drawdowns = np.nan_to_num(drawdowns, nan=0.0)
+
+    max_dd = float(abs(np.min(drawdowns))) if len(drawdowns) > 0 else 0.0
 
     fractional_years = max(1, horizon) / 365.0
-    ending_wealth = float(equity_curve[-1])
+    ending_wealth = float(equity_curve[-1]) if len(equity_curve) > 0 else 1.0
     raw_cagr = (ending_wealth ** (1.0 / fractional_years)) - 1.0 if ending_wealth > 0 else -1.0
     cagr = float(np.clip(raw_cagr, -0.99, 5.00))
     calmar = (cagr / max_dd) if max_dd > 1e-5 else (cagr / 0.00001)
@@ -189,6 +381,56 @@ def _backtest_portfolio_strategy(y_val: np.ndarray, predictions: np.ndarray, tar
     }
 
 
+# ##############################################################################
+# Function Name : _log_fold_audit_metrics
+#
+# Purpose :
+#    Formats and logs target balance, per-asset accuracy, vector diagnostics,
+#    and training timing details into the fold lifecycle log file.
+#
+# Inputs :
+#    fold_logger
+#        Type        : logging.Logger
+#        Description : Target log handler object.
+#    chrom_id
+#        Type        : str
+#        Description : Unique identifier string for chromosome.
+#    fold_idx
+#        Type        : int
+#        Description : Current fold index.
+#    num_folds
+#        Type        : int
+#        Description : Total fold count.
+#    asset_skills
+#        Type        : dict
+#        Description : Per-asset directional accuracy metrics dictionary.
+#    p_metrics
+#        Type        : dict
+#        Description : Portfolio backtest risk metrics dictionary.
+#    rmse
+#        Type        : float
+#        Description : Root Mean Squared Error value.
+#    node_info
+#        Type        : str
+#        Description : Worker hostname and PID string.
+#    execution_duration
+#        Type        : float
+#        Description : Fold training execution duration in seconds.
+#
+# Return :
+#    Type        : None
+#    Description : Logs formatted diagnostic blocks to disk.
+#
+# Complexity :
+#    Time  : O(A) where A is asset channel count.
+#    Space : O(1)
+#
+# Error Cases :
+#    - None
+#
+# Number Of Lines :
+#    18
+# ##############################################################################
 def _log_fold_audit_metrics(fold_logger, chrom_id, fold_idx, num_folds, asset_skills, p_metrics, rmse, node_info, execution_duration=0.0):
     fold_logger.info("=" * 65)
     fold_logger.info(f"🕵️‍♂️ [TARGET BALANCE CHECK - MODEL {chrom_id} | FOLD {fold_idx}/{num_folds} | Node: {node_info}]:")
@@ -202,32 +444,47 @@ def _log_fold_audit_metrics(fold_logger, chrom_id, fold_idx, num_folds, asset_sk
         
     fold_logger.info("-" * 65)
     fold_logger.info(f"🕵️‍♂️ [SURGICAL AUDIT FOLD {fold_idx}/{num_folds}] Vector Diagnostics:")
-    # Fix win_ratio formatting below:
     fold_logger.info(f"    📦 Day Counts -> Wins: {p_metrics['winning_days']} | Losses: {p_metrics['losing_days']} | Flats: {p_metrics['flat_days']} [Win Rate: {p_metrics['win_ratio']:.2f}%]")
     fold_logger.info(f"    📉 Bounds     -> Worst Day: {p_metrics['worst_return']:.6f} | Best Day: {p_metrics['best_return']:.6f}")
     fold_logger.info(f"    ⚡ Risk Specs -> Annualized Sharpe: {p_metrics['sharpe']:.2f} | Max Drawdown: {p_metrics['max_dd']*100:.2f}% | RMSE: {rmse:.4f}")
     fold_logger.info(f"    ⏱️ Execution  -> Fold Training Duration: {execution_duration:.2f} seconds")
     fold_logger.info("=" * 65)
 
+
 # ==============================================================================
 # MAIN WORKER EXECUTION ENTRY POINT
 # ==============================================================================
 
+# ##############################################################################
+# Function Name : execute_fold_training
+#
+# Purpose :
+#    Primary worker entry point called by tasks.run_fold_training_task.
+#    Loads cached array tensors from disk, constructs and fits the Keras LSTM model,
+#    evaluates accuracy/risk metrics, logs lifecycle data, and returns a JSON payload.
+#
+# Inputs :
+#    payload
+#        Type        : dict
+#        Description : Dictionary containing cache_file, train_slice, val_slice,
+#                      horizon, chromosome hyperparameters, and target_cols.
+#
+# Return :
+#    Type        : dict
+#    Description : JSON-serializable status dictionary with fold performance metrics.
+#
+# Complexity :
+#    Time  : O(E * B) where E is epochs and B is batch count per epoch.
+#    Space : O(S * F) where S is sample count and F is feature dimension.
+#
+# Error Cases :
+#    - Catches exceptions during disk loading, training, or evaluation,
+#      logging error details and returning status="error".
+#
+# Number Of Lines :
+#    115
+# ##############################################################################
 def execute_fold_training(payload: dict) -> dict:
-    """
-    Main worker execution function triggered by Celery tasks. Deserializes data tensors,
-    trains Keras LSTM model, evaluates metrics, logs diagnostics, and returns JSON payload.
-    """
-    import gc
-    import time
-    import socket
-    import logging
-    import numpy as np
-    import tensorflow as tf
-    
-    tf.get_logger().setLevel('ERROR')
-    from sklearn.metrics import root_mean_squared_error
-
     start_time = time.perf_counter()
     worker_hostname = socket.gethostname()
     worker_pid = os.getpid()
@@ -237,7 +494,7 @@ def execute_fold_training(payload: dict) -> dict:
     run_id = payload.get("run_id", None)
     chrom_id = payload.get('chrom_id', 'UNKNOWN')
     fold_idx = payload.get('fold_idx', 0)
-    num_folds = payload.get('num_folds', 7)
+    num_folds = payload.get('num_folds', 6)
 
     log_dir, export_dir, plot_dir = resolve_target_directories(run_id)
 
@@ -254,7 +511,7 @@ def execute_fold_training(payload: dict) -> dict:
     fold_logger.info(f"🏋️ [TRAIN START] Model {chrom_id} | Fold {fold_idx}/{num_folds} | Run Directory: {log_dir}")
 
     try:
-        # 3. DESERIALIZE TENSORS
+        # 3. DESERIALIZE TENSORS FROM DISK CACHE
         cache_file = payload['cache_file']
         train_start, train_end = payload['train_slice']
         val_start, val_end = payload['val_slice']
@@ -267,15 +524,36 @@ def execute_fold_training(payload: dict) -> dict:
         X_train, y_train = X_full[train_start:train_end], y_full[train_start:train_end]
         X_val, y_val = X_full[val_start:val_end], y_full[val_start:val_end]
 
-        horizon = payload['horizon']
         chromosome = payload['chromosome']
         target_cols = payload['target_cols']
 
+        # 4. DERIVE 3D TENSOR SHAPES SAFELY
         num_timesteps, num_features = X_train.shape[1], X_train.shape[2]
-        num_targets = y_train.shape[1]
+        
+        if len(y_train.shape) == 3:
+            forecast_horizon = y_train.shape[1]
+            num_targets = y_train.shape[2]
+        else:
+            forecast_horizon = 1
+            num_targets = y_train.shape[1]
 
-        # 4. BUILD & TRAIN MODEL
-        model = _build_lstm_model(num_timesteps, num_features, num_targets, chromosome)
+        # Detailed worker telemetry output
+        print("\n" + "=" * 70)
+        print(f"🏋️ [WORKER FOLD EXECUTION] Model: {chrom_id} | Fold: {fold_idx}/{num_folds} | Node: {node_info}")
+        print(f"   ├── Training Slices   : {train_start} -> {train_end} (Samples: {len(X_train)})")
+        print(f"   ├── Validation Slices : {val_start} -> {val_end} (Samples: {len(X_val)})")
+        print(f"   ├── Input Tensor      : X_train shape = {X_train.shape}")
+        print(f"   ├── Target Tensor     : y_train shape = {y_train.shape}")
+        print(f"   └── Output Target Spec: Horizon = {forecast_horizon} days, Active Targets = {num_targets}")
+        print("=" * 70)
+
+        # 5. BUILD & TRAIN MODEL
+        model = _build_and_compile_lstm(
+            chromosome=chromosome, 
+            input_shape=(num_timesteps, num_features), 
+            num_targets=num_targets, 
+            forecast_horizon=forecast_horizon
+        )
 
         early_stop = tf.keras.callbacks.EarlyStopping(
             monitor='loss',
@@ -286,7 +564,7 @@ def execute_fold_training(payload: dict) -> dict:
         history = model.fit(
             X_train, y_train,
             epochs=40,
-            batch_size=chromosome['batch_size'],
+            batch_size=chromosome.get('batch_size', 32),
             verbose=0,
             callbacks=[early_stop]
         )
@@ -294,17 +572,17 @@ def execute_fold_training(payload: dict) -> dict:
         duration = time.perf_counter() - start_time
         final_loss = float(history.history['loss'][-1])
 
-        # 5. INFERENCE & EVALUATION
+        # 6. INFERENCE & EVALUATION
         predictions = model.predict(X_val, verbose=0)
-        rmse = float(root_mean_squared_error(y_val, predictions))
+        rmse = float(root_mean_squared_error(y_val.reshape(-1, num_targets), predictions.reshape(-1, num_targets)))
 
         # Directional Accuracy & Skill DA
         asset_skills, avg_skill = _evaluate_directional_accuracy(y_val, predictions, target_cols)
 
         # Portfolio Backtest Metrics
-        p_metrics = _backtest_portfolio_strategy(y_val, predictions, target_cols, horizon)
+        p_metrics = _backtest_portfolio_strategy(y_val, predictions, target_cols, forecast_horizon)
 
-        # 6. LOG AUDIT METRICS TO DISK
+        # 7. LOG AUDIT METRICS TO DISK
         _log_fold_audit_metrics(
             fold_logger=fold_logger, 
             chrom_id=chrom_id, 
@@ -318,7 +596,9 @@ def execute_fold_training(payload: dict) -> dict:
         )
         fold_logger.info(f"✅ [TRAIN COMPLETE] Model {chrom_id} | Fold {fold_idx}/{num_folds} finished in {duration:.2f}s")
 
-        # 7. RETURN JSON-SERIALIZABLE PAYLOAD TO MASTER
+        print(f"✅ [WORKER SUCCESS] Model: {chrom_id} | Fold: {fold_idx}/{num_folds} | Skill DA: {avg_skill*100:+.2f}% | Loss: {final_loss:.6f} | Time: {duration:.2f}s\n")
+
+        # 8. RETURN JSON-SERIALIZABLE PAYLOAD TO MASTER
         return {
             "status": "success",
             "run_id": run_id,
@@ -345,7 +625,9 @@ def execute_fold_training(payload: dict) -> dict:
 
     except Exception as e:
         duration = time.perf_counter() - start_time
-        fold_logger.error(f"❌ [WORKER CRASH] Model {chrom_id} | Fold {fold_idx}/{num_folds} failed on Node {node_info}: {e}")
+        err_msg = f"❌ [WORKER CRASH] Model {chrom_id} | Fold {fold_idx}/{num_folds} failed on Node {node_info}: {e}"
+        print(err_msg)
+        fold_logger.error(err_msg)
 
         return {
             "status": "error",
@@ -358,7 +640,7 @@ def execute_fold_training(payload: dict) -> dict:
         }
 
     finally:
-        # Guarantee session clearance & OS memory reclaim on every execution
+        # Guarantee Keras session clearance & OS memory reclaim on every execution
         try:
             tf.keras.backend.clear_session()
         except Exception:

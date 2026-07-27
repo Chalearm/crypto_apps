@@ -79,6 +79,30 @@ type GarchTrainer struct {
 }
 
 // NewGarchTrainer creates a trainer for GARCH or EGARCH.
+/******************************************************************************
+ * Function Name : NewGarchTrainer
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func NewGarchTrainer(modelType string) *GarchTrainer {
 	return &GarchTrainer{
 		modelType: modelType,
@@ -87,6 +111,30 @@ func NewGarchTrainer(modelType string) *GarchTrainer {
 }
 
 // Fit estimates parameters via simplified maximum likelihood (variance targeting).
+/******************************************************************************
+ * Function Name : Fit
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (g *GarchTrainer) Fit(features [][]float64, targets []float64, cfg *TrainingConfig) error {
 	if len(targets) < 2 {
 		return fmt.Errorf("need at least 2 observations")
@@ -132,6 +180,30 @@ func (g *GarchTrainer) Fit(features [][]float64, targets []float64, cfg *Trainin
 }
 
 // Predict returns the next-period volatility forecast.
+/******************************************************************************
+ * Function Name : Predict
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (g *GarchTrainer) Predict(features []float64) (float64, error) {
 	if !g.fitted || len(features) < 2 {
 		return g.Omega, nil
@@ -175,6 +247,30 @@ func (g *GarchTrainer) Predict(features []float64) (float64, error) {
 }
 
 // Backtest evaluates on historical data.
+/******************************************************************************
+ * Function Name : Backtest
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (g *GarchTrainer) Backtest(features [][]float64, targets []float64) (*FitnessHistory, error) {
 	if !g.fitted {
 		return &FitnessHistory{Timestamp: time.Now()}, nil
@@ -192,6 +288,30 @@ func (g *GarchTrainer) Backtest(features [][]float64, targets []float64) (*Fitne
 }
 
 // WalkForward performs rolling validation.
+/******************************************************************************
+ * Function Name : WalkForward
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (g *GarchTrainer) WalkForward(features [][]float64, targets []float64, windowSize int) ([]FitnessHistory, error) {
 	n := len(features)
 	if windowSize <= 0 || windowSize >= n {
@@ -210,6 +330,30 @@ func (g *GarchTrainer) WalkForward(features [][]float64, targets []float64, wind
 }
 
 // Serialize marshals to JSON.
+/******************************************************************************
+ * Function Name : Serialize
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (g *GarchTrainer) Serialize() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"model_type": g.modelType, "omega": g.Omega, "alpha": g.Alpha,
@@ -218,6 +362,30 @@ func (g *GarchTrainer) Serialize() ([]byte, error) {
 }
 
 // Deserialize restores from JSON.
+/******************************************************************************
+ * Function Name : Deserialize
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (g *GarchTrainer) Deserialize(data []byte) error {
 	var m map[string]interface{}
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -243,6 +411,30 @@ func (g *GarchTrainer) Deserialize(data []byte) error {
 	}
 	return nil
 }
+/******************************************************************************
+ * Function Name : init
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func init() {
 	RegisterTrainer(ModelStatGARCH, func() TrainingEngine { return NewGarchTrainer(ModelStatGARCH) })

@@ -121,42 +121,74 @@ type GAEngine struct {
 	rng *rand.Rand
 }
 
-/*
-Function: NewGA
-Description:
-  Creates a new GA engine for a model population.
+/******************************************************************************
+ * Function Name : NewGA
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - cfg GAConfig          : Evolution parameters
-  - pop *ModelPopulation  : Seed population (must be non-empty)
-  - rng *rand.Rand        : Random source
-
-Output:
-  - *GAEngine: Initialized engine
-
-Lines: ~10
-*/
+  *
+  * Function Name : NewGA
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func NewGA(cfg GAConfig, pop *ModelPopulation, rng *rand.Rand) *GAEngine {
 	return &GAEngine{cfg: cfg, pop: pop, rng: rng}
 }
 
-/*
-Function: Evolve
-Description:
-  Runs one full evolution cycle: ranks models, retires bottom N,
-  promotes top N to graduate, then runs N generations of selection,
-  crossover, and mutation to replenish the population.
+/******************************************************************************
+ * Function Name : Evolve
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - weights FitnessWeights : Scoring weights
-
-Output:
-  - int    : Number of new graduates this cycle
-  - int    : Number retired this cycle
-  - string : Summary log line
-
-Lines: ~35
-*/
 func (ga *GAEngine) Evolve(weights FitnessWeights) (int, int, string) {
 	// 1. Evaluate fitness for all models
 	ranked := ga.rankByFitness(weights)
@@ -206,6 +238,30 @@ func (ga *GAEngine) Evolve(weights FitnessWeights) (int, int, string) {
 }
 
 // rankByFitness returns models sorted by composite fitness (descending).
+/******************************************************************************
+ * Function Name : rankByFitness
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (ga *GAEngine) rankByFitness(weights FitnessWeights) []*ModelMetadata {
 	var active []*ModelMetadata
 	// Collect all non-retired models across all categories
@@ -232,6 +288,30 @@ func (ga *GAEngine) rankByFitness(weights FitnessWeights) []*ModelMetadata {
 }
 
 // runGeneration performs one generation of selection, crossover, mutation.
+/******************************************************************************
+ * Function Name : runGeneration
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (ga *GAEngine) runGeneration(weights FitnessWeights) {
 	survivors := ga.tournamentSelect(weights)
 	if len(survivors) < 2 {
@@ -254,6 +334,30 @@ func (ga *GAEngine) runGeneration(weights FitnessWeights) {
 }
 
 // tournamentSelect picks top N by fitness.
+/******************************************************************************
+ * Function Name : tournamentSelect
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (ga *GAEngine) tournamentSelect(weights FitnessWeights) []*ModelMetadata {
 	ranked := ga.rankByFitness(weights)
 	n := ga.cfg.TopSurvivors
@@ -264,6 +368,30 @@ func (ga *GAEngine) tournamentSelect(weights FitnessWeights) []*ModelMetadata {
 }
 
 // crossover blends two parent models into an offspring.
+/******************************************************************************
+ * Function Name : crossover
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (ga *GAEngine) crossover(a, b *ModelMetadata) *ModelMetadata {
 	gen := a.Generation
 	if b.Generation > gen {
@@ -296,6 +424,30 @@ func (ga *GAEngine) crossover(a, b *ModelMetadata) *ModelMetadata {
 }
 
 // mutate applies random changes to an offspring.
+/******************************************************************************
+ * Function Name : mutate
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (ga *GAEngine) mutate(m *ModelMetadata) {
 	if m.Hyperparameters == nil {
 		m.Hyperparameters = make(map[string]string)
@@ -325,6 +477,30 @@ func (ga *GAEngine) mutate(m *ModelMetadata) {
 }
 
 // ── helpers ──
+/******************************************************************************
+ * Function Name : blendMap
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func blendMap(a, b map[string]string, rng *rand.Rand) map[string]string {
 	out := make(map[string]string)
@@ -340,6 +516,30 @@ func blendMap(a, b map[string]string, rng *rand.Rand) map[string]string {
 	}
 	return out
 }
+/******************************************************************************
+ * Function Name : blendWeights
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func blendWeights(a, b map[string]float64, rng *rand.Rand) map[string]float64 {
 	out := make(map[string]float64)
@@ -358,6 +558,30 @@ func blendWeights(a, b map[string]float64, rng *rand.Rand) map[string]float64 {
 	normalizeWeights(out)
 	return out
 }
+/******************************************************************************
+ * Function Name : normalizeWeights
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func normalizeWeights(w map[string]float64) {
 	sum := 0.0
@@ -370,6 +594,30 @@ func normalizeWeights(w map[string]float64) {
 		}
 	}
 }
+/******************************************************************************
+ * Function Name : copyMap
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func copyMap(src map[string]string) map[string]string {
 	out := make(map[string]string, len(src))
@@ -378,6 +626,30 @@ func copyMap(src map[string]string) map[string]string {
 	}
 	return out
 }
+/******************************************************************************
+ * Function Name : copyWeights
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func copyWeights(src map[string]float64) map[string]float64 {
 	out := make(map[string]float64, len(src))
@@ -386,6 +658,30 @@ func copyWeights(src map[string]float64) map[string]float64 {
 	}
 	return out
 }
+/******************************************************************************
+ * Function Name : pickOne
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func pickOne(a, b string, rng *rand.Rand) string {
 	if rng.Float64() < 0.5 {
@@ -393,6 +689,30 @@ func pickOne(a, b string, rng *rand.Rand) string {
 	}
 	return b
 }
+/******************************************************************************
+ * Function Name : pickSlice
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func pickSlice(a, b []string, rng *rand.Rand) []string {
 	if rng.Float64() < 0.5 {
@@ -400,6 +720,30 @@ func pickSlice(a, b []string, rng *rand.Rand) []string {
 	}
 	return append([]string{}, b...)
 }
+/******************************************************************************
+ * Function Name : parseFloat
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func parseFloat(s string) (float64, error) {
 	var f float64

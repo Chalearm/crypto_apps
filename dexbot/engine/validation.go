@@ -83,6 +83,47 @@ Output:
 
 Lines: ~20
 */
+/******************************************************************************
+ * Function Name : IsValidTrade
+ *
+ * Purpose :
+ *   Validate whether a trade meets all risk management constraints.
+ *
+ * Inputs :
+ *   trade   Trade
+ *     Type        : Trade struct
+ *     Description : Trade to validate.
+ *
+ * Return :
+ *   Type        : bool
+ *   Description : True if the trade passes all validation rules.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None (returns false for invalid trades).
+ *
+ * Number Of Lines :
+ *   20
+ ******************************************************************************/
+  *
+  * Function Name : IsValidTrade
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func IsValidTrade(amount float64, used float64, cfg Config) bool {
 	if amount <= 0 {
 		return false

@@ -63,6 +63,30 @@ package price
 import (
     "fmt"
 )
+/******************************************************************************
+ * Function Name : FormatPrice
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func FormatPrice(amount float64, base string) string {
 

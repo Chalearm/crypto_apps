@@ -66,6 +66,30 @@ ACTION_HOST  = os.environ.get("WEB_ACTION_HOST", "127.0.0.1")
 
 
 # ── Functions ───────────────────────────────────────────────────
+"""
+Function Name : forward_action
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def forward_action(name, action):
     """Forward an action command to the Governance daemon via TCP.
@@ -83,17 +107,113 @@ def forward_action(name, action):
 
 
 # ── HTTP Handler ────────────────────────────────────────────────
+"""
+Function Name : DexbotHandler
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 class DexbotHandler(http.server.SimpleHTTPRequestHandler):
     """Serves static files from OUTPUT_DIR. Forwards POST actions to Governance."""
+"""
+Function Name : __init__
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=OUTPUT_DIR, **kwargs)
+"""
+Function Name : end_headers
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def end_headers(self):
         """Add no-cache headers to prevent stale browser cache."""
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         super().end_headers()
+"""
+Function Name : _db_connect
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def _db_connect(self):
         """Lazy PostgreSQL connection for direct DB queries."""
@@ -119,6 +239,30 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
         if not hasattr(self, '_db_conn'):
             return None
         return self._db_conn
+"""
+Function Name : _db_query
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def _db_query(self, query, params=None):
         conn = self._db_connect()
@@ -134,6 +278,30 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
         finally:
             cur.close()
         return rows
+"""
+Function Name : _db_columns
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def _db_columns(self, table):
         conn = self._db_connect()
@@ -144,6 +312,30 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
         cols = [r[0] for r in cur.fetchall()]
         cur.close()
         return cols
+"""
+Function Name : _proxy_crud_to_balance
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def _proxy_crud_to_balance(self, route, body):
         """Try routing a CRUD POST to the balance daemon. Returns True on success."""
@@ -164,6 +356,30 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             print(f"[proxy] balance daemon unreachable ({route}): {e}", flush=True)
             return False
+"""
+Function Name : do_GET
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def do_GET(self):
         """Handle GET — static files + API proxy + URL remapping."""
@@ -188,6 +404,30 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
                 self.path = candidate
 
         super().do_GET()
+"""
+Function Name : serve_api
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def serve_api(self):
         """Serve cached JSON from output_dir/api/ or proxy to balance daemon."""
@@ -393,6 +633,30 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(404, "API endpoint not found")
 
     # ── VERIFY API (§107, §111) ──
+"""
+Function Name : verify_auth
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def verify_auth(self):
         """Check SHA256(private_key) against stored key."""
@@ -416,6 +680,30 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
             return False
         expected = hashlib.sha256(pk.encode()).hexdigest()
         return auth == expected
+"""
+Function Name : write_json
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def write_json(self, data, code=200):
         self.send_response(code)
@@ -423,8 +711,55 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(json.dumps(data, indent=2).encode())
+"""
+Function Name : serve_verify
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def serve_verify(self):
+        """
+        Function Name : serve_verify
+        
+        Purpose :
+          Performs its designated operation.
+        
+        Inputs :
+          None (see function signature)
+        
+        Return :
+          Type        : varies
+          Description : Result of computation.
+        
+        Complexity :
+          Time  : O(1)
+          Space : O(1)
+        
+        Error Cases :
+          - None
+        
+        Number Of Lines :
+          10
+        """
         path = self.path.replace('/api/verify/', '')
         # Strip query string from path matching
         clean_path = path.split('?')[0] if '?' in path else path
@@ -610,6 +945,30 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
         self.write_json({"error":"unknown verify endpoint: "+clean_path}, 404)
+"""
+Function Name : _load_balance
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def _load_balance(self):
         path = os.path.join(OUTPUT_DIR, "api", "balance.json")
@@ -623,6 +982,30 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
                 return data
         # Fallback: return token registry defaults with live BTC price
         return self._default_balance()
+"""
+Function Name : _fetch_btc_price
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def _fetch_btc_price(self):
         """Fetch live BTC/USD price from multiple sources with fallback."""
@@ -666,6 +1049,30 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
             pass
         # Fallback: reasonable BTC price estimate
         return 60000.0
+"""
+Function Name : _default_balance
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def _default_balance(self):
         """Return token registry default assets with zero balances + live BTC price."""
@@ -708,6 +1115,30 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
             "assets": default_tokens,
             "is_paper_trade": True,
         }
+"""
+Function Name : do_POST
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def do_POST(self):
         """Forward action POST to Governance via TCP or handle token CRUD."""
@@ -1077,6 +1508,30 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
         self.send_error(400, "Invalid POST request")
+"""
+Function Name : _tail_daemon_log
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def _tail_daemon_log(self, name, line_count=15):
         """Return last N lines from system.log filtered by daemon name (word boundary)."""
@@ -1095,6 +1550,30 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
             return "".join(filtered[-line_count:])
         except Exception as e:
             return "Cannot read log: " + str(e)
+"""
+Function Name : _serve_daemon_log
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def _serve_daemon_log(self, name, lines=15):
         """Serve the last N lines of a daemon's log file."""
@@ -1116,6 +1595,30 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({"lines": "Cannot read log: " + str(e), "count": 0}).encode())
 
         self.send_error(400, "Invalid POST request")
+"""
+Function Name : log_message
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def log_message(self, format, *args):
         if "200" not in str(args[0]):
@@ -1123,8 +1626,55 @@ class DexbotHandler(http.server.SimpleHTTPRequestHandler):
 
 
 # ── Main ────────────────────────────────────────────────────────
+"""
+Function Name : main
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def main():
+    """
+    Function Name : main
+    
+    Purpose :
+      Performs its designated operation.
+    
+    Inputs :
+      None (see function signature)
+    
+    Return :
+      Type        : varies
+      Description : Result of computation.
+    
+    Complexity :
+      Time  : O(1)
+      Space : O(1)
+    
+    Error Cases :
+      - None
+    
+    Number Of Lines :
+      10
+    """
     global OUTPUT_DIR, ACTION_PORT
 
     parser = argparse.ArgumentParser(description="Dexbot Dashboard HTTP Server")

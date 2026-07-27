@@ -116,6 +116,30 @@ type ProcessSpawner struct {
 }
 
 // NewProcessSpawner creates a subprocess spawner with defaults.
+/******************************************************************************
+ * Function Name : NewProcessSpawner
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func NewProcessSpawner(pythonPath, scriptPath string, timeoutSec int) *ProcessSpawner {
 	if pythonPath == "" {
 		pythonPath = "python3"
@@ -148,7 +172,11 @@ func NewProcessSpawner(pythonPath, scriptPath string, timeoutSec int) *ProcessSp
  *   Description : Parsed result with artifact + fitness, or error.
  *
  * Complexity : O(subprocess_runtime), Number Of Lines : 30
- ******************************************************************************/
+ *****************************************************************************
+  * Error Cases :
+  *   - None
+  *
+ */
 func (ps *ProcessSpawner) TrainWithPython(cfg *ProcessTrainerConfig) *ProcessTrainerResult {
 	result := &ProcessTrainerResult{
 		ModelID:   cfg.ModelID,
@@ -237,7 +265,11 @@ func (ps *ProcessSpawner) TrainWithPython(cfg *ProcessTrainerConfig) *ProcessTra
  *   Description : Parsed result.
  *
  * Complexity : O(subprocess_runtime), Number Of Lines : 25
- ******************************************************************************/
+ *****************************************************************************
+  * Error Cases :
+  *   - None
+  *
+ */
 func (ps *ProcessSpawner) TrainWithBinary(binaryPath string, cfg *ProcessTrainerConfig) *ProcessTrainerResult {
 	result := &ProcessTrainerResult{
 		ModelID:   cfg.ModelID,
@@ -318,7 +350,11 @@ func (ps *ProcessSpawner) TrainWithBinary(binaryPath string, cfg *ProcessTrainer
  *   Description : Populated fitness, or nil if result failed.
  *
  * Complexity : O(1), Number Of Lines : 15
- ******************************************************************************/
+ *****************************************************************************
+  * Error Cases :
+  *   - None
+  *
+ */
 func ConvertToFitness(result *ProcessTrainerResult) *FitnessHistory {
 	if result == nil || !result.Success {
 		return nil
@@ -344,6 +380,30 @@ func ConvertToFitness(result *ProcessTrainerResult) *FitnessHistory {
 }
 
 // minInt2 returns the smaller of two ints.
+/******************************************************************************
+ * Function Name : minInt2
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func minInt2(a, b int) int {
 	if a < b {
 		return a

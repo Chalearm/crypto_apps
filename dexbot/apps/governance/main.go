@@ -149,8 +149,16 @@ var (
  * Inputs        : none (os.Args)
  * Outputs       : none
  * Return        : none
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Number Of Lines : 20
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * Error Cases :
+ *   - None
+ */
 func main() {
 	fs := flag.NewFlagSet("governance", flag.ContinueOnError)
 	action := fs.String("action", "start", "Action: start, status, restart, stop, shutdown")
@@ -172,6 +180,10 @@ func main() {
  * Inputs        : action string, daemon string
  * Outputs       : prints to stdout
  * Return        : none
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases   : unknown daemon name silently ignored
  * Number Of Lines : 25
  ******************************************************************************/
@@ -215,6 +227,10 @@ func handleCLI(action, daemon string) {
  * Inputs        : none (os.Getenv)
  * Outputs       : populates managedDaemons map + backward compat UDP conns
  * Return        : none
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases   : env vars missing -> defaults applied
  * Number Of Lines : 55
  ******************************************************************************/
@@ -271,6 +287,10 @@ func initDynamicDaemons() {
  * Inputs        : none
  * Outputs       : none
  * Return        : none
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases   : Fatal if UDP listener or health check loop fails
  * Number Of Lines : 30
  ******************************************************************************/
@@ -304,6 +324,10 @@ func startDaemon() {
  * Inputs        : ctx context.Context
  * Outputs       : none (runs as goroutine)
  * Return        : none
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases   : Port bind failure logs error and returns
  * Number Of Lines : 40
  ******************************************************************************/
@@ -354,6 +378,10 @@ func startUdpListener(ctx context.Context) {
  * Inputs        : jsonPayload string
  * Outputs       : none
  * Return        : none
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases   : Invalid JSON silently skipped
  * Number Of Lines : 25
  ******************************************************************************/
@@ -382,6 +410,10 @@ func handleModelSync(jsonPayload string) {
  * Inputs        : ctx context.Context
  * Outputs       : none (runs as goroutine)
  * Return        : none
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases   : Probe failures handled gracefully (mark unhealthy)
  * Number Of Lines : 70
  ******************************************************************************/
@@ -463,6 +495,10 @@ func startHealthCheckLoop(ctx context.Context) {
  * Inputs        : name string
  * Outputs       : returns existing or new DaemonInfo pointer
  * Return        : *governance.DaemonInfo
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases   : none (always returns valid info struct)
  * Complexity    : O(1) — daemon name
  * Return        : *governance.DaemonInfo
@@ -483,6 +519,10 @@ func getOrCreateInfo(name string) *governance.DaemonInfo {
  * Outputs       : none
  * Return        : none
  * Error Cases   : Command start failure logged
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
  * Number Of Lines : 20
  ******************************************************************************/
 func recreateDaemon(cfg *DaemonConfig) {
@@ -508,6 +548,10 @@ func recreateDaemon(cfg *DaemonConfig) {
  * Outputs       : none (runs as goroutine)
  * Return        : none
  * Error Cases   : Write failures logged, publisher continues
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
  * Number Of Lines : 25
  ******************************************************************************/
 func startPublisher(ctx context.Context) {
@@ -532,6 +576,10 @@ func startPublisher(ctx context.Context) {
  * Inputs        : none (uses globals: dashRenderer, registry, publisher)
  * Outputs       : none (writes files to web_output/)
  * Return        : none
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases   : Render/write failures silently skipped
  * Number Of Lines : 45
  ******************************************************************************/
@@ -579,8 +627,80 @@ func refreshDashboard() {
  * Purpose     : io.Writer adapter so renderToBytes can capture HTML output.
  ******************************************************************************/
 type fakeResp struct{ buf *bytes.Buffer }
+/******************************************************************************
+ * Function Name : Header
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (w *fakeResp) Header() http.Header         { return make(http.Header) }
+/******************************************************************************
+ * Function Name : Write
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (w *fakeResp) Write(b []byte) (int, error)   { return w.buf.Write(b) }
+/******************************************************************************
+ * Function Name : WriteHeader
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (w *fakeResp) WriteHeader(code int)          {}
 
 /******************************************************************************
@@ -589,6 +709,10 @@ func (w *fakeResp) WriteHeader(code int)          {}
  * Inputs        : ctx context.Context
  * Outputs       : none (runs as goroutine)
  * Return        : none
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases   : Listen failure silently exits
  * Number Of Lines : 30
  ******************************************************************************/
@@ -633,6 +757,17 @@ func startActionListener(ctx context.Context) {
  * Purpose       : Package init — sets up logger and loads env.
  * Inputs        : none
  * Outputs       : none
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 6
  ******************************************************************************/
 func init() {
@@ -645,8 +780,20 @@ func init() {
  * Purpose       : Load config.env from multiple possible paths.
  * Inputs        : none
  * Outputs       : none
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Number Of Lines : 8
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Error Cases :
+ *   - None
+ */
 func loadEnvSmart() {
 	for _, p := range []string{"config.env", "../config.env", "../../config.env"} {
 		if _, err := os.Stat(p); err == nil {

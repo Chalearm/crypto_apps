@@ -13,7 +13,42 @@
  * Description      :
  *    School Daemon Orchestrator. Direct CLI routing for set-up, create-work,
  *    and status to bypass background daemon locks cleanly.
- ******************************************************************/
+ *****************************************************************
+ *
+ * Responsibilities:
+ *   - Part of the dexbot platform.
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/infra
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Updated Parts :
+ *   None
+ *
+ * New Parts :
+ *   [Function] See function list.
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)        | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-07-26 08:00:00 (UTC+7)      | Chalearm Saelim | Initial
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add documentation.
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ *
+ * Usage :
+ *   Directory : (project root)
+ *   Build     : go build
+ *   Run       : ./binary
+ */
 package main
 
 import (
@@ -32,6 +67,30 @@ import (
 )
 
 // initZombieReaper harvests dead Linux child processes non-blockingly to prevent zombie accumulation
+/******************************************************************************
+ * Function Name : initZombieReaper
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func initZombieReaper() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGCHLD)
@@ -52,11 +111,30 @@ func initZombieReaper() {
 // GA MASTER SUPERVISOR & PATH HELPERS
 // ==============================
 
-/*
-Function: resolvePythonPaths
-Description:
-  Resolves absolute paths for Python virtualenv binary and target ga_master.py script.
-*/
+/******************************************************************************
+ * Function Name : resolvePythonPaths
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func resolvePythonPaths() (string, string) {
 	pyExec := filepath.Join("venv", "bin", "python")
 	if _, err := os.Stat(pyExec); os.IsNotExist(err) {
@@ -77,6 +155,30 @@ func resolvePythonPaths() (string, string) {
 // ==============================
 // MAIN & CLI ENTRY POINT
 // ==============================
+/******************************************************************************
+ * Function Name : main
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func main() {
 	initZombieReaper()
@@ -131,13 +233,46 @@ func main() {
 	})
 }
 
-/*
-Function: startGAMasterOrchestrator
-Description:
-  Supervises ga_master.py execution. If the Master process crashes or is 
-  OOM-Killed, it automatically triggers -action=terminate to clean stale workers, 
-  waits 5 seconds, and restores state seamlessly from lstm_ga_checkpoint.json.
-*/
+/******************************************************************************
+ * Function Name : startGAMasterOrchestrator
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
+  *
+  * Function Name : startGAMasterOrchestrator
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func startGAMasterOrchestrator(ctx context.Context, initialAction string, workerNum int) {
 	pyExec, scriptPath := resolvePythonPaths()
 

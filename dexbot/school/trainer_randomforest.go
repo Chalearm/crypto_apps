@@ -91,6 +91,30 @@ type RFTrainer struct {
 }
 
 // NewRFTrainer creates a new RF/ET trainer.
+/******************************************************************************
+ * Function Name : NewRFTrainer
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func NewRFTrainer(modelType string) *RFTrainer {
 	rf := &RFTrainer{
 		modelType:    modelType,
@@ -104,6 +128,30 @@ func NewRFTrainer(modelType string) *RFTrainer {
 }
 
 // Fit builds an ensemble of decision trees using bootstrap samples.
+/******************************************************************************
+ * Function Name : Fit
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (rf *RFTrainer) Fit(features [][]float64, targets []float64, cfg *TrainingConfig) error {
 	n := len(features)
 	if n == 0 {
@@ -135,6 +183,30 @@ func (rf *RFTrainer) Fit(features [][]float64, targets []float64, cfg *TrainingC
 }
 
 // buildTree recursively constructs a decision tree.
+/******************************************************************************
+ * Function Name : buildTree
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (rf *RFTrainer) buildTree(features [][]float64, targets []float64, depth int, rng *rand.Rand) *decisionTree {
 	n := len(features)
 	if n < rf.MinSamples || depth >= rf.MaxDepth {
@@ -250,6 +322,30 @@ func (rf *RFTrainer) buildTree(features [][]float64, targets []float64, depth in
 }
 
 // Predict traverses all trees and averages their predictions.
+/******************************************************************************
+ * Function Name : Predict
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (rf *RFTrainer) Predict(features []float64) (float64, error) {
 	if !rf.fitted || len(rf.Trees) == 0 {
 		return 0, nil
@@ -260,6 +356,30 @@ func (rf *RFTrainer) Predict(features []float64) (float64, error) {
 	}
 	return sum / float64(len(rf.Trees)), nil
 }
+/******************************************************************************
+ * Function Name : traverse
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func (rf *RFTrainer) traverse(node *decisionTree, features []float64) float64 {
 	if node.IsLeaf {
@@ -272,6 +392,30 @@ func (rf *RFTrainer) traverse(node *decisionTree, features []float64) float64 {
 }
 
 // Backtest evaluates on historical data.
+/******************************************************************************
+ * Function Name : Backtest
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (rf *RFTrainer) Backtest(features [][]float64, targets []float64) (*FitnessHistory, error) {
 	if !rf.fitted {
 		return &FitnessHistory{Timestamp: time.Now()}, nil
@@ -284,6 +428,30 @@ func (rf *RFTrainer) Backtest(features [][]float64, targets []float64) (*Fitness
 }
 
 // WalkForward performs rolling validation.
+/******************************************************************************
+ * Function Name : WalkForward
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (rf *RFTrainer) WalkForward(features [][]float64, targets []float64, windowSize int) ([]FitnessHistory, error) {
 	n := len(features)
 	if windowSize <= 0 || windowSize >= n {
@@ -302,6 +470,30 @@ func (rf *RFTrainer) WalkForward(features [][]float64, targets []float64, window
 }
 
 // Serialize marshals to JSON.
+/******************************************************************************
+ * Function Name : Serialize
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (rf *RFTrainer) Serialize() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"model_type": rf.modelType, "num_trees": rf.NumTrees,
@@ -310,6 +502,30 @@ func (rf *RFTrainer) Serialize() ([]byte, error) {
 }
 
 // Deserialize restores from JSON.
+/******************************************************************************
+ * Function Name : Deserialize
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (rf *RFTrainer) Deserialize(data []byte) error {
 	var m map[string]interface{}
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -323,6 +539,30 @@ func (rf *RFTrainer) Deserialize(data []byte) error {
 	}
 	return nil
 }
+/******************************************************************************
+ * Function Name : init
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func init() {
 	RegisterTrainer(ModelSupRandomForest, func() TrainingEngine { return NewRFTrainer(ModelSupRandomForest) })

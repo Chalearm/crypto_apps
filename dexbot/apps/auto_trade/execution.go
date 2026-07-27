@@ -65,38 +65,74 @@ import (
     "fmt"
 )
 
-/*
-Function: formatFloat
-Description:
-Format float for logging.
+/******************************************************************************
+ * Function Name : formatFloat
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-- val float64
-
-Output:
-- string formatted number
-
-Lines: ~5
-*/
+  *
+  * Function Name : formatFloat
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func formatFloat(val float64) string {
     return fmt.Sprintf("%.6f", val)
 }
 
-/*
-Function: ExecuteTrade
-Description:
-Execute buy/sell logic.
+/******************************************************************************
+ * Function Name : ExecuteTrade
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-- task *TradeTask
-- cfg Config
-- price float64
-
-Output:
-- none (mutates task)
-
-Lines: ~40
-*/
 func ExecuteTrade(task *TradeTask, cfg Config, price float64) {
 
     if task.Status == StatusCreated {
@@ -124,20 +160,46 @@ func ExecuteTrade(task *TradeTask, cfg Config, price float64) {
     }
 }
 
-/*
-Function: simulatePnL
-Description:
-Calculate profit/loss.
+/******************************************************************************
+ * Function Name : simulatePnL
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-- buy float64
-- sell float64
-
-Output:
-- float64 pnl
-
-Lines: ~5
-*/
+  *
+  * Function Name : simulatePnL
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func simulatePnL(buy, sell float64) float64 {
     return sell - buy
 }

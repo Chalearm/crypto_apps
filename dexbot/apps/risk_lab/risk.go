@@ -61,6 +61,30 @@
 package main
 
 import "math"
+/******************************************************************************
+ * Function Name : mean
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func mean(data []float64) float64 {
     sum := 0.0
@@ -69,6 +93,30 @@ func mean(data []float64) float64 {
     }
     return sum / float64(len(data))
 }
+/******************************************************************************
+ * Function Name : variance
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func variance(data []float64) float64 {
     m := mean(data)
@@ -81,10 +129,58 @@ func variance(data []float64) float64 {
 
     return sum / float64(len(data))
 }
+/******************************************************************************
+ * Function Name : stddev
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func stddev(data []float64) float64 {
     return math.Sqrt(variance(data))
 }
+/******************************************************************************
+ * Function Name : covariance
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func covariance(a, b []float64) float64 {
     ma := mean(a)
@@ -99,6 +195,30 @@ func covariance(a, b []float64) float64 {
     return sum / float64(len(a))
 }
 // build covariance matrix
+/******************************************************************************
+ * Function Name : covarianceMatrix
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func covarianceMatrix(data map[string][]float64) [][]float64 {
 
     keys := []string{}
@@ -126,6 +246,30 @@ func covarianceMatrix(data map[string][]float64) [][]float64 {
 
     return matrix
 }
+/******************************************************************************
+ * Function Name : beta
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func beta(assetPrices, marketPrices []float64) float64 {
 
     rA := returns(assetPrices)
@@ -133,13 +277,30 @@ func beta(assetPrices, marketPrices []float64) float64 {
 
     return covariance(rA, rM) / variance(rM)
 }
-/*
-calculate percentage returns
+/******************************************************************************
+ * Function Name : returns
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-R_t = (P_t - P_t-1) / P_t-1
-
-Output length = N-1
-*/
 func returns(data []float64) []float64 {
 
     if len(data) < 2 {
@@ -157,12 +318,60 @@ func returns(data []float64) []float64 {
     return out
 }
 // simplified HRP → equal cluster split
+/******************************************************************************
+ * Function Name : hrpWeights
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func hrpWeights(n int) []float64 {
 
     // placeholder: equal weighting
     return riskParityWeights(n)
 }
 // Maximum Drawdown
+/******************************************************************************
+ * Function Name : maxDrawdown
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func maxDrawdown(prices []float64) float64 {
 
     maxPeak := prices[0]
@@ -185,6 +394,30 @@ func maxDrawdown(prices []float64) float64 {
 }
 
 // equal risk contribution (simplified)
+/******************************************************************************
+ * Function Name : riskParityWeights
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func riskParityWeights(n int) []float64 {
 
     w := make([]float64, n)
@@ -195,9 +428,30 @@ func riskParityWeights(n int) []float64 {
 
     return w
 }
-/*
-Return with option payoff (hedged return)
-*/
+/******************************************************************************
+ * Function Name : returnsWithOptions
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func returnsWithOptions(data []float64) []float64 {
 

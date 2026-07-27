@@ -53,7 +53,17 @@
  *
  * TODO :
  *   - Add localized currency translation sub-modules.
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * Updated Parts :
+ *   None
+ *
+ * New Parts :
+ *   [Function] See function list.
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ */
 package main
 
 import (
@@ -171,6 +181,10 @@ func formatSpacedNumber(valStr string) string {
  *   Type        : string
  *   Description : Formatted spaced string.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - None.
  *
@@ -195,6 +209,10 @@ func formatFloatSpaced(val float64, decimals int) string {
  *   Type        : float64
  *   Description : Live price or fallback if network fails.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Network failure returns fallback price.
  *
@@ -245,6 +263,10 @@ func FetchLiveBTCPrice() float64 {
  *   Type        : string
  *   Description : Hex-encoded SHA256 hash.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - None (always returns valid hex).
  *
@@ -277,6 +299,10 @@ func deriveAccountHash(privateKey string) string {
  *   Type        : *PortfolioReport, error
  *   Description : Structured data model containing all dynamic balances.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - DB query errors return error message.
  *   - Chain not found skipped gracefully.
@@ -400,6 +426,10 @@ func GetBalanceReport(privateKey string) (*PortfolioReport, error) {
  * Return :
  *   None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Daemon not running: error logged.
  *

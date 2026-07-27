@@ -49,7 +49,11 @@
  *
  * TODO :
  *   - Add unit tests.
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ */
 package main
 
 import (
@@ -75,6 +79,10 @@ import (
  * Return :
  *   None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Database execution failure.
  *

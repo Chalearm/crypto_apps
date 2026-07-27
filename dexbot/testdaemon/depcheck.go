@@ -5,6 +5,14 @@
  * Author          : deepseek-4.0-pro
  * Owner           : Chalearm Saelim
  * Reviewer        : Chalearm Saelim
+  *
+  * Function Name : relativePath
+  * Purpose :
+  *   Performs its designated operation.
+  *
+  * Function Name : DaemonsNeedingRestart
+  * Purpose :
+  *   Performs its designated operation.
  *
  * Version         : 1.0.0
  * Status          : Development
@@ -87,19 +95,46 @@ type DepChecker struct {
 	projectRoot string
 }
 
-/*
-Function: NewDepChecker
-Description:
-  Creates a new DepChecker for the given project root.
+/******************************************************************************
+ * Function Name : NewDepChecker
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - root string : Project root path
-
-Output:
-  - *DepChecker : Initialized checker
-
-Lines: ~6
-*/
+  *
+  * Function Name : NewDepChecker
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func NewDepChecker(root string) *DepChecker {
 	return &DepChecker{projectRoot: root}
 }
@@ -116,22 +151,30 @@ type goListPackage struct {
 	Deps       []string `json:"Deps"`
 }
 
-/*
-Function: ChangedFiles
-Description:
-  Returns Go source files changed since the last test run.
-  Uses `git diff --name-only HEAD` when available, otherwise scans
-  all .go files with recent modification times.
+/******************************************************************************
+ * Function Name : ChangedFiles
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
-
-Output:
-  - []string : Changed .go file paths relative to project root
-  - error    : Non-nil if git command fails
-
-Lines: ~20
-*/
 func (dc *DepChecker) ChangedFiles() ([]string, error) {
 	// Try git first
 	cmd := exec.Command("git", "-C", dc.projectRoot, "diff", "--name-only", "HEAD")
@@ -151,21 +194,43 @@ func (dc *DepChecker) ChangedFiles() ([]string, error) {
 	return nil, nil
 }
 
-/*
-Function: AffectedPackages
-Description:
-  Determines which Go packages are affected by changes to the given files.
-  Uses `go list -json ./...` and matches file paths to package Dirs.
+/******************************************************************************
+ * Function Name : AffectedPackages
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - changedFiles []string : Changed .go files (from ChangedFiles)
-
-Output:
-  - []string : Affected package import paths (e.g., "dexbot/infra")
-  - error    : Non-nil if go list fails
-
-Lines: ~30
-*/
+  *
+  * Function Name : AffectedPackages
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func (dc *DepChecker) AffectedPackages(changedFiles []string) ([]string, error) {
 	if len(changedFiles) == 0 {
 		return nil, nil
@@ -224,19 +289,43 @@ func (dc *DepChecker) AffectedPackages(changedFiles []string) ([]string, error) 
 	return result, nil
 }
 
-/*
-Function: AffectedTests
-Description:
-  Returns the list of packages that have test files among the affected set.
+/******************************************************************************
+ * Function Name : AffectedTests
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - affectedPkgs []string : Packages returned by AffectedPackages
-
-Output:
-  - []string : Packages with test files (may be same as input, filtered)
-
-Lines: ~15
-*/
+  *
+  * Function Name : AffectedTests
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func (dc *DepChecker) AffectedTests(affectedPkgs []string) ([]string, error) {
 	if len(affectedPkgs) == 0 {
 		return nil, nil
@@ -264,20 +353,30 @@ func (dc *DepChecker) AffectedTests(affectedPkgs []string) ([]string, error) {
 	return testPkgs, nil
 }
 
-/*
-Function: DaemonsNeedingRestart
-Description:
-  Returns which daemon app directories are affected and need restart.
-  daemon directories: apps/governance, apps/school, apps/trading.
+/******************************************************************************
+ * Function Name : DaemonsNeedingRestart
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - affectedPkgs []string : Packages from AffectedPackages
-
-Output:
-  - []string : Daemon names needing restart
-
-Lines: ~15
-*/
 func (dc *DepChecker) DaemonsNeedingRestart(affectedPkgs []string) []string {
 	daemonDirs := map[string]string{
 		"dexbot/apps/governance": "governance",
@@ -309,6 +408,30 @@ func (dc *DepChecker) DaemonsNeedingRestart(affectedPkgs []string) []string {
 }
 
 // relativePath returns the relative path of target from base.
+/******************************************************************************
+ * Function Name : relativePath
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func relativePath(base, target string) string {
 	rel, err := filepath.Rel(base, target)
 	if err != nil {

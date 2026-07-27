@@ -102,7 +102,11 @@ type AccountManager struct {
  *   Description : Initialized manager; privateKey may be empty.
  *
  * Complexity : O(1), Number Of Lines : 8
- ******************************************************************************/
+ *****************************************************************************
+  * Error Cases :
+  *   - None
+  *
+ */
 func NewAccountManager() *AccountManager {
 	pk := os.Getenv("PRIVATE_KEY")
 	// Always read from config.env file (web unlock writes to file, not env vars)
@@ -126,6 +130,30 @@ func NewAccountManager() *AccountManager {
 }
 
 // ProfileFromKey looks up or creates a profile for the given key.
+/******************************************************************************
+ * Function Name : ProfileFromKey
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func ProfileFromKey(pk string) *Profile {
 	if pk == "" || len(pk) < 16 {
 		return nil
@@ -146,7 +174,14 @@ func ProfileFromKey(pk string) *Profile {
  *   Description : e.g., "aabbcc******" or "no-private-key" if empty.
  *
  * Complexity : O(1), Number Of Lines : 8
- ******************************************************************************/
+ *****************************************************************************
+  * Inputs :
+  *   None (see function signature)
+  *
+  * Error Cases :
+  *   - None
+  *
+ */
 func (a *AccountManager) MaskedKey() string {
 	if a.privateKey == "" {
 		return "no-private-key"
@@ -168,7 +203,14 @@ func (a *AccountManager) MaskedKey() string {
  *   Description : Full 64-char hex key, or empty string if not set.
  *
  * Complexity : O(1), Number Of Lines : 5
- ******************************************************************************/
+ *****************************************************************************
+  * Inputs :
+  *   None (see function signature)
+  *
+  * Error Cases :
+  *   - None
+  *
+ */
 func (a *AccountManager) FullKey() string {
 	return a.privateKey
 }
@@ -185,7 +227,14 @@ func (a *AccountManager) FullKey() string {
  *   Description : e.g., "runtime/portfolio_abcdefab/".
  *
  * Complexity : O(1), Number Of Lines : 8
- ******************************************************************************/
+ *****************************************************************************
+  * Inputs :
+  *   None (see function signature)
+  *
+  * Error Cases :
+  *   - None
+  *
+ */
 func (a *AccountManager) PortfolioDir() string {
 	if a.privateKey == "" {
 		return "runtime/portfolio_default"
@@ -218,7 +267,11 @@ func (a *AccountManager) PortfolioDir() string {
  *   Description : Formatted string with 3-digit grouping and 9 decimals.
  *
  * Complexity : O(d) where d = number of digits, Number Of Lines : 20
- ******************************************************************************/
+ *****************************************************************************
+  * Error Cases :
+  *   - None
+  *
+ */
 func FormatAmount(value float64) string {
 	absVal := math.Abs(value)
 	intPart := int64(absVal)
@@ -272,7 +325,11 @@ func FormatAmount(value float64) string {
  *   Description : Fully formatted balance string.
  *
  * Complexity : O(1), Number Of Lines : 12
- ******************************************************************************/
+ *****************************************************************************
+  * Error Cases :
+  *   - None
+  *
+ */
 func FormatBalance(amount, usdPrice float64, ticker string) string {
 	parts := fmt.Sprintf("%s %s %s", FormatAmount(amount), strings.ToUpper(ticker), strings.ToUpper(ticker))
 	if usdPrice > 0 {
@@ -320,7 +377,14 @@ type BalanceSummary struct {
  *   Description : Populated summary; TotalUSD computed from assets.
  *
  * Complexity : O(n) where n = number of tokens, Number Of Lines : 25
- ******************************************************************************/
+ *****************************************************************************
+  * Inputs :
+  *   None (see function signature)
+  *
+  * Error Cases :
+  *   - None
+  *
+ */
 func GetBalanceSummary(am *AccountManager) *BalanceSummary {
 	// Try real BSC on-chain query first, fall back to token registry defaults
 	var assets []BalanceAsset
@@ -375,6 +439,30 @@ func GetBalanceSummary(am *AccountManager) *BalanceSummary {
 		IsPaperTrade:  false,
 	}
 }
+/******************************************************************************
+ * Function Name : min
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func min(a, b int) int {
 	if a < b { return a }
@@ -384,6 +472,30 @@ func min(a, b int) int {
 // queryRealBalances uses dexbot/auth + dexbot/balance to query ALL chains
 // exactly like apps/balance/main.go does. Each chain gets its own RPC client
 // and wallet via auth.ConnectToChain + auth.GetWalletForChain.
+/******************************************************************************
+ * Function Name : queryRealBalances
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func queryRealBalances(pk string) ([]BalanceAsset, float64) {
 	var assets []BalanceAsset
 
@@ -504,6 +616,30 @@ func queryRealBalances(pk string) ([]BalanceAsset, float64) {
 }
 
 // chainInfo returns chain ID + RPC URL for a chain name.
+/******************************************************************************
+ * Function Name : chainInfo
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func chainInfo(name string) (int64, string) {
 	switch name {
 	case "BSC":

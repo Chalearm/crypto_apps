@@ -1,62 +1,14 @@
 /******************************************************************************
  * File Name       : storage.go
  * File Path       : infra/storage.go
- *
  * Author          : deepseek-4.0-pro
  * Owner           : Chalearm Saelim
  * Reviewer        : Chalearm Saelim
- *
  * Version         : 1.0.0
  * Status          : Development
  * Created Date    : 2026-07-01 19:25:31 (UTC+7)
  * Modified Date   : 2026-07-01 19:25:31 (UTC+7)
- *
- * Description     :
- *   Local buffer storage. ✅ safe write ✅ disk guard ✅ logging UPDATED: - disk protection
- *
- * Responsibilities:
- *   - - Implement core functionality for infra package.
- *
- * Usage :
- *   Directory : infra/
- *
- *   Build :
- *     go build ./infra
- *
- *   Run :
- *     go run .  (from dexbot root)
- *
- *   Test :
- *     go test ./infra
- *
- * Dependencies :
- *   Internal :
- *     - dexbot/infra
- *
- *   External :
- *     - (stdlib only)
- *
- * Configuration :
- *   - config.env
- *
- * Updated Parts :
- *   None (initial version)
- *
- * New Parts :
- *   [Functions] All exported functions in this file
- *
- * Change History :
- *   -------------------------------------------------------------------------
- *   Version | Date Time (UTC+7)      | Author          | Description
- *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-07-01 19:25:31 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
- *   -------------------------------------------------------------------------
- *
- * TODO :
- *   - Add unit tests
- *
- * Notes :
- *   - Per rule1.txt coding standard.
+ * Description     : Local buffer storage with disk protection guards.
  ******************************************************************************/
 package infra
 
@@ -64,22 +16,11 @@ import (
     "os"
 )
 
-/*
-Function: SaveLocal
-Description:
-Store data to local buffer safely.
-
-Input:
-- file string
-- data string
-
-Output:
-- error
-
-Lines: ~25
-*/
+/******************************************************************************
+ * Function Name : SaveLocal
+ * Purpose       : Writes buffered data to a local file if free disk space >= 5%.
+ ******************************************************************************/
 func SaveLocal(file string, data string) error {
-
     if GetFreeDiskPercent() < 5 {
         Error("disk full → skip saving")
         return nil
@@ -98,6 +39,5 @@ func SaveLocal(file string, data string) error {
     }
 
     Info("saved local: " + file)
-
     return nil
 }

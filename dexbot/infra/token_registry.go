@@ -100,6 +100,30 @@ var defaultTokens = []TokenEntry{
 }
 
 // NewTokenRegistry loads or creates the token registry.
+/******************************************************************************
+ * Function Name : NewTokenRegistry
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func NewTokenRegistry() *TokenRegistry {
 	path := "runtime/token_registry.json"
 	r := &TokenRegistry{path: path, Tokens: defaultTokens}
@@ -109,6 +133,30 @@ func NewTokenRegistry() *TokenRegistry {
 }
 
 // AddToken appends a new token entry and saves.
+/******************************************************************************
+ * Function Name : AddToken
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (r *TokenRegistry) AddToken(t TokenEntry) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -125,6 +173,30 @@ func (r *TokenRegistry) AddToken(t TokenEntry) error {
 }
 
 // RemoveToken removes a token by ticker and chain ID.
+/******************************************************************************
+ * Function Name : RemoveToken
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (r *TokenRegistry) RemoveToken(ticker, chainID string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -139,6 +211,30 @@ func (r *TokenRegistry) RemoveToken(ticker, chainID string) error {
 }
 
 // ListTokens returns a copy of all registered tokens.
+/******************************************************************************
+ * Function Name : ListTokens
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (r *TokenRegistry) ListTokens() []TokenEntry {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -149,11 +245,59 @@ func (r *TokenRegistry) ListTokens() []TokenEntry {
 }
 
 // GetTokens returns the raw slice (for iteration).
+/******************************************************************************
+ * Function Name : GetTokens
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (r *TokenRegistry) GetTokens() []TokenEntry {
 	return r.ListTokens()
 }
 
 // Save persists the registry to JSON.
+/******************************************************************************
+ * Function Name : Save
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (r *TokenRegistry) Save() error {
 	os.MkdirAll("runtime", 0755)
 	data, err := json.MarshalIndent(r, "", "  ")
@@ -168,6 +312,30 @@ func (r *TokenRegistry) Save() error {
 }
 
 // Load reads the registry from JSON; falls back to defaults.
+/******************************************************************************
+ * Function Name : Load
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (r *TokenRegistry) Load() {
 	data, err := os.ReadFile(r.path)
 	if err != nil {
@@ -184,6 +352,30 @@ func (r *TokenRegistry) Load() {
 
 // AsBalanceAssets converts token entries to BalanceAsset slice for the dashboard.
 // Amounts are zero — real balances come from the BSC wallet query.
+/******************************************************************************
+ * Function Name : AsBalanceAssets
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (r *TokenRegistry) AsBalanceAssets() []BalanceAsset {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

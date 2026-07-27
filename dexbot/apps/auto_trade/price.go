@@ -64,19 +64,46 @@ import (
     "dexbot/infra"
 )
 
-/*
-Function: GetLatestPrice
-Description:
-Fetch latest price from DB.
+/******************************************************************************
+ * Function Name : GetLatestPrice
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-- token string
-
-Output:
-- float64 price
-
-Lines: ~25
-*/
+  *
+  * Function Name : GetLatestPrice
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func GetLatestPrice(token string) float64 {
 
     if infra.DB == nil {

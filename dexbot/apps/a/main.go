@@ -17,7 +17,37 @@
  *   Directory : apps/a/
  *   Build     : go build -o a .
  *   Run       : ./a -action=start
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * Responsibilities:
+ *   - Part of the dexbot platform.
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/infra
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Updated Parts :
+ *   None
+ *
+ * New Parts :
+ *   [Function] See function list.
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)        | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-07-26 08:00:00 (UTC+7)      | Chalearm Saelim | Initial
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add documentation.
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ */
 package main
 
 import (
@@ -31,6 +61,28 @@ import (
 	"dexbot/infra"
 )
 
+/******************************************************************************
+ * Function Name : main
+ *
+ * Purpose :
+ *   Entry point for the application.
+ *
+ * Inputs :
+ *   None (reads os.Args or stdlib flags)
+ *
+ * Return :
+ *   None (exits with code 0 on success)
+ *
+ * Complexity :
+ *   Time  : O(N)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   15
+ ******************************************************************************/
 func main() {
 	action := flag.String("action", "start", "Action: start, status, terminate")
 	flag.Parse()

@@ -2,6 +2,15 @@
  * File Name       : fitness.go
  * File Path       : school/fitness.go
  *
+  *
+  * Function Name : clamp
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
  * Author          : deepseek-4.0-pro
  * Owner           : Chalearm Saelim
  * Reviewer        : Chalearm Saelim
@@ -92,19 +101,67 @@ type FitnessWeights struct {
 	EfficiencyWeight  float64
 }
 
-/*
-Function: DefaultFitnessWeights
-Description:
-  Returns the default fitness weight configuration.
+/******************************************************************************
+ * Function Name : DefaultFitnessWeights
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
+  *
+  * Function Name : DefaultFitnessWeights
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
+/******************************************************************************
+ * Function Name : DefaultFitnessWeights
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Output:
-  - FitnessWeights: Default weights summing to 1.0
-
-Lines: ~12
-*/
 func DefaultFitnessWeights() FitnessWeights {
 	return FitnessWeights{
 		SharpeWeight:      0.25,
@@ -117,19 +174,30 @@ func DefaultFitnessWeights() FitnessWeights {
 	}
 }
 
-/*
-Function: ValidateWeights
-Description:
-  Checks that weights sum to approximately 1.0 (absolute values).
+/******************************************************************************
+ * Function Name : ValidateWeights
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - w FitnessWeights: Weights to validate
-
-Output:
-  - bool: true if valid
-
-Lines: ~10
-*/
 func ValidateWeights(w FitnessWeights) bool {
 	sum := w.SharpeWeight + w.SortinoWeight + w.ProfitWeight +
 		w.AccuracyWeight + w.ConsistencyWeight + w.EfficiencyWeight +
@@ -141,23 +209,46 @@ func ValidateWeights(w FitnessWeights) bool {
 // COMPOSITE FITNESS
 // ==============================
 
-/*
-Function: CompositeFitness
-Description:
-  Computes a weighted composite fitness score from a FitnessHistory record.
-  Higher is better. Drawdown is subtracted (negative weight).
-  Each metric is normalized to a 0-1 scale before weighting.
+/******************************************************************************
+ * Function Name : CompositeFitness
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - fh      *FitnessHistory : Fitness data to score
-  - weights FitnessWeights   : Weight configuration
-
-Output:
-  - float64 : Composite score (higher = better)
-  - bool    : true if weights are valid
-
-Lines: ~20
-*/
+  *
+  * Function Name : CompositeFitness
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func CompositeFitness(fh *FitnessHistory, weights FitnessWeights) (float64, bool) {
 	if fh == nil {
 		return 0, false
@@ -187,21 +278,30 @@ func CompositeFitness(fh *FitnessHistory, weights FitnessWeights) (float64, bool
 	return score, true
 }
 
-/*
-Function: clamp
-Description:
-  Clamps a float64 value to [low, high] inclusive.
+/******************************************************************************
+ * Function Name : clamp
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - v    float64 : Value to clamp
-  - low  float64 : Minimum
-  - high float64 : Maximum
-
-Output:
-  - float64 : Clamped value
-
-Lines: ~8
-*/
 func clamp(v, low, high float64) float64 {
 	if v < low {
 		return low

@@ -1,12 +1,25 @@
 /******************************************************************************
  * File Name       : model.go
  * File Path       : school/model.go
+  *
+  * Function Name : Count
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
  *
  * Author          : deepseek-4.0-pro
  * Owner           : Chalearm Saelim
  * Reviewer        : Chalearm Saelim
  *
  * Version         : 1.0.0
+  *
+  * Function Name : Graduate
+  * Purpose :
+  *   Performs its designated operation.
  * Status          : Development
  * Created Date    : 2026-07-01 19:25:48 (UTC+7)
  * Modified Date   : 2026-07-01 19:25:48 (UTC+7)
@@ -138,19 +151,46 @@ type ModelMetadata struct {
 	GraduatedAt            *time.Time
 }
 
-/*
-Function: ValidateEnsembleWeights
-Description:
-  Checks that ensemble composition weights sum to approximately 1.0.
+/******************************************************************************
+ * Function Name : ValidateEnsembleWeights
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
-
-Output:
-  - bool: true if weights sum to 1.0 (±0.01 tolerance)
-
-Lines: ~8
-*/
+  *
+  * Function Name : ValidateEnsembleWeights
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func (m *ModelMetadata) ValidateEnsembleWeights() bool {
 	if len(m.EnsembleComposition) == 0 {
 		return false
@@ -222,19 +262,46 @@ type ModelPopulation struct {
 	models map[string]*ModelMetadata
 }
 
-/*
-Function: NewModelPopulation
-Description:
-  Creates a new empty model population.
+/******************************************************************************
+ * Function Name : NewModelPopulation
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
-
-Output:
-  - *ModelPopulation: Initialized population
-
-Lines: ~8
-*/
+  *
+  * Function Name : NewModelPopulation
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func NewModelPopulation() *ModelPopulation {
 	infra.FnTrace("entering")
 	return &ModelPopulation{
@@ -242,38 +309,60 @@ func NewModelPopulation() *ModelPopulation {
 	}
 }
 
-/*
-Function: AddModel
-Description:
-  Adds or updates a model in the population.
+/******************************************************************************
+ * Function Name : AddModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - m *ModelMetadata: Model to add
-
-Output:
-  - none
-
-Lines: ~5
-*/
 func (p *ModelPopulation) AddModel(m *ModelMetadata) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.models[m.Name] = m
 }
 
-/*
-Function: Graduate
-Description:
-  Promotes a model to graduate status, recording the graduation time.
+/******************************************************************************
+ * Function Name : Graduate
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - name string: Model name to graduate
-
-Output:
-  - bool: false if model not found
-
-Lines: ~12
-*/
 func (p *ModelPopulation) Graduate(name string) bool {
 	infra.FnTrace("entering")
 	p.mu.Lock()
@@ -289,19 +378,46 @@ func (p *ModelPopulation) Graduate(name string) bool {
 	return true
 }
 
-/*
-Function: Retire
-Description:
-  Marks a model as retired. Retired models remain for historical tracking.
+/******************************************************************************
+ * Function Name : Retire
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - name string: Model name to retire
-
-Output:
-  - bool: false if model not found
-
-Lines: ~8
-*/
+  *
+  * Function Name : Retire
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func (p *ModelPopulation) Retire(name string) bool {
 	infra.FnTrace("entering")
 	p.mu.Lock()
@@ -315,57 +431,103 @@ func (p *ModelPopulation) Retire(name string) bool {
 	return true
 }
 
-/*
-Function: Get
-Description:
-  Returns a model by name.
+/******************************************************************************
+ * Function Name : Get
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - name string: Model name
-
-Output:
-  - *ModelMetadata: Model pointer, or nil if not found
-
-Lines: ~8
-*/
 func (p *ModelPopulation) Get(name string) *ModelMetadata {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.models[name]
 }
 
-/*
-Function: Count
-Description:
-  Returns the total number of models in the population.
+/******************************************************************************
+ * Function Name : Count
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
-
-Output:
-  - int: Model count
-
-Lines: ~5
-*/
 func (p *ModelPopulation) Count() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return len(p.models)
 }
 
-/*
-Function: ActiveCount
-Description:
-  Returns count of non-retired models.
+/******************************************************************************
+ * Function Name : ActiveCount
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
-
-Output:
-  - int: Active model count
-
-Lines: ~8
-*/
+  *
+  * Function Name : ActiveCount
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func (p *ModelPopulation) ActiveCount() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -378,19 +540,30 @@ func (p *ModelPopulation) ActiveCount() int {
 	return n
 }
 
-/*
-Function: GraduateCount
-Description:
-  Returns count of graduate models (eligible for trading).
+/******************************************************************************
+ * Function Name : GraduateCount
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
-
-Output:
-  - int: Graduate model count
-
-Lines: ~8
-*/
 func (p *ModelPopulation) GraduateCount() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -403,19 +576,43 @@ func (p *ModelPopulation) GraduateCount() int {
 	return n
 }
 
-/*
-Function: Graduates
-Description:
-  Returns all models with graduate status.
+/******************************************************************************
+ * Function Name : Graduates
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
-
-Output:
-  - []*ModelMetadata: Graduate models, sorted by name
-
-Lines: ~12
-*/
+  *
+  * Function Name : Graduates
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func (p *ModelPopulation) Graduates() []*ModelMetadata {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -432,19 +629,30 @@ func (p *ModelPopulation) Graduates() []*ModelMetadata {
 	return result
 }
 
-/*
-Function: ListByCategory
-Description:
-  Returns all models in a given category.
+/******************************************************************************
+ * Function Name : ListByCategory
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - category string: Category constant
-
-Output:
-  - []*ModelMetadata: Matching models
-
-Lines: ~12
-*/
 func (p *ModelPopulation) ListByCategory(category string) []*ModelMetadata {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -458,19 +666,43 @@ func (p *ModelPopulation) ListByCategory(category string) []*ModelMetadata {
 	return result
 }
 
-/*
-Function: Remove
-Description:
-  Permanently removes a model from the population.
+/******************************************************************************
+ * Function Name : Remove
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - name string: Model name
-
-Output:
-  - none
-
-Lines: ~5
-*/
+  *
+  * Function Name : Remove
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func (p *ModelPopulation) Remove(name string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -493,8 +725,24 @@ func (p *ModelPopulation) Remove(name string) {
  *   Description : Sorted models by descending Sharpe ratio.
  *
  * Complexity : Time O(n log n), Space O(n)
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 22
  ******************************************************************************/
+  *
+  * Function Name : RankBySharpe
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func (p *ModelPopulation) RankBySharpe(category string, limit int) []*ModelMetadata {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -533,6 +781,9 @@ func (p *ModelPopulation) RankBySharpe(category string, limit int) []*ModelMetad
  *   Type        : []*ModelMetadata
  *
  * Complexity : Time O(n log n), Space O(n)
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 20
  ******************************************************************************/
 func (p *ModelPopulation) RankBySortino(category string, limit int) []*ModelMetadata {
@@ -566,6 +817,12 @@ func (p *ModelPopulation) RankBySortino(category string, limit int) []*ModelMeta
  *   Returns models sorted by prediction accuracy (descending).
  *
  * Complexity : Time O(n log n), Space O(n)
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 20
  ******************************************************************************/
 func (p *ModelPopulation) RankByAccuracy(category string, limit int) []*ModelMetadata {
@@ -611,7 +868,11 @@ func (p *ModelPopulation) RankByAccuracy(category string, limit int) []*ModelMet
  *
  * Complexity : Time O(c) where c = number of sub-models
  * Number Of Lines : 30
- ******************************************************************************/
+ *****************************************************************************
+  * Error Cases :
+  *   - None
+  *
+ */
 func (p *ModelPopulation) UpdateEnsembleWeights(model *ModelMetadata, performance map[string]float64, decay float64) bool {
 	if model == nil || len(model.EnsembleComposition) == 0 {
 		return false

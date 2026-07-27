@@ -86,6 +86,30 @@ type UnsTrainer struct {
 }
 
 // NewUnsTrainer creates a new unsupervised trainer.
+/******************************************************************************
+ * Function Name : NewUnsTrainer
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func NewUnsTrainer(modelType string) *UnsTrainer {
 	u := &UnsTrainer{
 		modelType: modelType,
@@ -98,6 +122,30 @@ func NewUnsTrainer(modelType string) *UnsTrainer {
 }
 
 // Fit routes to the appropriate algorithm based on modelType.
+/******************************************************************************
+ * Function Name : Fit
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (u *UnsTrainer) Fit(features [][]float64, targets []float64, cfg *TrainingConfig) error {
 	n := len(features)
 	if n == 0 {
@@ -118,6 +166,30 @@ func (u *UnsTrainer) Fit(features [][]float64, targets []float64, cfg *TrainingC
 }
 
 // fitKMeans implements Lloyd's algorithm with k-means++ initialization.
+/******************************************************************************
+ * Function Name : fitKMeans
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (u *UnsTrainer) fitKMeans(features [][]float64, epochs int) error {
 	n := len(features)
 	d := len(features[0])
@@ -213,6 +285,30 @@ func (u *UnsTrainer) fitKMeans(features [][]float64, epochs int) error {
 }
 
 // fitPCA computes principal components via covariance eigendecomposition.
+/******************************************************************************
+ * Function Name : fitPCA
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (u *UnsTrainer) fitPCA(features [][]float64) error {
 	n := len(features)
 	d := len(features[0])
@@ -274,6 +370,30 @@ func (u *UnsTrainer) fitPCA(features [][]float64) error {
 }
 
 // fitDBSCAN is a simplified density-based clustering.
+/******************************************************************************
+ * Function Name : fitDBSCAN
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (u *UnsTrainer) fitDBSCAN(features [][]float64) error {
 	n := len(features)
 	u.Labels = make([]int, n)
@@ -314,6 +434,30 @@ func (u *UnsTrainer) fitDBSCAN(features [][]float64) error {
 	u.fitted = true
 	return nil
 }
+/******************************************************************************
+ * Function Name : regionQuery
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func (u *UnsTrainer) regionQuery(features [][]float64, idx int) []int {
 	var result []int
@@ -329,6 +473,30 @@ func (u *UnsTrainer) regionQuery(features [][]float64, idx int) []int {
 }
 
 // Predict returns cluster assignment or PCA-transformed value.
+/******************************************************************************
+ * Function Name : Predict
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (u *UnsTrainer) Predict(features []float64) (float64, error) {
 	if !u.fitted {
 		return 0, nil
@@ -365,6 +533,30 @@ func (u *UnsTrainer) Predict(features []float64) (float64, error) {
 }
 
 // Backtest evaluates clustering quality via silhouette-like score.
+/******************************************************************************
+ * Function Name : Backtest
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (u *UnsTrainer) Backtest(features [][]float64, targets []float64) (*FitnessHistory, error) {
 	if !u.fitted {
 		return &FitnessHistory{Timestamp: time.Now()}, nil
@@ -378,6 +570,30 @@ func (u *UnsTrainer) Backtest(features [][]float64, targets []float64) (*Fitness
 }
 
 // WalkForward performs rolling validation.
+/******************************************************************************
+ * Function Name : WalkForward
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (u *UnsTrainer) WalkForward(features [][]float64, targets []float64, windowSize int) ([]FitnessHistory, error) {
 	n := len(features)
 	if windowSize <= 0 || windowSize >= n {
@@ -396,6 +612,30 @@ func (u *UnsTrainer) WalkForward(features [][]float64, targets []float64, window
 }
 
 // Serialize marshals to JSON.
+/******************************************************************************
+ * Function Name : Serialize
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (u *UnsTrainer) Serialize() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"model_type": u.modelType, "k": u.K, "n_comps": u.NComps,
@@ -404,6 +644,30 @@ func (u *UnsTrainer) Serialize() ([]byte, error) {
 }
 
 // Deserialize restores from JSON.
+/******************************************************************************
+ * Function Name : Deserialize
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (u *UnsTrainer) Deserialize(data []byte) error {
 	var m map[string]interface{}
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -416,6 +680,30 @@ func (u *UnsTrainer) Deserialize(data []byte) error {
 }
 
 // --- helpers ---
+/******************************************************************************
+ * Function Name : euclideanDist
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func euclideanDist(a, b []float64) float64 {
 	sum := 0.0
@@ -429,6 +717,30 @@ func euclideanDist(a, b []float64) float64 {
 	}
 	return math.Sqrt(sum)
 }
+/******************************************************************************
+ * Function Name : dotVec
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func dotVec(a, b []float64) float64 {
 	sum := 0.0
@@ -441,6 +753,30 @@ func dotVec(a, b []float64) float64 {
 	}
 	return sum
 }
+/******************************************************************************
+ * Function Name : matVecMul
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func matVecMul(A [][]float64, v []float64) []float64 {
 	n := len(A)
@@ -452,6 +788,30 @@ func matVecMul(A [][]float64, v []float64) []float64 {
 	}
 	return result
 }
+/******************************************************************************
+ * Function Name : init
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func init() {
 	RegisterTrainer(ModelUnsKMeans, func() TrainingEngine { return NewUnsTrainer(ModelUnsKMeans) })

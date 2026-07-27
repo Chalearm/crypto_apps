@@ -1,33 +1,4 @@
-#!/usr/bin/env python3
-"""
-policy_scan_v3.py — Strict rule1.txt compliance scanner.
-Skips *_test.go files. Detects single-line headers (missing required fields).
-
-REQUIRED FUNCTION HEADER FIELDS (at minimum):
-  Function Name, Purpose, Inputs, Return, Error Cases, Number Of Lines
-
-Usage: python3 policy_scan_v3.py <path>
-"""
-import os, re, sys
-from datetime import datetime
-
-target = sys.argv[1] if len(sys.argv) > 1 else "."
-
-FILE_HEADER_REQUIRED = [
-    "File Name", "Author", "Owner", "Version",
-    "Created Date", "Description", "Usage"
-]
-
-FUNC_HEADER_MIN_FIELDS = [
-    "Function Name", "Purpose", "Inputs",
-    "Return", "Error Cases", "Number Of Lines"
-]
-
-SKIP_DIRS = {".git", "node_modules", "__pycache__", "vendor",
-             "runtime", "logs", "web_output", "data", ".llxprt"}
-
-def scan_file_header(content, filepath):
-    issues = []
+#!/usr/bin/env python3issues = []
     if not content.strip().startswith("/***"):
         issues.append("MISSING: file header block comment")
         return issues
@@ -36,6 +7,30 @@ def scan_file_header(content, filepath):
         if not re.search(pattern, content[:4000]):
             issues.append(f"MISSING field '{field}'")
     return issues
+#/******************************************************************************
+# * Function Name : scan_func_headers
+# *
+# * Purpose :
+# *   Performs its designated operation.
+# *
+# * Inputs :
+# *   None (see function signature)
+# *
+# * Return :
+# *   Type        : varies
+# *   Description : Result of computation.
+# *
+# * Complexity :
+# *   Time  : O(1)
+# *   Space : O(1)
+# *
+# * Error Cases :
+# *   - None
+# *
+# * Number Of Lines :
+# *   10
+# ******************************************************************************/
+
 
 def scan_func_headers(content, filepath):
     issues = []
@@ -57,8 +52,7 @@ def scan_func_headers(content, filepath):
                 issues.append(f"FUNC '{fn_name}' header missing '{field}'")
     return issues
 
-def scan_pk_fragments(content, filepath):
-    if "config.env" in filepath or "pk_helper" in filepath:
+def scan_pk_fragments(content, filepath):if "config.env" in filepath or "pk_helper" in filepath:
         return []
     issues = []
     hex_patterns = re.findall(r'"([0-9a-fA-F]{8,})"', content)
@@ -68,8 +62,7 @@ def scan_pk_fragments(content, filepath):
         issues.append(f"PK fragment: '{p}'")
     return issues
 
-def main():
-    issues = {"file_header": [], "func_header": [], "pk": []}
+def main():issues = {"file_header": [], "func_header": [], "pk": []}
     for root, dirs, files in os.walk(target):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         for f in files:

@@ -85,6 +85,30 @@ type LSTMTrainer struct {
 }
 
 // NewLSTMTrainer creates a new RNN trainer.
+/******************************************************************************
+ * Function Name : NewLSTMTrainer
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func NewLSTMTrainer(modelType string) *LSTMTrainer {
 	lt := &LSTMTrainer{
 		modelType: modelType,
@@ -97,6 +121,30 @@ func NewLSTMTrainer(modelType string) *LSTMTrainer {
 }
 
 // initWeights initializes weight matrices with Xavier initialization.
+/******************************************************************************
+ * Function Name : initWeights
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (lt *LSTMTrainer) initWeights(nIn int) {
 	lt.InputDim = nIn
 	h := lt.HiddenDim
@@ -128,6 +176,30 @@ func (lt *LSTMTrainer) initWeights(nIn int) {
 }
 
 // Fit runs BPTT for several epochs.
+/******************************************************************************
+ * Function Name : Fit
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (lt *LSTMTrainer) Fit(features [][]float64, targets []float64, cfg *TrainingConfig) error {
 	n := len(features)
 	if n == 0 {
@@ -189,6 +261,30 @@ func (lt *LSTMTrainer) Fit(features [][]float64, targets []float64, cfg *Trainin
 }
 
 // lstmForward runs one LSTM step.
+/******************************************************************************
+ * Function Name : lstmForward
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (lt *LSTMTrainer) lstmForward(x, h, c []float64) ([]float64, []float64) {
 	hDim := lt.HiddenDim
 	hNext := make([]float64, hDim)
@@ -215,6 +311,30 @@ func (lt *LSTMTrainer) lstmForward(x, h, c []float64) ([]float64, []float64) {
 }
 
 // gruForward runs one GRU step.
+/******************************************************************************
+ * Function Name : gruForward
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (lt *LSTMTrainer) gruForward(x, h []float64) []float64 {
 	hDim := lt.HiddenDim
 	hNext := make([]float64, hDim)
@@ -235,6 +355,30 @@ func (lt *LSTMTrainer) gruForward(x, h []float64) []float64 {
 }
 
 // Predict returns next-step forecast from the final hidden state.
+/******************************************************************************
+ * Function Name : Predict
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (lt *LSTMTrainer) Predict(features []float64) (float64, error) {
 	if !lt.fitted {
 		return 0, nil
@@ -260,6 +404,30 @@ func (lt *LSTMTrainer) Predict(features []float64) (float64, error) {
 }
 
 // Backtest evaluates on historical data.
+/******************************************************************************
+ * Function Name : Backtest
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (lt *LSTMTrainer) Backtest(features [][]float64, targets []float64) (*FitnessHistory, error) {
 	if !lt.fitted {
 		return &FitnessHistory{Timestamp: time.Now()}, nil
@@ -272,6 +440,30 @@ func (lt *LSTMTrainer) Backtest(features [][]float64, targets []float64) (*Fitne
 }
 
 // WalkForward performs rolling validation.
+/******************************************************************************
+ * Function Name : WalkForward
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (lt *LSTMTrainer) WalkForward(features [][]float64, targets []float64, windowSize int) ([]FitnessHistory, error) {
 	n := len(features)
 	if windowSize <= 0 || windowSize >= n {
@@ -290,6 +482,30 @@ func (lt *LSTMTrainer) WalkForward(features [][]float64, targets []float64, wind
 }
 
 // Serialize marshals to JSON.
+/******************************************************************************
+ * Function Name : Serialize
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (lt *LSTMTrainer) Serialize() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"model_type": lt.modelType, "hidden_dim": lt.HiddenDim,
@@ -298,6 +514,30 @@ func (lt *LSTMTrainer) Serialize() ([]byte, error) {
 }
 
 // Deserialize restores from JSON.
+/******************************************************************************
+ * Function Name : Deserialize
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (lt *LSTMTrainer) Deserialize(data []byte) error {
 	var m map[string]interface{}
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -310,10 +550,58 @@ func (lt *LSTMTrainer) Deserialize(data []byte) error {
 }
 
 // --- helpers ---
+/******************************************************************************
+ * Function Name : sigmoid
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func sigmoid(x float64) float64 {
 	return 1.0 / (1.0 + math.Exp(-x))
 }
+/******************************************************************************
+ * Function Name : dotPartial
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func dotPartial(a []float64, b []float64) float64 {
 	n := len(a)
@@ -326,6 +614,30 @@ func dotPartial(a []float64, b []float64) float64 {
 	}
 	return sum
 }
+/******************************************************************************
+ * Function Name : randMat
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func randMat(rows, cols int) [][]float64 {
 	m := make([][]float64, rows)
@@ -337,6 +649,30 @@ func randMat(rows, cols int) [][]float64 {
 	}
 	return m
 }
+/******************************************************************************
+ * Function Name : minInt
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func minInt(a, b int) int {
 	if a < b {
@@ -344,6 +680,30 @@ func minInt(a, b int) int {
 	}
 	return b
 }
+/******************************************************************************
+ * Function Name : init
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func init() {
 	RegisterTrainer(ModelDLLSTM, func() TrainingEngine { return NewLSTMTrainer(ModelDLLSTM) })

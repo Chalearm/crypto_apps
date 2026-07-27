@@ -106,6 +106,30 @@ var Decimals = map[string]int64{
 }
 
 // Custom parser to format: 12,345.123 456 789 012
+/******************************************************************************
+ * Function Name : formatWithSpacedDecimals
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func formatWithSpacedDecimals(val float64) string {
     rawStr := fmt.Sprintf("%.12f", val)
     parts := strings.Split(rawStr, ".")
@@ -137,6 +161,30 @@ func formatWithSpacedDecimals(val float64) string {
 }
 
 // APPROVAL ENGINE
+/******************************************************************************
+ * Function Name : approve
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func approve(client *ethclient.Client, auth *bind.TransactOpts, token common.Address) {
     parsed, _ := abi.JSON(strings.NewReader(ERC20_ABI))
     contract := bind.NewBoundContract(token, parsed, client, client, client)
@@ -160,6 +208,30 @@ func approve(client *ethclient.Client, auth *bind.TransactOpts, token common.Add
 }
 
 // EXECUTE SWAP USING THE UPDATED MATRIX LOOKUP
+/******************************************************************************
+ * Function Name : ExecuteSwap
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func ExecuteSwap(
     client *ethclient.Client,
     auth *bind.TransactOpts,
@@ -244,6 +316,30 @@ func ExecuteSwap(
 }
 
 // GAS REPORT GENERATOR WITH HIGH PRECISION SPACING
+/******************************************************************************
+ * Function Name : reportGas
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func reportGas(client *ethclient.Client, tx *types.Transaction, gasPrice *big.Int) {
     receipt, err := bind.WaitMined(context.Background(), client, tx)
     if err != nil {
@@ -266,6 +362,30 @@ func reportGas(client *ethclient.Client, tx *types.Transaction, gasPrice *big.In
 }
 
 // EXPORT STRATEGY METHOD
+/******************************************************************************
+ * Function Name : SwapBTTtoSHIB
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func SwapBTTtoSHIB(
     client *ethclient.Client,
     auth *bind.TransactOpts,

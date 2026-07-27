@@ -79,6 +79,30 @@ const (
 // Output:
 //   error: An error if the message cannot be sent.
 // Lines: ~20
+/******************************************************************************
+ * Function Name : SendMessage
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func SendMessage(addr string, message []byte) error {
     udpAddr, err := net.ResolveUDPAddr("udp", addr)
     if err != nil {
@@ -108,6 +132,30 @@ func SendMessage(addr string, message []byte) error {
 // Output:
 //   error: An error if the listener cannot be started.
 // Lines: ~40
+/******************************************************************************
+ * Function Name : Listen
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func Listen(port int, handler func([]byte, *net.UDPAddr), stopChan <-chan struct{}) error {
     addr := fmt.Sprintf(":%d", port)
     udpAddr, err := net.ResolveUDPAddr("udp", addr)

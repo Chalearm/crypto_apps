@@ -76,10 +76,58 @@ var rlModelCategories = map[string]string{
 	ModelRLA2C: CategoryIntraday, ModelRLA3C: CategoryIntraday,
 	ModelRLSAC: CategoryOptions, ModelRLTD3: CategoryOptions,
 }
+/******************************************************************************
+ * Function Name : AllRLModels
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func AllRLModels() []string {
 	return []string{ModelRLDQN, ModelRLPPO, ModelRLA2C, ModelRLA3C, ModelRLSAC, ModelRLTD3}
 }
+/******************************************************************************
+ * Function Name : NewRLModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func NewRLModel(modelType string, modelIndex int) *ModelMetadata {
 	cat, _ := rlModelCategories[modelType]
@@ -93,14 +141,86 @@ func NewRLModel(modelType string, modelIndex int) *ModelMetadata {
 		Fitness: &FitnessHistory{Timestamp: time.Now()},
 	}
 }
+/******************************************************************************
+ * Function Name : ValidateRLModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func ValidateRLModel(modelType string) bool {
 	_, ok := rlModelCategories[modelType]; return ok
 }
+/******************************************************************************
+ * Function Name : IsRLModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func IsRLModel(m *ModelMetadata) bool {
 	return m != nil && ValidateRLModel(m.Architecture)
 }
+/******************************************************************************
+ * Function Name : CategoryForRLModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func CategoryForRLModel(modelType string) string {
 	if cat, ok := rlModelCategories[modelType]; ok { return cat }

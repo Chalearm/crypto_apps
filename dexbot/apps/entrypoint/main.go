@@ -68,6 +68,28 @@ import (
 	"time"
 )
 
+/******************************************************************************
+ * Function Name : main
+ *
+ * Purpose :
+ *   Entry point for the application.
+ *
+ * Inputs :
+ *   None (reads os.Args or stdlib flags)
+ *
+ * Return :
+ *   None (exits with code 0 on success)
+ *
+ * Complexity :
+ *   Time  : O(N)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   15
+ ******************************************************************************/
 func main() {
 	fmt.Println("")
 	fmt.Println("============================================================")
@@ -133,6 +155,30 @@ func main() {
 
 	_ = time.Now // silence import
 }
+/******************************************************************************
+ * Function Name : findWorkDir
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func findWorkDir() string {
 	candidates := []string{

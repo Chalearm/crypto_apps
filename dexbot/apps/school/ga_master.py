@@ -1,51 +1,90 @@
 #!/usr/bin/env python3
-#/******************************************************************************
-#* File Name        : ga_master.py
-#* Path             : apps/school/ga_master.py
-#* Author           : Chalearm Saelim & Gemini
-#* System Role      : Central Orchestrator / Master Node (GA Engine)
-#* Architecture     : Distributed Client-Server / Master-Worker (Celery + Redis)
-#* 
+# ##############################################################################
+# File Name        : ga_master.py
+# File Path        : apps/school/ga_master.py
+#
+# Author           : Chalearm Saelim & Gemini
+# Owner            : Chalearm Saelim
+# Reviewer         : Chalearm Saelim
+#
+# Version          : 1.0.1
+# Status           : Development
+# Created Date     : 2026-07-26 08:00:00 (UTC+7)
+# Modified Date    : 2026-07-27 17:15:00 (UTC+7)
+#
+# Description      :
+#    Central orchestrator and Genetic Algorithm (GA) Master Daemon for the
+#    distributed GA-LSTM forecasting system. Manages population seeding, NSGA-II
+#    multi-objective evaluation, Redis task queuing, worker pool management,
+#    intra-generation checkpointing (time/percentage triggers), configurable log
+#    rotation daemons, and cluster control actions.
+#
+# Responsibilities :
+#    - Orchestrates multi-generation NSGA-II optimization for LSTM architectures.
+#    - Manages Celery task queueing over Redis broker for distributed fold training.
+#    - Implements intra-generation time and percentage-based state checkpointing.
+#    - Controls background log rotation daemons and cluster worker scaling.
+#
+# Usage :
+#    Directory : apps/school/
+#
+#    Build :
+#      N/A (Interpreted Python Script)
+#
+#    Run :
+#      python3 ga_master.py -action=start -save-min=20 -save-pct=25.0
+#      ./school -action=set-up
+#      ./school -action=status
+#
+# Dependencies :
+#    Internal :
+#      - utils (resolve_target_directories)
+#      - log_rotator (start_log_rotation_daemon)
+#      - celery_tasks (app, run_fold_training_task, export_and_plot_task)
+#
+#    External :
+#      - numpy, pandas, scikit-learn, celery, redis
+#
+# Updated Parts :
+#    [Function]
+#      - _evaluate_population_pipelined() (Added intra-generation time and percentage auto-saving)
+#      - _save_checkpoint() (Enhanced to accept partial intra-generation save flags)
+#      - main() (Integrated -save-min, -save-pct, -rotate-min, -rotate-mb CLI arguments)
+#
+# Change History :
+#    -------------------------------------------------------------------------
+#    Version | Date Time (UTC+7)        | Author          | Description
+#    -------------------------------------------------------------------------
+#    1.0.0   | 2026-07-26 08:00:00      | Chalearm Saelim | Initial release
+#    1.0.1   | 2026-07-27 17:15:00      | Chalearm Saelim | Added intra-gen checkpoints & rotator
+#    -------------------------------------------------------------------------
+#
+# TODO :
+#    - Add automated hyperparameter search space expansion.
+#
+# Notes :
+#    - Per regulator coding standard rules.
+#
 #* DEPENDENCY TREE & STRUCTURAL MAP:
 #* ─────────────────────────────────────────────────────────────────────────────
 #* [ga_master.py] (Central Orchestrator)
 #*    │
 #*    ├── Imports ──> [utils.py] (resolve_target_directories)
+#*    ├── Imports ──> [log_rotator.py] (start_log_rotation_daemon)
 #*    ├── Reads/Writes ──> [lstm_ga_checkpoint.json] (State Persistence + run_id)
 #*    ├── Logs to     ──> [logs/<run_id>/lstm_engine.log] & [logs/<run_id>/chromosome_summary.log]
 #*    │
 #*    ├── Invokes Async Tasks ──> [celery_tasks.py]
 #*    │                                │
-#*    │                   (Redis IPC Queue / Message Broker)
+#*    │                    (Redis IPC Queue / Message Broker)
 #*    │                                │
-#*    │  ┌─────────────────────────────┴──────────────────────────────┐
-#*    │  ▼                                                            ▼
-#* [train_worker.py] (Worker 1 / Worker 2 Docker)        [visualization_worker.py]
-#*   - Executes LSTM Fold Cross-Validation                - Autoregressive Forecasting
-#*   - Computes Skill DA, Sharpe, RMSE, MaxDD             - Matplotlib Overlay Plots
-#*   - Logs to [logs/<run_id>/folds_lifecycle.log]        - Keras Model Exports
-#*   - Returns JSON metrics payload                         [deployed_models/<run_id>/]
-#*
-#* FUNCTION DEPENDENCY MATRIX (Internal Methods):
-#* ─────────────────────────────────────────────────────────────────────────────
-#* main() 
-#*  ├── print_cluster_status()                       [Triggered by -action=status]
-#*  ├── stop_master_process()                        [Triggered by -action=stop]
-#*  ├── terminate_all_cluster_processes()            [Triggered by -action=terminate]
-#*  └── LSTMOptimizerEngine.execute_pipeline()        [Triggered by -action=start]
-#*       ├── _ingest_data_layers()
-#*       │    └── _load_directory_to_df()
-#*       ├── _load_checkpoint() / _initialize_random_population()
-#*       │    ├── utils.resolve_target_directories(run_id)
-#*       │    └── _setup_run_loggers()
-#*       ├── _process_data()
-#*       └── _evolve_generations()
-#*            ├── _evaluate_population_pipelined()
-#*            │    ├── _build_fold_payloads()
-#*            │    ├── celery_tasks.run_fold_training_task.delay(p)
-#*            │    └── _summarize_chromosome_evaluation()
-#*            └── celery_tasks.export_and_plot_task.delay(..., run_id)
-#******************************************************************************/ 
+#*    │  ┌─────────────────────────────┼──────────────────────────────┐
+#*    │  ▼                             ▼                              ▼
+#* [train_worker.py]          [visualization_worker.py]     [verify_worker.py]
+#*  - LSTM Fold CV             - Autoregressive Plotting     - 10-Fold OOS Verification
+#*  - Computes Metrics         - Model Exports (.keras)      - Walk-Forward Telemetry
+#*****************************************************************************
+
 import os
 import sys
 import json
@@ -61,6 +100,7 @@ import datetime
 import warnings
 import numpy as np
 import pandas as pd
+from log_rotator import start_log_rotation_daemon
 from sklearn.preprocessing import MinMaxScaler
 from utils import resolve_target_directories
 
@@ -94,11 +134,11 @@ TRANSFORMED_DATA_DIR = "../../data_set/daily/2022_07_01_2026_06_30"
 VAL_RAW_DATA_DIR = "../../data_set/daily/2026_07_01_2026_07_21"
 VAL_TRANSFORMED_DATA_DIR = "../../data_set/daily/2026_07_01_2026_07_21"
 
-POPULATION_SIZE = 5
-GENERATIONS = 2
-MUTATION_RATE = 0.3
+POPULATION_SIZE = 53
+GENERATIONS = 37
+MUTATION_RATE = 0.25
 TOP_N_EXPORTS = 5
-NUM_FOLDS = 7
+NUM_FOLDS = 6
 
 MIN_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS = 60, 150
 MIN_FORECAST_DAYS, MAX_FORECAST_DAYS = 30, 60
@@ -114,11 +154,39 @@ USER_EXCLUDE_FEATURES = ['volume_log_change_fed']
 # ==============================================================================
 # MASTER GA-LSTM OPTIMIZER ENGINE CLASS
 # ==============================================================================
+
 class LSTMOptimizerEngine:
-    def __init__(self, data_directory=".", checkpoint_file="lstm_ga_checkpoint.json", verbose=False):
+
+    # ##########################################################################
+    # Function Name : __init__
+    #
+    # Purpose :
+    #    Initializes the GA master engine instance, signal handlers, data scalers,
+    #    checkpoint intervals, and internal state variables.
+    #
+    # Inputs :
+    #    data_directory
+    #        Type        : str
+    #        Description : Working directory for dataset loading.
+    #    checkpoint_file
+    #        Type        : str
+    #        Description : JSON filename for persisting optimization state.
+    #    verbose
+    #        Type        : bool
+    #        Description : Flag to enable verbose feature classification logging.
+    #    save_interval_min
+    #        Type        : int
+    #        Description : Intra-generation checkpoint interval in minutes.
+    #    save_pct
+    #        Type        : float
+    #        Description : Intra-generation checkpoint interval in % of population.
+    # ##########################################################################
+    def __init__(self, data_directory=".", checkpoint_file="lstm_ga_checkpoint.json", verbose=False, save_interval_min=20, save_pct=25.0):
         self.data_directory = data_directory
         self.checkpoint_file = checkpoint_file
         self.verbose = verbose
+        self.save_interval_min = save_interval_min
+        self.save_pct = save_pct
         self.running = True
         
         signal.signal(signal.SIGINT, self._handle_exit)
@@ -134,8 +202,15 @@ class LSTMOptimizerEngine:
         self.val_master_data_raw = None
         self._first_split_done = False
         
-        logger.info(f"🚀 [INIT] LSTMOptimizerEngine Master initialized (Verbose: {self.verbose}).")
+        logger.info(f"🚀 [INIT] LSTMOptimizerEngine Master initialized (Verbose: {self.verbose} | Save Min: {self.save_interval_min}m | Save Pct: {self.save_pct}%).")
 
+    # ##########################################################################
+    # Function Name : _setup_run_loggers
+    #
+    # Purpose :
+    #    Attaches run-specific file handlers for engine, summary, and fold logs
+    #    inside the target run directory.
+    # ##########################################################################
     def _setup_run_loggers(self):
         log_dir, _, _ = resolve_target_directories(self.run_id)
 
@@ -157,19 +232,39 @@ class LSTMOptimizerEngine:
             fh_fold.setFormatter(log_formatter)
             fold_logger.addHandler(fh_fold)
 
+    # ##########################################################################
+    # Function Name : _handle_exit
+    #
+    # Purpose :
+    #    Graceful signal handler triggered on SIGINT/SIGTERM to persist state
+    #    to disk before exiting process.
+    # ##########################################################################
     def _handle_exit(self, signum, frame):
         logger.warning(f"⚠️ [SIGNAL] Interrupt {signum} received. Persisting state before termination...")
         self.running = False
-        self._save_checkpoint()
+        self._save_checkpoint(partial=True)
         logger.info("👋 Master node exited safely.")
         sys.exit(0)
 
+    # ##########################################################################
+    # Function Name : _clear_state
+    #
+    # Purpose :
+    #    Deletes the checkpoint JSON file and resets in-memory population state.
+    # ##########################################################################
     def _clear_state(self):
         if os.path.exists(self.checkpoint_file):
             os.remove(self.checkpoint_file)
             logger.info("🧹 [CLEAR] State checkpoint file deleted successfully.")
         self.chromosome_population = []
 
+    # ##########################################################################
+    # Function Name : execute_pipeline
+    #
+    # Purpose :
+    #    Executes the complete evolutionary pipeline sequence: data ingestion,
+    #    checkpoint restoration/seeding, scaling, and generational evolution.
+    # ##########################################################################
     def execute_pipeline(self):
         logger.info("🚀 [PIPELINE] Starting Distributed GA Evolution sequence...")
         if not self._ingest_data_layers():
@@ -185,6 +280,13 @@ class LSTMOptimizerEngine:
         self._save_checkpoint()
         logger.info("🏁 [PIPELINE] Evolution pipeline finished all generational runs.")
 
+    # ##########################################################################
+    # Function Name : _load_directory_to_df
+    #
+    # Purpose :
+    #    Parses transformed and raw asset CSV files from target directories,
+    #    joins them along time indices, and returns an aligned master DataFrame.
+    # ##########################################################################
     def _load_directory_to_df(self, transform_dir, raw_dir):
         all_files = glob.glob(os.path.join(transform_dir, "*_transformed.csv"))
         if not all_files:
@@ -231,11 +333,23 @@ class LSTMOptimizerEngine:
 
         if master_df is not None:
             final_df = pd.concat([master_df, global_time_df], axis=1)
+            # Forward-fill price columns to avoid $0 data drops
+            price_cols = [c for c in final_df.columns if c.startswith('close_')]
+            if price_cols:
+                final_df[price_cols] = final_df[price_cols].ffill().bfill()
+            
             final_df = final_df.interpolate(method='linear').bfill().ffill().fillna(0)
             return final_df.dropna()
         
         return None
 
+    # ##########################################################################
+    # Function Name : _ingest_data_layers
+    #
+    # Purpose :
+    #    Coordinates ingestion for both primary training and validation datasets,
+    #    logging statistical matrix summaries.
+    # ##########################################################################
     def _ingest_data_layers(self) -> bool:
         logger.info("=" * 75)
         logger.info("🔍 [DATASET INGESTION & FEATURE AUDIT]")
@@ -289,6 +403,13 @@ class LSTMOptimizerEngine:
         logger.info("=" * 75 + "\n")
         return True
 
+    # ##########################################################################
+    # Function Name : _process_data
+    #
+    # Purpose :
+    #    Copies raw unscaled dataset to master_data_raw and scales primary features
+    #    using MinMaxScaler to (-1, 1).
+    # ##########################################################################
     def _process_data(self):
         if self.master_data is None or self.master_data.empty:
             return
@@ -302,8 +423,23 @@ class LSTMOptimizerEngine:
         )
         logger.info("✅ [PROCESS] Data scaling complete.")
 
-    def _split_features(self, df):
-        temporal_patterns = ['day_wk_sin', 'day_wk_cos', 'day_yr_sin', 'day_yr_cos', 'hour_sin', 'hour_cos', 'min_sin', 'min_cos']
+    # ##########################################################################
+    # Function Name : _split_features
+    #
+    # Purpose :
+    #    Categorizes input dataset columns into global cyclical temporal features
+    #    (including Fourier harmonics) and active GA asset channels, while filtering
+    #    out user-excluded features, with detailed diagnostic telemetry.
+    # ##########################################################################
+    def _split_features(self, df: pd.DataFrame):
+        temporal_patterns = [
+            'day_wk_sin', 'day_wk_cos', 
+            'day_yr_sin', 'day_yr_cos', 
+            'hour_sin', 'hour_cos', 
+            'min_sin', 'min_cos', 
+            'fourier_'
+        ]
+        
         time_cols = [c for c in df.columns if any(p in c for p in temporal_patterns)]
         base_asset_cols = [c for c in df.columns if c not in time_cols and not c.startswith('close_')]
 
@@ -312,17 +448,35 @@ class LSTMOptimizerEngine:
         asset_cols = [c for c in base_asset_cols if c.lower() not in banned_lower]
 
         if getattr(self, '_first_split_done', False) is False:
-            logger.info("=" * 70)
+            print("\n" + "=" * 80)
+            print("📐 [FEATURE CLASSIFICATION & DATASET ARCHITECTURE AUDIT]")
+            print("=" * 80)
+            print(f"   ├── Total Raw DataFrame Columns  : {len(df.columns)}")
+            print(f"   ├── ⏳ Global Temporal Channels  : ({len(time_cols)}) -> {time_cols}")
+            print(f"   ├── 🚫 User Banned Features      : ({len(excluded_cols)}) -> {excluded_cols if excluded_cols else ['None']}")
+            print(f"   └── 🧬 Active GA Evolutionary Pool: ({len(asset_cols)}) -> {asset_cols}")
+            print("=" * 80 + "\n")
+
+            logger.info("=" * 80)
             logger.info("📐 [FEATURE CLASSIFICATION & DATASET ARCHITECTURE]")
-            logger.info("=" * 70)
+            logger.info("=" * 80)
             logger.info(f"⏳ Global Time Features ({len(time_cols)}) : {time_cols}")
             logger.info(f"🚫 User Excluded Features ({len(excluded_cols)}) : {excluded_cols if excluded_cols else ['None']}")
             logger.info(f"🧬 GA Evolutionary Pool ({len(asset_cols)}) : {asset_cols}")
-            logger.info("=" * 70)
+            logger.info("=" * 80)
+            
             self._first_split_done = True
 
         return time_cols, asset_cols
 
+    # ##########################################################################
+    # Function Name : _prepare_lstm_dataset
+    #
+    # Purpose :
+    #    Constructs rolling sliding-window 3D feature arrays (X) and multi-step
+    #    sequence target matrices (y) based on chromosome lookback window and
+    #    feature mask.
+    # ##########################################################################
     def _prepare_lstm_dataset(self, chromosome, data_source=None):
         if data_source is None:
             data_source = self.master_data
@@ -338,24 +492,38 @@ class LSTMOptimizerEngine:
         combined_data = np.hstack([asset_values, time_values])
 
         lookback = int(chromosome.get('lookback_window', 30))
-        forecast = int(chromosome.get('forecast_horizon', 1))
+        forecast = int(chromosome.get('forecast_horizon', 52))
 
         num_samples = len(combined_data) - lookback - forecast
         if num_samples > 0:
             X, y = [], []
             for i in range(num_samples):
                 X.append(combined_data[i : (i + lookback)])
-                y.append(asset_values[i + lookback + forecast])
-            return np.array(X), np.array(y), chromosome['feature_mask']
+                y.append(asset_values[i + lookback : i + lookback + forecast])
+            return np.array(X, dtype=np.float32), np.array(y, dtype=np.float32), chromosome['feature_mask']
         
         return np.array([]), np.array([]), chromosome['feature_mask']
 
+    # ##########################################################################
+    # Function Name : _get_normal_random
+    #
+    # Purpose :
+    #    Generates a Gaussian normally distributed integer bounded between
+    #    min_val and max_val.
+    # ##########################################################################
     def _get_normal_random(self, min_val, max_val):
         mu = (min_val + max_val) / 2
         sigma = (max_val - min_val) / 6
         val = random.gauss(mu, sigma)
         return int(max(min_val, min(max_val, val)))
 
+    # ##########################################################################
+    # Function Name : _initialize_random_population
+    #
+    # Purpose :
+    #    Generates a fresh 8-char hex run_id, attaches loggers, and seeds
+    #    POPULATION_SIZE randomized chromosomes for Generation 1.
+    # ##########################################################################
     def _initialize_random_population(self):
         self.run_id = uuid.uuid4().hex[:8].upper()
         self._setup_run_loggers()
@@ -399,10 +567,15 @@ class LSTMOptimizerEngine:
 
         logger.info(f"✅ [INIT] Population seeding complete. {POPULATION_SIZE} models created for Run {self.run_id}.")
 
+    # ##########################################################################
+    # Function Name : _build_fold_payloads
+    #
+    # Purpose :
+    #    Generates full dataset tensors for a chromosome, saves them locally to
+    #    a compressed .npz disk cache file, and constructs lightweight (~1 KB)
+    #    Redis Celery task payloads.
+    # ##########################################################################
     def _build_fold_payloads(self, chromosome):
-        import numpy as np
-
-        # 1. Generate full dataset tensors for this chromosome
         X, y_all, _ = self._prepare_lstm_dataset(chromosome)
         total_samples = X.shape[0]
 
@@ -412,7 +585,6 @@ class LSTMOptimizerEngine:
         _, all_asset_cols = self._split_features(self.master_data)
         target_cols = [col for col, m in zip(all_asset_cols, chromosome['feature_mask']) if m == 1]
 
-        # 2. Save scaled tensors to a local disk cache file (0 KB sent through Redis!)
         cache_dir = os.path.join("logs", self.run_id, "cache")
         os.makedirs(cache_dir, exist_ok=True)
         cache_file = os.path.join(cache_dir, f"chrom_{chromosome['id']}.npz")
@@ -434,7 +606,6 @@ class LSTMOptimizerEngine:
             if train_end_idx < 10 or (val_end_idx - val_start_idx) == 0:
                 continue
 
-            # Lightweight payload sent through Redis (~1 KB)
             payloads.append({
                 'run_id': self.run_id,
                 'chrom_id': chromosome['id'],
@@ -450,6 +621,14 @@ class LSTMOptimizerEngine:
 
         return payloads
 
+    # ##########################################################################
+    # Function Name : _evaluate_population_pipelined
+    #
+    # Purpose :
+    #    Dispatches fold cross-validation Celery tasks to Redis broker for all
+    #    unevaluated chromosomes in parallel, polling until completion, while
+    #    executing time (N mins) and percentage (N %) intra-generation auto-saves.
+    # ##########################################################################
     def _evaluate_population_pipelined(self, population, gen):
         from celery_tasks import run_fold_training_task
 
@@ -459,8 +638,16 @@ class LSTMOptimizerEngine:
         completed_results = {c['id']: [] for c in population}
         expected_folds_count = {}
 
+        total_candidates = len(population)
+        pct_step_threshold = max(1, int(total_candidates * (self.save_pct / 100.0)))
+        
+        last_save_time = time.time()
+        candidates_processed_since_save = 0
+
         logger.info("=" * 75)
         logger.info(f"🧬 [GA GENERATION {gen}] DISPATCHING FOLD TASKS TO CELERY WORKER POOL")
+        logger.info(f"   ├── Intra-Gen Save Trigger 1 : Every {self.save_interval_min} minutes")
+        logger.info(f"   └── Intra-Gen Save Trigger 2 : Every {pct_step_threshold} candidates evaluated ({self.save_pct}%)")
         logger.info("=" * 75)
 
         for chromosome in population:
@@ -471,7 +658,6 @@ class LSTMOptimizerEngine:
                 logger.info(f"⏭️ [RESUME] Skipping {c_id} — already fully evaluated.")
                 continue
 
-            # Rich hyperparameter logging directly to lstm_engine.log
             _, asset_cols = self._split_features(self.master_data)
             mask = chromosome['feature_mask']
             
@@ -487,7 +673,6 @@ class LSTMOptimizerEngine:
             logger.info(f"   └── Masked Off ({len(masked_off_features)})      : {masked_off_features}")
             logger.info("-" * 70)
 
-            # Also mirror to dedicated summary logger
             summary_logger.info("-" * 65)
             summary_logger.info(f"🧬 [CHROMOSOME CONFIG] GEN:{gen} | ID:{c_id}")
             summary_logger.info(f"🖥️  Structure    : Layers: {chromosome['lstm_layers']} | Nodes: {chromosome['nodes_per_layer']}")
@@ -513,10 +698,7 @@ class LSTMOptimizerEngine:
                         ensure_redis_server_running()
                         time.sleep(1.0)
 
-        # Active poll & completion logging
-        total_finished = 0
-        total_expected = sum(expected_folds_count.values())
-
+        # Active polling loop with mid-generation checkpoint triggers
         while any(tasks for tasks in async_results.values()):
             if not self.running:
                 break
@@ -541,12 +723,9 @@ class LSTMOptimizerEngine:
                                 f"Worker: {worker_node} | Loss: {loss:.6f} | Skill DA: {skill_da*100:+.2f}% | Time: {duration:.2f}s"
                             )
                             
-                            # Print directly to BOTH lstm_engine.log and folds_lifecycle.log
                             logger.info(completion_msg)
                             fold_logger.info(completion_msg)
-                            
                             completed_results[c_id].append(res)
-                            total_finished += 1
                         else:
                             err_msg = f"💥 [TASK CRASH] Model {c_id} | Fold {fold_idx}/{NUM_FOLDS} failed: {task.result}"
                             logger.error(err_msg)
@@ -562,10 +741,31 @@ class LSTMOptimizerEngine:
                         objectives = self._summarize_chromosome_evaluation(target_chrom, completed_results[c_id], gen)
                         target_chrom['perf_vector'] = objectives
                         target_chrom['fitness_evaluated'] = True
+                        candidates_processed_since_save += 1
+
+                        # --- Mid-Generation Intra Checkpointing Checks ---
+                        elapsed_min = (time.time() - last_save_time) / 60.0
+                        time_trigger = elapsed_min >= self.save_interval_min
+                        pct_trigger = candidates_processed_since_save >= pct_step_threshold
+
+                        if time_trigger or pct_trigger:
+                            trigger_reason = f"{elapsed_min:.1f} mins elapsed" if time_trigger else f"{candidates_processed_since_save} candidate(s) evaluated ({self.save_pct}%)"
+                            self._save_checkpoint(partial=True)
+                            print(f"💾 [MID-GEN CHECKPOINT] Gen {gen} partial progress saved! Reason: {trigger_reason}.")
+                            logger.info(f"💾 [MID-GEN CHECKPOINT] Gen {gen} partial progress saved! Reason: {trigger_reason}.")
+                            
+                            last_save_time = time.time()
+                            candidates_processed_since_save = 0
 
             time.sleep(1.0)
 
-
+    # ##########################################################################
+    # Function Name : _summarize_chromosome_evaluation
+    #
+    # Purpose :
+    #    Aggregates metrics across all completed folds for a single chromosome,
+    #    computing mean/std Skill DA, Sharpe, MaxDD, RMSE, CAGR, and Calmar ratios.
+    # ##########################################################################
     def _summarize_chromosome_evaluation(self, chromosome, fold_results, gen):
         fold_results.sort(key=lambda x: x.get('fold_idx', 0))
 
@@ -598,7 +798,6 @@ class LSTMOptimizerEngine:
                 asset_history_metrics[asset_name]['model'].append(metrics['model'])
                 asset_history_metrics[asset_name]['skill'].append(metrics['skill'])
 
-        # Detailed block printed to BOTH summary_logger and main engine logger
         eval_headers = [
             "======================================================================",
             f"⚡ [EVALUATION COMPLETE] Model: {chromosome['id']} | Generation: {gen}",
@@ -652,6 +851,14 @@ class LSTMOptimizerEngine:
 
         return objectives_vector
 
+    # ##########################################################################
+    # Function Name : _mutate
+    #
+    # Purpose :
+    #    Applies stochastic genetic mutation across architecture layers, windows,
+    #    learning rate, dropout, batch size, and feature mask genes based on
+    #    MUTATION_RATE.
+    # ##########################################################################
     def _mutate(self, chromosome: dict) -> dict:
         rate = MUTATION_RATE
         max_rows = len(self.master_data)
@@ -697,6 +904,13 @@ class LSTMOptimizerEngine:
 
         return chromosome
 
+    # ##########################################################################
+    # Function Name : _check_pareto_dominance
+    #
+    # Purpose :
+    #    Evaluates NSGA-II non-dominance criteria between two 6-element objective
+    #    performance vectors.
+    # ##########################################################################
     def _check_pareto_dominance(self, vector_a, vector_b):
         cond1 = (
             vector_a[0] >= vector_b[0] and
@@ -716,14 +930,29 @@ class LSTMOptimizerEngine:
         )
         return cond1 and cond2
 
+    # ##########################################################################
+    # Function Name : _apply_priority_tie_breaker
+    #
+    # Purpose :
+    #    Sort key tuple for breaking Pareto front rank ties using Skill DA,
+    #    Sharpe, std dev, and MaxDD.
+    # ##########################################################################
     def _apply_priority_tie_breaker(self, chromosome):
         v = chromosome['perf_vector']
         return (-v[0], -v[1], v[4], v[5], v[2], v[3])
 
-    def _save_checkpoint(self):
+    # ##########################################################################
+    # Function Name : _save_checkpoint
+    #
+    # Purpose :
+    #    Serializes current run_id, generation, and population state into the
+    #    root JSON checkpoint file, accepting partial mid-generation flags.
+    # ##########################################################################
+    def _save_checkpoint(self, partial=False):
         state = {
             "run_id": self.run_id,
             "generation": self.current_generation,
+            "partial_evaluation": partial,
             "population": self.chromosome_population,
             "timestamp": datetime.datetime.now().isoformat()
         }
@@ -733,6 +962,13 @@ class LSTMOptimizerEngine:
         except Exception as e:
             logger.error(f"❌ [CHECKPOINT] Failed to save state: {e}")
 
+    # ##########################################################################
+    # Function Name : _load_checkpoint
+    #
+    # Purpose :
+    #    Reads state from JSON checkpoint file if present, restoring run_id,
+    #    generation, and chromosome population.
+    # ##########################################################################
     def _load_checkpoint(self):
         if not os.path.exists(self.checkpoint_file):
             return False
@@ -746,11 +982,19 @@ class LSTMOptimizerEngine:
             
             self._setup_run_loggers()
             log_dir, export_dir, plot_dir = resolve_target_directories(self.run_id)
-            logger.info(f"♻️ [RESTORE] Resumed Run ID: {self.run_id or 'LEGACY (Root Dir)'}")
+            logger.info(f"♻️ [RESTORE] Resumed Run ID: {self.run_id or 'LEGACY (Root Dir)'} at Generation {self.current_generation + 1}")
             return True
         except Exception:
             return False
 
+    # ##########################################################################
+    # Function Name : _evolve_generations
+    #
+    # Purpose :
+    #    Main GA loop iterating across GENERATIONS: evaluates population,
+    #    identifies Pareto front, offloads plotting tasks synchronously, verifies
+    #    output plot files on disk, and breeds offspring for the next generation.
+    # ##########################################################################
     def _evolve_generations(self):
         from celery_tasks import export_and_plot_task
 
@@ -762,7 +1006,6 @@ class LSTMOptimizerEngine:
             gen_num = gen + 1
             logger.info(f"🧬 [NSGA-II MULTI-REGIME] Starting Generation {gen_num}/{GENERATIONS}...")
 
-            # --- ID INTEGRITY FIX: Normalize Chromosome IDs for the current active Generation ---
             for idx, chrom in enumerate(self.chromosome_population):
                 chrom['id'] = f"G{gen_num}-M{idx}"
 
@@ -795,17 +1038,47 @@ class LSTMOptimizerEngine:
             logger.info("=" * 70)
 
             if len(pareto_front) > 0:
-                logger.info(f"🎨 [OFFLOAD] Offloading Matplotlib Plotting & Model Serialization to Worker VM...")
+                logger.info(f"🎨 [OFFLOAD] Generating Plots & Models for Generation {gen_num}...")
                 plot_payload = {
-                "run_id": self.run_id,
-                "top_chromosomes": pareto_front[:5],
-                "master_data": self.master_data_json,  # or filepath
-                "gen_idx": gen_idx
+                    "run_id": self.run_id,
+                    "top_chromosomes": pareto_front[:5],
+                    "master_data": self.master_data_raw.to_json(),
+                    "val_data": self.val_master_data_raw.to_json() if self.val_master_data_raw is not None else None,
+                    "gen_idx": gen_num
                 }
-                export_and_plot_task.delay(plot_payload)
+                
+                plot_task = export_and_plot_task.delay(plot_payload)
+                try:
+                    logger.info(f"⏳ [OFFLOAD] Waiting for G{gen_num} visualization worker...")
+                    res = plot_task.get(timeout=600)
+                    logger.info(f"✅ [OFFLOAD] G{gen_num} plots & model artifacts saved to prediction_result/{self.run_id}/")
+                except Exception as e:
+                    logger.error(f"❌ [OFFLOAD] G{gen_num} plotting task encountered error: {e}")
+                    try:
+                        logger.info(f"🔄 [OFFLOAD] Retrying G{gen_num} visualization export...")
+                        plot_task = export_and_plot_task.delay(plot_payload)
+                        plot_task.get(timeout=600)
+                    except Exception as retry_err:
+                        logger.critical(f"💥 [OFFLOAD] Hard failure rendering G{gen_num} plots: {retry_err}")
+
+                plot_dir = os.path.join("prediction_result", self.run_id)
+                generated_plots = glob.glob(os.path.join(plot_dir, f"*_{gen_num}_*.png")) + \
+                                  glob.glob(os.path.join(plot_dir, f"*_G{gen_num}-*.png"))
+
+                if len(generated_plots) == 0:
+                    logger.warning(f"⚠️ [GRAPH AUDIT] No output plots detected on disk for Gen {gen_num}! Triggering emergency re-render...")
+                    try:
+                        repair_task = export_and_plot_task.delay(plot_payload)
+                        repair_task.get(timeout=300)
+                        logger.info(f"✅ [GRAPH AUDIT] Emergency plot repair for Generation {gen_num} complete.")
+                    except Exception as audit_err:
+                        logger.error(f"❌ [GRAPH AUDIT] Plot repair attempt failed: {audit_err}")
+
+            self.current_generation = gen_num
+            self._save_checkpoint()
+            logger.info(f"✅ [NSGA-II] Generation {gen_num} fully complete and checkpointed.\n")
 
             new_pop = []
-            # Preserve Pareto Elites
             for elite in pareto_front:
                 elite_copy = dict(elite)
                 elite_copy['fitness_evaluated'] = True
@@ -813,7 +1086,6 @@ class LSTMOptimizerEngine:
                 if len(new_pop) >= POPULATION_SIZE // 2:
                     break
 
-            # --- ID INTEGRITY FIX: Standardize Offspring Generation Labels ---
             next_gen_num = gen_num + 1
             while len(new_pop) < POPULATION_SIZE and len(pareto_front) > 0:
                 parent_a = random.choice(pareto_front)
@@ -849,11 +1121,29 @@ class LSTMOptimizerEngine:
 # ==============================================================================
 # CLI DAEMON CONTROLLER, ENCAPSULATED REDIS, & WORKER MANAGEMENT HELPERS
 # ==============================================================================
+
+# ##############################################################################
+# Function Name : ensure_redis_server_running
+#
+# Purpose :
+#    Verifies redis-cli installation, pings active broker on 127.0.0.1:6379,
+#    and auto-starts Redis server daemon if offline.
+#
+# Inputs :
+#    None
+#
+# Return :
+#    Type        : bool
+#    Description : True if Redis server is online and responding; False otherwise.
+#
+# Complexity :
+#    Time  : O(1)
+#    Space : O(1)
+#
+# Error Cases :
+#    - Returns False if redis-cli binary is missing from PATH.
+# ##############################################################################
 def ensure_redis_server_running() -> bool:
-    """
-    Encapsulated Redis Manager: Validates installation, verifies connectivity,
-    auto-starts Redis daemon on 0.0.0.0:6379, and purges stale leftover queues.
-    """
     if subprocess.call(["which", "redis-cli"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
         print("❌ [REDIS ERROR] redis-cli binary not found in PATH! Please install redis-server.")
         return False
@@ -876,25 +1166,81 @@ def ensure_redis_server_running() -> bool:
         print("❌ [REDIS] Failed to auto-start Redis server daemon!")
         return False
 
+# ##############################################################################
+# Function Name : purge_redis_queues
+#
+# Purpose :
+#    Flushes all stale Celery task payloads from Redis memory via flushall.
+#
+# Inputs :
+#    None
+#
+# Return :
+#    Type        : None
+#    Description : Flushes Redis memory queues.
+#
+# Complexity :
+#    Time  : O(N) where N is number of keys in Redis.
+#    Space : O(1)
+#
+# Error Cases :
+#    - Catches socket connection exceptions if Redis is offline.
+# ##############################################################################
 def purge_redis_queues():
-    """Flushes all stale queued Celery task payloads from Redis memory."""
     try:
         subprocess.run(["redis-cli", "-h", "127.0.0.1", "flushall"], capture_output=True, text=True)
         print("🧹 [REDIS] Flushed all stale task queues from broker memory.")
     except Exception as e:
         print(f"⚠️ [REDIS] Could not flush Redis queues: {e}")
 
+# ##############################################################################
+# Function Name : stop_redis_server
+#
+# Purpose :
+#    Cleanly stops the Redis server daemon using redis-cli shutdown.
+#
+# Inputs :
+#    None
+#
+# Return :
+#    Type        : None
+#    Description : Shuts down Redis daemon.
+#
+# Complexity :
+#    Time  : O(1)
+#    Space : O(1)
+#
+# Error Cases :
+#    - Silently ignores exceptions if server is already stopped.
+# ##############################################################################
 def stop_redis_server():
-    """Cleanly stops Redis broker daemon on terminate/shutdown."""
     try:
         subprocess.run(["redis-cli", "-h", "127.0.0.1", "shutdown"], capture_output=True, text=True)
         print("🧹 [REDIS] Redis server daemon stopped cleanly.")
     except Exception:
         pass
 
-
+# ##############################################################################
+# Function Name : get_running_master_pids
+#
+# Purpose :
+#    Scans /proc directory for running ga_master.py processes excluding current PID.
+#
+# Inputs :
+#    None
+#
+# Return :
+#    Type        : list
+#    Description : List of tuples (pid, cmdline).
+#
+# Complexity :
+#    Time  : O(P) where P is total system process count.
+#    Space : O(M) where M is matched master processes.
+#
+# Error Cases :
+#    - Ignores processes lacking permission or cmdline files.
+# ##############################################################################
 def get_running_master_pids():
-    """Scans system processes for active ga_master processes excluding current PID."""
     current_pid = os.getpid()
     running_pids = []
     try:
@@ -909,7 +1255,6 @@ def get_running_master_pids():
                 if os.path.exists(cmdline_path):
                     with open(cmdline_path, 'rb') as f:
                         cmdline = f.read().decode('utf-8', errors='ignore').replace('\x00', ' ')
-                    # Match ga_master.py when running pipeline/setup/start
                     if "ga_master.py" in cmdline and not any(x in cmdline for x in ["-action=status", "-action=terminate", "-action=create-work"]):
                         running_pids.append((pid, cmdline.strip()))
             except (PermissionError, FileNotFoundError):
@@ -917,10 +1262,69 @@ def get_running_master_pids():
     except Exception:
         pass
     return running_pids
+    
+# ##############################################################################
+# Function Name : inject_cyclical_time_features
+#
+# Purpose :
+#    Transforms calendar dates and sequence indices into continuous sine/cosine waves.
+#    This prevents LSTM multi-step rollouts from smoothing into flat/linear outputs.
+#
+# Inputs :
+#    df
+#        Type        : pandas.DataFrame
+#        Description : Input DataFrame containing timestamp/date index or column.
+#
+# Return :
+#    Type        : pandas.DataFrame
+#    Description : Augmented DataFrame containing cyclical sine and cosine columns.
+#
+# Complexity :
+#    Time  : O(N) where N is row count.
+#    Space : O(N)
+#
+# Error Cases :
+#    - Handles missing date columns gracefully by falling back to index sequence.
+# ##############################################################################
+def inject_cyclical_time_features(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
 
+    if 'day_wk_sin' not in df.columns:
+        dt_series = df.index.to_series() if isinstance(df.index, pd.DatetimeIndex) else pd.to_datetime(df['timestamp'])
+        df['day_wk_sin'] = np.sin(2 * np.pi * dt_series.dt.dayofweek / 7.0)
+        df['day_wk_cos'] = np.cos(2 * np.pi * dt_series.dt.dayofweek / 7.0)
+        df['day_yr_sin'] = np.sin(2 * np.pi * dt_series.dt.dayofyear / 365.25)
+        df['day_yr_cos'] = np.cos(2 * np.pi * dt_series.dt.dayofyear / 365.25)
 
+    t = np.arange(len(df))
+    for period in [20, 50, 100]:
+        if f'fourier_sin_{period}' not in df.columns:
+            df[f'fourier_sin_{period}'] = np.sin(2 * np.pi * t / period)
+            df[f'fourier_cos_{period}'] = np.cos(2 * np.pi * t / period)
+
+    return df
+    
+# ##############################################################################
+# Function Name : get_active_local_celery_workers
+#
+# Purpose :
+#    Scans /proc directory for active local Celery worker processes.
+#
+# Inputs :
+#    None
+#
+# Return :
+#    Type        : list
+#    Description : List of tuples (pid, node_name).
+#
+# Complexity :
+#    Time  : O(P) where P is total system process count.
+#    Space : O(W) where W is active worker count.
+#
+# Error Cases :
+#    - Ignores processes lacking permission or cmdline files.
+# ##############################################################################
 def get_active_local_celery_workers():
-    """Scans /proc for active local Celery worker processes and returns list of (PID, node_name)."""
     workers = []
     try:
         for pid_str in os.listdir('/proc'):
@@ -946,8 +1350,27 @@ def get_active_local_celery_workers():
         pass
     return workers
 
+# ##############################################################################
+# Function Name : resolve_celery_executable
+#
+# Purpose :
+#    Resolves path to virtualenv or system celery binary.
+#
+# Inputs :
+#    None
+#
+# Return :
+#    Type        : str
+#    Description : Executable path string for celery.
+#
+# Complexity :
+#    Time  : O(1)
+#    Space : O(1)
+#
+# Error Cases :
+#    - Fallback to "celery" string if virtualenv path not found.
+# ##############################################################################
 def resolve_celery_executable():
-    """Resolves virtualenv or system celery binary path."""
     venv_celery = os.path.join("venv", "bin", "celery")
     if os.path.exists(venv_celery):
         return venv_celery
@@ -957,18 +1380,158 @@ def resolve_celery_executable():
         return alt_venv_celery
         
     return "celery"
+
+# ##############################################################################
+# Function Name : render_generation_plots
+#
+# Purpose :
+#    Inspects Redis cluster state to check for active Celery workers.
+#    If workers exist, offloads plotting tasks asynchronously over Redis.
+#    If no workers are listening, gracefully falls back to local in-process
+#    rendering without hanging or timing out.
+#
+# Inputs :
+#    gen_target
+#        Type        : int
+#        Description : Generation index to render plots and models for.
+#
+# Return :
+#    Type        : None
+#    Description : Renders overlay plots and packages deployed candidate models.
+#
+# Complexity :
+#    Time  : O(C * M) where C is candidate count, M is model inference time.
+#    Space : O(D) where D is output plot image size.
+#
+# Error Cases :
+#    - Handles missing checkpoint state or un-evaluated population gracefully.
+# ##############################################################################
+def render_generation_plots(gen_target: int = 1):
+    checkpoint_file = "lstm_ga_checkpoint.json"
+    if not os.path.exists(checkpoint_file):
+        print("❌ [RECOVERY] No checkpoint file found!")
+        return
+
+    with open(checkpoint_file, 'r') as f:
+        ckpt = json.load(f)
+
+    run_id = ckpt.get("run_id")
+    population = ckpt.get("population", [])
+
+    pareto_front = [c for c in population if c.get('fitness_evaluated', False)]
+
+    pareto_history_file = os.path.join("logs", run_id if run_id else "", "pareto_front_history.json")
+    if os.path.exists(pareto_history_file):
+        try:
+            with open(pareto_history_file, 'r') as pf_file:
+                history_data = json.load(pf_file)
+                if str(gen_target) in history_data:
+                    pareto_front = history_data[str(gen_target)]
+        except Exception:
+            pass
+
+    if not pareto_front:
+        print(f"⚠️ [RECOVERY] No evaluated candidates found for Generation {gen_target}.")
+        return
+
+    normalized_candidates = []
+    for idx, chrom in enumerate(pareto_front[:5]):
+        c_copy = dict(chrom)
+        c_copy['id'] = f"G{gen_target}-M{idx}"
+        normalized_candidates.append(c_copy)
+
+    pareto_front = normalized_candidates
+
+    print(f"🎯 [RECOVERY] Target Generation {gen_target}: Selected {len(pareto_front)} candidate(s) for rendering.")
+    for c in pareto_front:
+        print(f"   ├── Model ID: {c.get('id')}")
+
+    optimizer = LSTMOptimizerEngine()
+    optimizer.run_id = run_id
+    optimizer._ingest_data_layers()
+    optimizer._process_data()
+
+    if optimizer.val_master_data is not None and optimizer.val_master_data_raw is None:
+        optimizer.val_master_data_raw = optimizer.val_master_data.copy()
+
+    from celery_tasks import app, export_and_plot_task
+
+    active_workers = None
+    try:
+        inspector = app.control.inspect(timeout=2.0)
+        active_workers = inspector.active_queues()
+    except Exception:
+        active_workers = None
+
+    master_data_payload = optimizer.master_data_raw.to_json()
+    val_data_payload = optimizer.val_master_data_raw.to_json() if optimizer.val_master_data_raw is not None else None
+
+    if active_workers and len(active_workers) > 0:
+        print(f"🌐 [RECOVERY] Active Celery workers detected. Offloading task via Redis...")
+        plot_payload = {
+            "run_id": run_id,
+            "top_chromosomes": pareto_front,
+            "master_data": master_data_payload,
+            "val_data": val_data_payload,
+            "gen_idx": gen_target
+        }
+        task = export_and_plot_task.delay(plot_payload)
+        try:
+            res = task.get(timeout=600)
+            print(f"✅ [RECOVERY] Plots successfully rendered into prediction_result/{run_id}/")
+        except Exception as e:
+            print(f"⚠️ [RECOVERY] Task failed ({e}). Executing local in-process fallback...")
+            from visualization_worker import generate_pareto_graphs_and_exports
+            generate_pareto_graphs_and_exports(
+                top_chromosomes_json=pareto_front,
+                master_data_json=master_data_payload,
+                val_data_json=val_data_payload,
+                gen_num=gen_target,
+                run_id=run_id
+            )
+    else:
+        print("💻 [RECOVERY] Executing local in-process rendering...")
+        from visualization_worker import generate_pareto_graphs_and_exports
+        generate_pareto_graphs_and_exports(
+            top_chromosomes_json=pareto_front,
+            master_data_json=master_data_payload,
+            val_data_json=val_data_payload,
+            gen_num=gen_target,
+            run_id=run_id
+        )
+        print(f"✅ [RECOVERY] Successfully rendered Generation {gen_target} graphs into prediction_result/{run_id}/")
+
+# ##############################################################################
+# Function Name : manage_local_workers
+#
+# Purpose :
+#    Scales local Celery worker subprocess nodes up or down to target_count.
+#
+# Inputs :
+#    target_count
+#        Type        : int
+#        Description : Desired count of active local worker nodes.
+#
+# Return :
+#    Type        : None
+#    Description : Launches or terminates Celery worker processes.
+#
+# Complexity :
+#    Time  : O(W) where W is worker count change.
+#    Space : O(W)
+#
+# Error Cases :
+#    - Handles ProcessLookupError if worker process died prematurely.
+# ##############################################################################
 def manage_local_workers(target_count: int):
-    """Dynamically scales local Celery worker nodes up or down to match target_count."""
-    # 1. Read REDIS_URL if set in environment (e.g., passed from client container), fallback to 127.0.0.1
     redis_url = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
     os.environ["REDIS_URL"] = redis_url
     
     env = os.environ.copy()
     cwd = os.getcwd()
     env["PYTHONPATH"] = f"{cwd}:{env.get('PYTHONPATH', '')}"
-    env["REDIS_URL"] = redis_url  # Ensure sub-process workers inherit the target Redis URL
+    env["REDIS_URL"] = redis_url
     
-    # Disable GPU probing & silence Celery root warnings in sub-processes
     env["CUDA_VISIBLE_DEVICES"] = "-1"
     env["TF_CPP_MIN_LOG_LEVEL"] = "3"
     env["C_FORCE_ROOT"] = "true"
@@ -982,7 +1545,6 @@ def manage_local_workers(target_count: int):
         print(f"✅ [WORKER MGMT] Exactly {target_count} worker(s) running. No scaling required.")
         return
 
-    # Scale Down / Kill All
     if target_count < current_count:
         if target_count == 0:
             print("🔨 [WORKER MGMT] Terminating ALL local worker nodes (-num=0)...")
@@ -1003,7 +1565,6 @@ def manage_local_workers(target_count: int):
                     pass
         return
 
-    # Scale Up
     num_to_add = target_count - current_count
     print(f"📈 [WORKER MGMT] Scaling up: Launching {num_to_add} new worker node(s)...")
 
@@ -1023,12 +1584,34 @@ def manage_local_workers(target_count: int):
             "-O", "fair",
             "--prefetch-multiplier=1",
             "--loglevel=info",
-            "--concurrency=1"
+            "--concurrency=1",
+            "--max-tasks-per-child=10"
         ]
 
         with open(log_file_path, "a") as log_f:
             p = subprocess.Popen(cmd, stdout=log_f, stderr=log_f, env=env)
             print(f"   🚀 Spawned worker node '{node_name}' (PID: {p.pid}) -> Log: {log_file_path}")
+
+# ##############################################################################
+# Function Name : stop_master_process
+#
+# Purpose :
+#    Sends graceful shutdown signal (SIGINT) to active GA master process.
+#
+# Inputs :
+#    None
+#
+# Return :
+#    Type        : None
+#    Description : Sends SIGINT to master process.
+#
+# Complexity :
+#    Time  : O(M) where M is running master process count.
+#    Space : O(1)
+#
+# Error Cases :
+#    - Handles ProcessLookupError if process disappeared.
+# ##############################################################################
 def stop_master_process():
     pids = get_running_master_pids()
     if not pids:
@@ -1042,9 +1625,28 @@ def stop_master_process():
         except ProcessLookupError:
             print(f"⚠️ [STOP] Process {pid} not found.")
 
-
+# ##############################################################################
+# Function Name : terminate_all_cluster_processes
+#
+# Purpose :
+#    Forces complete sweep shutdown: SIGKILL master daemons, Go wrappers,
+#    local worker nodes, purges Redis queues, and stops Redis daemon.
+#
+# Inputs :
+#    None
+#
+# Return :
+#    Type        : None
+#    Description : Terminates all cluster processes.
+#
+# Complexity :
+#    Time  : O(P) where P is system process count.
+#    Space : O(1)
+#
+# Error Cases :
+#    - None
+# ##############################################################################
 def terminate_all_cluster_processes():
-    """Completely terminates Master instances, Go wrappers, local Celery workers, and Redis daemon."""
     pids = get_running_master_pids()
     for pid, cmd in pids:
         print(f"🔨 [TERMINATE] Sending SIGKILL (-9) to Master PID {pid}...")
@@ -1053,7 +1655,6 @@ def terminate_all_cluster_processes():
         except ProcessLookupError:
             pass
 
-    # Sweep Go wrapper binaries named 'school'
     try:
         current_pid = os.getpid()
         for pid_str in os.listdir('/proc'):
@@ -1080,6 +1681,27 @@ def terminate_all_cluster_processes():
     stop_redis_server()
     print("✅ [TERMINATE] Cluster sweep complete. All processes and Redis server stopped cleanly.")
 
+# ##############################################################################
+# Function Name : print_cluster_status
+#
+# Purpose :
+#    Queries system processes, checkpoint file, and Redis Celery worker pool
+#    telemetry to display complete status report.
+#
+# Inputs :
+#    None
+#
+# Return :
+#    Type        : None
+#    Description : Prints telemetry report to STDOUT.
+#
+# Complexity :
+#    Time  : O(W) where W is active worker nodes queried via Celery.
+#    Space : O(W)
+#
+# Error Cases :
+#    - Catches inspection exceptions if Redis broker is unreachable.
+# ##############################################################################
 def print_cluster_status():
     print("\n" + "=" * 75)
     print("📊 DISTRIBUTED GA-LSTM CLUSTER TELEMETRY & STATUS REPORT")
@@ -1103,7 +1725,8 @@ def print_cluster_status():
             gen = ckpt.get("generation", 0) + 1
             pop_count = len(ckpt.get("population", []))
             ts = ckpt.get("timestamp", "N/A")
-            print(f"\n💾 [CHECKPOINT STATE]: 🟢 VALID")
+            partial = ckpt.get("partial_evaluation", False)
+            print(f"\n💾 [CHECKPOINT STATE]: 🟢 VALID (Partial Mid-Gen Save: {partial})")
             print(f"   ├── Active Run ID : {run_id}")
             print(f"   ├── Current Gen   : Generation {gen}/{GENERATIONS}")
             print(f"   ├── Chromosomes   : {pop_count} loaded")
@@ -1141,7 +1764,7 @@ def print_cluster_status():
                 if active_count > 0 and active_tasks and node_name in active_tasks:
                     for task in active_tasks[node_name]:
                         t_name = task.get('name', 'Task')
-                        print(f"          └── ⚡ Executing: {t_name}")
+                        print(f"         └── ⚡ Executing: {t_name}")
         else:
             print("   ⚠️  No active Celery workers detected listening on Redis broker!")
     except Exception as e:
@@ -1159,21 +1782,52 @@ def print_cluster_status():
 # ==============================================================================
 # 🚀 MAIN ENTRY POINT & CLI PARSER
 # ==============================================================================
+# ##############################################################################
+# Function Name : main
+#
+# Purpose :
+#    CLI entry point parsing -action and -num arguments, dispatching cluster
+#    management actions or executing the LSTMOptimizerEngine pipeline.
+#
+# Inputs :
+#    None (Parses sys.argv)
+#
+# Return :
+#    Type        : None
+#    Description : Dispatches actions and exits.
+#
+# Complexity :
+#    Time  : O(1) for CLI parsing; dependent on action executed.
+#    Space : O(1)
+#
+# Error Cases :
+#    - Exits with status 1 if set-up action fails Redis validation.
+# ##############################################################################
 def main():
     parser = argparse.ArgumentParser(description="Distributed GA-LSTM Master Orchestrator Engine")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose feature classification logging")
     parser.add_argument(
         "-action", 
         type=str, 
-        choices=["start", "stop", "status", "terminate", "clear-state", "set-up", "create-work", "restart"], 
-        default="start", 
-        help="Action: start | stop | status | terminate | clear-state | set-up | create-work | restart"
+        choices=["start", "stop", "status", "terminate", "clear-state", "set-up", "create-work", "restart", "plot"], 
+        default="start"
     )
     parser.add_argument("-num", type=int, default=1, help="Number of local Celery workers for create-work")
+    parser.add_argument("-gen", type=int, default=1, help="Target generation index for recovery plot action")
+    
+    # Configurable Intra-Generation Checkpoint CLI Flags
+    parser.add_argument("-save-min", type=int, default=20, help="Mid-generation checkpoint interval in minutes (Default: 20)")
+    parser.add_argument("-save-pct", type=float, default=25.0, help="Mid-generation checkpoint interval in % of population (Default: 25.0)")
+    
+    # Configurable Log Rotation CLI Flags (Defaults: 30 mins / 30.0 MB)
+    parser.add_argument("-rotate-min", type=int, default=30, help="Log rotation time threshold in minutes (Default: 30)")
+    parser.add_argument("-rotate-mb", type=float, default=30.0, help="Log rotation cumulative size threshold in MB (Default: 30.0)")
+
     args = parser.parse_args()
 
     os.environ["REDIS_URL"] = "redis://127.0.0.1:6379/0"
 
+    # 1. Immediate exit actions (no worker activity)
     if args.action == "status":
         print_cluster_status()
         sys.exit(0)
@@ -1186,7 +1840,13 @@ def main():
         terminate_all_cluster_processes()
         sys.exit(0)
 
-    elif args.action == "create-work":
+    # 2. START LOG ROTATOR DAEMON FOR ALL WORKING / WORKER / DAEMON ACTIONS
+    if args.action in ["set-up", "create-work", "restart", "plot", "start"]:
+        from log_rotator import start_log_rotation_daemon
+        start_log_rotation_daemon(rotation_minutes=args.rotate_min, max_size_mb=args.rotate_mb)
+
+    # 3. Action Dispatcher
+    if args.action == "create-work":
         manage_local_workers(args.num)
         sys.exit(0)
 
@@ -1196,14 +1856,18 @@ def main():
             print("❌ [SETUP] Cannot proceed: Redis infrastructure setup failed.")
             sys.exit(1)
 
-        purge_redis_queues()  # <--- Wipe orphan task messages from old runs!
+        purge_redis_queues()
 
         master_pids = get_running_master_pids()
         if master_pids:
             print("ℹ️ [SETUP] GA Master Engine is already active on system.")
         else:
             print("🚀 [SETUP] Spawning GA Master Engine...")
-            optimizer = LSTMOptimizerEngine(verbose=args.verbose)
+            optimizer = LSTMOptimizerEngine(
+                verbose=args.verbose, 
+                save_interval_min=args.save_min, 
+                save_pct=args.save_pct
+            )
             optimizer.execute_pipeline()
         sys.exit(0)
 
@@ -1212,11 +1876,24 @@ def main():
         stop_master_process()
         time.sleep(1)
         ensure_redis_server_running()
-        optimizer = LSTMOptimizerEngine(verbose=args.verbose)
+        
+        optimizer = LSTMOptimizerEngine(
+            verbose=args.verbose, 
+            save_interval_min=args.save_min, 
+            save_pct=args.save_pct
+        )
         optimizer.execute_pipeline()
         sys.exit(0)
 
-    optimizer = LSTMOptimizerEngine(verbose=args.verbose)
+    elif args.action == "plot":
+        render_generation_plots(gen_target=args.gen)
+        sys.exit(0)
+
+    optimizer = LSTMOptimizerEngine(
+        verbose=args.verbose, 
+        save_interval_min=args.save_min, 
+        save_pct=args.save_pct
+    )
 
     if args.action == "clear-state":
         optimizer._clear_state()

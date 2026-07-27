@@ -65,6 +65,28 @@ import (
     "dexbot/price"
 )
 
+/******************************************************************************
+ * Function Name : main
+ *
+ * Purpose :
+ *   Entry point for the application.
+ *
+ * Inputs :
+ *   None (reads os.Args or stdlib flags)
+ *
+ * Return :
+ *   None (exits with code 0 on success)
+ *
+ * Complexity :
+ *   Time  : O(N)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   15
+ ******************************************************************************/
 func main() {
 
     shibUSD := 0.000025

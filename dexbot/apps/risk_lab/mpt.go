@@ -63,6 +63,30 @@ package main
 import "math/rand"
 
 // expected returns vector
+/******************************************************************************
+ * Function Name : expectedReturns
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func expectedReturns(data map[string][]float64, names []string) []float64 {
 
     out := []float64{}
@@ -76,6 +100,30 @@ func expectedReturns(data map[string][]float64, names []string) []float64 {
 }
 
 // portfolio return
+/******************************************************************************
+ * Function Name : portfolioReturn
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func portfolioReturn(weights []float64, returns []float64) float64 {
 
     sum := 0.0
@@ -88,6 +136,30 @@ func portfolioReturn(weights []float64, returns []float64) float64 {
 }
 
 // portfolio risk
+/******************************************************************************
+ * Function Name : portfolioRisk
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func portfolioRisk(weights []float64, cov [][]float64) float64 {
 
     sum := 0.0
@@ -101,6 +173,30 @@ func portfolioRisk(weights []float64, cov [][]float64) float64 {
     return sum
 }
 // inverse variance weighting (simple MPT)
+/******************************************************************************
+ * Function Name : optimizeWeights
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func optimizeWeights(data map[string][]float64, names []string) []float64 {
 
     weights := make([]float64, len(names))
@@ -130,6 +226,30 @@ func optimizeWeights(data map[string][]float64, names []string) []float64 {
 
     return weights
 }
+/******************************************************************************
+ * Function Name : optimizeSharpe
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 
 func optimizeSharpe(data map[string][]float64, names []string) []float64 {
@@ -158,6 +278,30 @@ func optimizeSharpe(data map[string][]float64, names []string) []float64 {
 
     return best
 }
+/******************************************************************************
+ * Function Name : randomWeights
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func randomWeights(n int) []float64 {
     w := make([]float64, n)

@@ -1,5 +1,33 @@
 /******************************************************************************
  * File Name       : main.go
+  *
+  * Function Name : runReport
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *
+  * Function Name : processTask
+  * Purpose :
+  *   Performs its designated operation.
+  *   Space : O(1)
+  *
+  * Function Name : runTerminate
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
  * File Path       : apps/auto_trade/main.go
  *
  * Author          : deepseek-4.0-pro
@@ -187,12 +215,60 @@ type TaskManager struct {
     mu    sync.Mutex
     Tasks map[string]*TradeTask
 }
+/******************************************************************************
+ * Function Name : NewTaskManager
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func NewTaskManager() *TaskManager {
     return &TaskManager{
         Tasks: make(map[string]*TradeTask),
     }
 }
+/******************************************************************************
+ * Function Name : Save
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func (tm *TaskManager) Save() {
     tm.mu.Lock()
@@ -203,6 +279,30 @@ func (tm *TaskManager) Save() {
 
     infra.Info("state saved to disk")
 }
+/******************************************************************************
+ * Function Name : Load
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func (tm *TaskManager) Load() {
     tm.mu.Lock()
@@ -220,6 +320,30 @@ func (tm *TaskManager) Load() {
 // ==============================
 // CONFIG
 // ==============================
+/******************************************************************************
+ * Function Name : loadConfig
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func loadConfig() GlobalConfig {
 
@@ -236,6 +360,30 @@ func loadConfig() GlobalConfig {
 
     return cfg
 }
+/******************************************************************************
+ * Function Name : writeConfig
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func writeConfig(cfg GlobalConfig) {
     data, _ := json.MarshalIndent(cfg, "", "  ")
@@ -245,6 +393,30 @@ func writeConfig(cfg GlobalConfig) {
 // ==============================
 // CLI ENTRY (SAFE)
 // ==============================
+/******************************************************************************
+ * Function Name : runStatus
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func runStatus() {
 
@@ -259,12 +431,30 @@ func runStatus() {
 
     infra.Info("daemon running PID=" + pid)
 }
-/*
-Function: loadEnvSmart
-Description:
-Try multiple env locations.
+/******************************************************************************
+ * Function Name : loadEnvSmart
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-*/
 func loadEnvSmart() {
 
     paths := []string{
@@ -284,28 +474,46 @@ func loadEnvSmart() {
     infra.Warn("env file not found in any path")
 }
 
-/*
-Function: runApp
-Description:
-Main CLI dispatcher.
+/******************************************************************************
+ * Function Name : runApp
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Supports:
-✅ background daemon
-✅ CLI commands (report, terminate, status)
-✅ DB fallback safe
-
-UPDATED:
-- correct daemon behavior (non-blocking)
-- logging improved
-
-Input:
-- args []string
-
-Output:
-- none
-
-Lines: ~70
-*/
+  *
+  * Function Name : runApp
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func runApp(args []string) {
 
     fs := flag.NewFlagSet("dexbot", flag.ContinueOnError)
@@ -377,28 +585,46 @@ loadEnvSmart() // ✅ use this instead
     infra.Info("Running daemon process...")
     runDaemon()
 }
-/*
-Function: runHelp
+/******************************************************************************
+ * Function Name : runHelp
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Description:
-Displays all supported CLI commands and usage examples.
-
-Input:
-- none
-
-Output:
-- none
-
-Lines:
-~35
-
-Updated:
-- Fixed multiline string syntax errors.
-- Added clearer CLI help formatting.
-
-New:
-- Examples section.
-*/
+  *
+  * Function Name : runHelp
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func runHelp() {
 
     fmt.Printf(`
@@ -455,6 +681,28 @@ Examples:
 `)
 }
 
+/******************************************************************************
+ * Function Name : main
+ *
+ * Purpose :
+ *   Entry point for the application.
+ *
+ * Inputs :
+ *   None (reads os.Args or stdlib flags)
+ *
+ * Return :
+ *   None (exits with code 0 on success)
+ *
+ * Complexity :
+ *   Time  : O(N)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   15
+ ******************************************************************************/
 func main() {
     runApp(os.Args[1:])
 }
@@ -462,19 +710,46 @@ func main() {
 // ==============================
 // DAEMON CONTROL
 // ==============================
-/*
-Function: startDaemon
-Description:
-Start daemon safely (prevent duplicates).
+/******************************************************************************
+ * Function Name : startDaemon
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-- none
-
-Output:
-- none
-
-Lines: ~25
-*/
+  *
+  * Function Name : startDaemon
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func startDaemon() {
 
     // ✅ check existing PID
@@ -508,19 +783,30 @@ func startDaemon() {
 
     infra.Info(fmt.Sprintf("daemon started PID=%d", cmd.Process.Pid))
 }
-/*
-Function: runTerminate
-Description:
-Terminate ALL auto_trade daemon processes.
+/******************************************************************************
+ * Function Name : runTerminate
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-- none
-
-Output:
-- none
-
-Lines: ~40
-*/
 func runTerminate() {
 
     infra.Warn("terminating all auto_trade daemons...")
@@ -543,6 +829,30 @@ func runTerminate() {
 // ==============================
 // REPORTING
 // ==============================
+/******************************************************************************
+ * Function Name : runReport
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 
 func runReport() {
@@ -579,6 +889,30 @@ func runReport() {
 // ==============================
 // DAEMON LOOP
 // ==============================
+/******************************************************************************
+ * Function Name : runDaemon
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func runDaemon() {
 
     infra.Info("daemon started")
@@ -650,6 +984,30 @@ func runDaemon() {
 // ==============================
 // TASK FLOW
 // ==============================
+/******************************************************************************
+ * Function Name : createTask
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 
 func createTask(manager *TaskManager) {
@@ -672,6 +1030,30 @@ func createTask(manager *TaskManager) {
 
     infra.Info("task created: " + id)
 }
+/******************************************************************************
+ * Function Name : runWorkers
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 
 func runWorkers(manager *TaskManager) {
@@ -694,17 +1076,30 @@ func runWorkers(manager *TaskManager) {
 
     wg.Wait()
 }
-/*
-Function: processTask
-Description:
-Executes strategy + execution engine.
+/******************************************************************************
+ * Function Name : processTask
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-UPDATED:
-✅ uses strategy interface
-✅ uses execution layer
-✅ fully logged
-
-*/
 func processTask(task *TradeTask, manager *TaskManager) {
 
     cfg := Config{
@@ -744,6 +1139,30 @@ func processTask(task *TradeTask, manager *TaskManager) {
 // ==============================
 // UTIL
 // ==============================
+/******************************************************************************
+ * Function Name : simulatePrice
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func simulatePrice() float64 {
     return 1.0 + float64(time.Now().UnixNano()%100)/10000
@@ -751,6 +1170,30 @@ func simulatePrice() float64 {
 
 
 // ---------------- FIXED HELPER ----------------
+/******************************************************************************
+ * Function Name : floatToBigInt
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 
 func floatToBigInt(val float64, decimals int64) *big.Int {

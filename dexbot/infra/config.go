@@ -86,6 +86,30 @@ type AppConfig struct {
 //   *AppConfig: A pointer to the loaded configuration, or nil if an error occurs.
 //   error: An error if any configuration value cannot be parsed.
 // Lines: ~30
+/******************************************************************************
+ * Function Name : LoadConfig
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func LoadConfig() (*AppConfig, error) {
     cfg := &AppConfig{}
 

@@ -81,11 +81,59 @@ var unsupervisedModelCategories = map[string]string{
 	ModelUnsUMAP: CategoryRisk, ModelUnsIsolationForest: CategoryRisk,
 	ModelUnsLOF: CategoryRisk,
 }
+/******************************************************************************
+ * Function Name : AllUnsupervisedModels
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func AllUnsupervisedModels() []string {
 	return []string{ModelUnsKMeans, ModelUnsDBSCAN, ModelUnsHDBSCAN, ModelUnsGMM,
 		ModelUnsPCA, ModelUnsICA, ModelUnsUMAP, ModelUnsIsolationForest, ModelUnsLOF}
 }
+/******************************************************************************
+ * Function Name : NewUnsupervisedModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func NewUnsupervisedModel(modelType string, modelIndex int) *ModelMetadata {
 	cat, _ := unsupervisedModelCategories[modelType]
@@ -99,14 +147,86 @@ func NewUnsupervisedModel(modelType string, modelIndex int) *ModelMetadata {
 		Fitness: &FitnessHistory{Timestamp: time.Now()},
 	}
 }
+/******************************************************************************
+ * Function Name : ValidateUnsupervisedModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func ValidateUnsupervisedModel(modelType string) bool {
 	_, ok := unsupervisedModelCategories[modelType]; return ok
 }
+/******************************************************************************
+ * Function Name : IsUnsupervisedModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func IsUnsupervisedModel(m *ModelMetadata) bool {
 	return m != nil && ValidateUnsupervisedModel(m.Architecture)
 }
+/******************************************************************************
+ * Function Name : CategoryForUnsupervisedModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func CategoryForUnsupervisedModel(modelType string) string {
 	if cat, ok := unsupervisedModelCategories[modelType]; ok { return cat }

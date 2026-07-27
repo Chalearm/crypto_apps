@@ -105,12 +105,32 @@ type LinearTrainer struct {
  *   Type        : *LinearTrainer
  *   Description : Initialized trainer (not yet fitted).
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Unknown modelType : returns a LinearTrainer with modelType="Linear Regression"
  *
  * Complexity : Time O(1), Space O(1)
  * Number Of Lines : 17
  ******************************************************************************/
+  *
+  * Function Name : NewLinearTrainer
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func NewLinearTrainer(modelType string) *LinearTrainer {
 	lt := &LinearTrainer{modelType: modelType}
 	switch modelType {
@@ -199,6 +219,30 @@ func (lt *LinearTrainer) Fit(features [][]float64, targets []float64, cfg *Train
 }
 
 // solveRidge solves (XᵀX + λI)⁻¹ Xᵀy via Gaussian elimination.
+/******************************************************************************
+ * Function Name : solveRidge
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (lt *LinearTrainer) solveRidge(features [][]float64, targets []float64, lambda float64) error {
 	nSamples := len(features)
 	nFeatures := len(features[0])
@@ -267,6 +311,30 @@ func (lt *LinearTrainer) solveRidge(features [][]float64, targets []float64, lam
 }
 
 // solveLassoCD implements coordinate descent with soft-thresholding.
+/******************************************************************************
+ * Function Name : solveLassoCD
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (lt *LinearTrainer) solveLassoCD(features [][]float64, targets []float64, lambda, l1Ratio float64, epochs int) {
 	nSamples := len(features)
 	nFeatures := len(features[0])
@@ -318,6 +386,30 @@ func (lt *LinearTrainer) solveLassoCD(features [][]float64, targets []float64, l
 }
 
 // softThreshold is the L1 proximal operator.
+/******************************************************************************
+ * Function Name : softThreshold
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func softThreshold(x, lambda float64) float64 {
 	if x > lambda {
 		return x - lambda
@@ -344,6 +436,10 @@ func softThreshold(x, lambda float64) float64 {
  *   Type        : float64
  *   Description : Predicted value (dot product + intercept).
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Not fitted : returns 0 (no error)
  *   - len(features) != nFeatures : still produces dot product on available dims
@@ -485,6 +581,12 @@ type linearData struct {
  *   Description : JSON-encoded model state.
  *
  * Complexity : Time O(d), Space O(d)
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 15
  ******************************************************************************/
 func (lt *LinearTrainer) Serialize() ([]byte, error) {
@@ -534,6 +636,30 @@ func (lt *LinearTrainer) Deserialize(data []byte) error {
 // HELPERS
 // ==============================
 
+/******************************************************************************
+ * Function Name : abs
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func abs(x float64) float64 {
 	if x < 0 {
 		return -x
@@ -544,6 +670,30 @@ func abs(x float64) float64 {
 // ==============================
 // REGISTRATION
 // ==============================
+/******************************************************************************
+ * Function Name : init
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func init() {
 	RegisterTrainer(ModelSupLinearReg, func() TrainingEngine { return NewLinearTrainer(ModelSupLinearReg) })

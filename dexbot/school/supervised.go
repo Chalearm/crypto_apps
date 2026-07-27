@@ -89,7 +89,21 @@ var supervisedModelCategories = map[string]string{
  * Function Name : AllSupervisedModels
  * Purpose       : Returns all 11 supervised model type constants.
  * Return        : []string — model type names in definition order.
- ******************************************************************************/
+ *****************************************************************************
+  * Inputs :
+  *   None (see function signature)
+  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+  * Error Cases :
+  *   - None
+  *
+  * Number Of Lines :
+  *   10
+  *
+ */
 func AllSupervisedModels() []string {
 	return []string{ModelSupLinearReg, ModelSupRidge, ModelSupLasso, ModelSupElasticNet,
 		ModelSupRandomForest, ModelSupExtraTrees, ModelSupXGBoost, ModelSupLightGBM,
@@ -101,7 +115,18 @@ func AllSupervisedModels() []string {
  * Purpose       : Creates a ModelMetadata stub for a given supervised model type.
  * Inputs        : modelType string (ModelSup* constant), modelIndex int
  * Return        : *ModelMetadata — initialized model; falls back to CategoryOptions.
- ******************************************************************************/
+ *****************************************************************************
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+  * Error Cases :
+  *   - None
+  *
+  * Number Of Lines :
+  *   10
+  *
+ */
 func NewSupervisedModel(modelType string, modelIndex int) *ModelMetadata {
 	cat, _ := supervisedModelCategories[modelType]
 	if cat == "" { cat = CategoryOptions }
@@ -118,7 +143,21 @@ func NewSupervisedModel(modelType string, modelIndex int) *ModelMetadata {
 /******************************************************************************
  * Function Name : ValidateSupervisedModel
  * Purpose       : Returns true if modelType is a known supervised model.
- ******************************************************************************/
+ *****************************************************************************
+  * Inputs :
+  *   None (see function signature)
+  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+  * Error Cases :
+  *   - None
+  *
+  * Number Of Lines :
+  *   10
+  *
+ */
 func ValidateSupervisedModel(modelType string) bool {
 	_, ok := supervisedModelCategories[modelType]; return ok
 }
@@ -126,7 +165,21 @@ func ValidateSupervisedModel(modelType string) bool {
 /******************************************************************************
  * Function Name : IsSupervisedModel
  * Purpose       : Returns true if m's Architecture is a known supervised model.
- ******************************************************************************/
+ *****************************************************************************
+  * Inputs :
+  *   None (see function signature)
+  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+  * Error Cases :
+  *   - None
+  *
+  * Number Of Lines :
+  *   10
+  *
+ */
 func IsSupervisedModel(m *ModelMetadata) bool {
 	return m != nil && ValidateSupervisedModel(m.Architecture)
 }
@@ -134,7 +187,21 @@ func IsSupervisedModel(m *ModelMetadata) bool {
 /******************************************************************************
  * Function Name : CategoryForSupervisedModel
  * Purpose       : Returns category for a supervised model type; falls back to CategoryOptions.
- ******************************************************************************/
+ *****************************************************************************
+  * Inputs :
+  *   None (see function signature)
+  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+  * Error Cases :
+  *   - None
+  *
+  * Number Of Lines :
+  *   10
+  *
+ */
 func CategoryForSupervisedModel(modelType string) string {
 	if cat, ok := supervisedModelCategories[modelType]; ok { return cat }
 	return CategoryOptions

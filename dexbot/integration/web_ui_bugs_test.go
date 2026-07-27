@@ -14,7 +14,11 @@
  *   chain (+) add feature, BTC price live value.
  *
  *   8 positive + 3 negative test cases per myreq6.txt §114.
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ */
 
 package integration
 

@@ -62,6 +62,29 @@ package config
 
 import "strings"
 
+/******************************************************************************
+ * Function Name : Describe
+ *
+ * Purpose :
+ *   Return human-readable list of all configuration variables.
+ *
+ * Inputs :
+ *   None
+ *
+ * Return :
+ *   Type        : string
+ *   Description : Formatted configuration description text.
+ *
+ * Complexity :
+ *   Time  : O(N)
+ *   Space : O(N)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   15
+ ******************************************************************************/
 func Describe() string {
 	return "═══ Dexbot Configuration Variables (54 keys) ═══\n\n" +
 		"── Database ──\n" +
@@ -130,6 +153,29 @@ func Describe() string {
 		"  PAPER_TRADING_ONLY     true|false — never use real capital\n"
 }
 
+/******************************************************************************
+ * Function Name : DescribeVerbose
+ *
+ * Purpose :
+ *   Return verbose documentation for all configuration variables with examples.
+ *
+ * Inputs :
+ *   None
+ *
+ * Return :
+ *   Type        : string
+ *   Description : Verbose configuration documentation text.
+ *
+ * Complexity :
+ *   Time  : O(N)
+ *   Space : O(N)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   50
+ ******************************************************************************/
 func DescribeVerbose() string {
 	return strings.Join([]string{
 		"",

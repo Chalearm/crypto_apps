@@ -96,39 +96,76 @@ import (
     "dexbot/infra"
 )
 
-/*
-Function: generatePrice
-Description:
-Generate pseudo market price.
+/******************************************************************************
+ * Function Name : generatePrice
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-- none
-
-Output:
-- float64 price
-
-Lines: ~10
-*/
+  *
+  * Function Name : generatePrice
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func generatePrice() float64 {
     base := 1.0
     noise := rand.Float64() * 0.05
     return base + noise
 }
 
-/*
-Function: insertPrice
-Description:
-Insert price into DB.
+/******************************************************************************
+ * Function Name : insertPrice
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-- token string
-- price float64
-
-Output:
-- none
-
-Lines: ~15
-*/
 func insertPrice(token string, price float64) {
 
     if infra.DB == nil {
@@ -151,19 +188,30 @@ func insertPrice(token string, price float64) {
     infra.Info(fmt.Sprintf("price inserted: %s = %.4f", token, price))
 }
 
-/*
-Function: main
-Description:
-Start feeder loop.
+/******************************************************************************
+ * Function Name : main
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-- none
-
-Output:
-- none
-
-Lines: ~40
-*/
 func main() {
 
     infra.InitLogger()

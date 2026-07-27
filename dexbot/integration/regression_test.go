@@ -574,7 +574,7 @@ func TestReg_MaskedKeyIsHashOnly(t *testing.T) {
 		t.Log("PASS: masked_key is hash-based, not PK-based")
 	}
 
-	// Verify the profile_id does NOT contain "12af" or similar PK prefix
+	// Verify the profile_id does NOT contain any real PK prefix
 	pk := pkEnv(t)
 	pkPrefix := pk[:6]
 	profileID, _ := d["profile_id"].(string)

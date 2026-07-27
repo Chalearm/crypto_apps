@@ -110,6 +110,10 @@ var (
  * Return :
  *   None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Cannot open config.env file (logs error and continues gracefully).
  *
@@ -180,7 +184,54 @@ func LoadEnvConfig() {
  *
  * Number Of Lines :
  *   23
+/******************************************************************************
+ * Function Name : main
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
  ******************************************************************************/
+
+ ******************************************************************************/
+/******************************************************************************
+ * Function Name : main
+ *
+ * Purpose :
+ *   Entry point for the application.
+ *
+ * Inputs :
+ *   None (reads os.Args or flags)
+ *
+ * Return :
+ *   None (exits with code)
+ *
+ * Complexity :
+ *   Time  : O(N)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - Exits non-zero on fatal errors.
+ *
+ * Number Of Lines :
+ *   15
+ ******************************************************************************/
+
 func main() {
     // 1. Directory and Env setup (Kept exactly as you had it)
     if _, err := os.Stat("config.env"); os.IsNotExist(err) {
@@ -230,6 +281,10 @@ func main() {
  * Return :
  *   none (prints to stdout)
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - nil pointer if chain RPC unreachable (panics from GetWalletForChain).
  *
@@ -292,6 +347,10 @@ func runLegacyBalance() {
  * Return :
  *   None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Obstructed port maps crash the background web thread loop.
  *

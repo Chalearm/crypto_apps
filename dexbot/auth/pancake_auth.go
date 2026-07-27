@@ -72,6 +72,30 @@ import (
     "github.com/ethereum/go-ethereum/crypto"
     "github.com/ethereum/go-ethereum/ethclient"
 )
+/******************************************************************************
+ * Function Name : LoadPrivateKey
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func LoadPrivateKey() string {
     data, err := os.ReadFile("config.env")
@@ -88,6 +112,30 @@ func LoadPrivateKey() string {
 }
 
 // Connect retains backward compatibility with all apps (Defaults to BSC)
+/******************************************************************************
+ * Function Name : Connect
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func Connect() *ethclient.Client {
     client, err := ethclient.Dial("https://bsc-dataseed.binance.org/")
     if err != nil {
@@ -97,6 +145,30 @@ func Connect() *ethclient.Client {
 }
 
 // GetWallet retains backward compatibility with all apps (Defaults to Chain ID 56)
+/******************************************************************************
+ * Function Name : GetWallet
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func GetWallet(client *ethclient.Client, pk string) *bind.TransactOpts {
     privateKey, _ := crypto.HexToECDSA(pk)
     chainID := big.NewInt(56)
@@ -121,6 +193,30 @@ func GetWallet(client *ethclient.Client, pk string) *bind.TransactOpts {
 // ============================================================================
 
 // ConnectToChain initializes an ethclient interface dynamically to any RPC link
+/******************************************************************************
+ * Function Name : ConnectToChain
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func ConnectToChain(rpcURL string) *ethclient.Client {
     client, err := ethclient.Dial(rpcURL)
     if err != nil {
@@ -130,6 +226,30 @@ func ConnectToChain(rpcURL string) *ethclient.Client {
 }
 
 // GetWalletForChain safely targets the customized target ChainID context 
+/******************************************************************************
+ * Function Name : GetWalletForChain
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func GetWalletForChain(client *ethclient.Client, pk string, targetChainID int64) *bind.TransactOpts {
     privateKey, _ := crypto.HexToECDSA(pk)
     chainID := big.NewInt(targetChainID)

@@ -65,6 +65,30 @@ import (
 )
 
 // insert price
+/******************************************************************************
+ * Function Name : InsertPrice
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func InsertPrice(db *sql.DB, token string, price float64) error {
 
     _, err := db.Exec(
@@ -76,6 +100,30 @@ func InsertPrice(db *sql.DB, token string, price float64) error {
 }
 
 // load prices
+/******************************************************************************
+ * Function Name : LoadPrices
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func LoadPrices(db *sql.DB, token string) ([]float64, error) {
 
     rows, err := db.Query(
@@ -99,6 +147,30 @@ func LoadPrices(db *sql.DB, token string) ([]float64, error) {
 }
 
 // insert return
+/******************************************************************************
+ * Function Name : InsertReturn
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func InsertReturn(db *sql.DB, token string, value float64) {
 
     _, _ = db.Exec(

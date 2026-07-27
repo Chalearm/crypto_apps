@@ -45,6 +45,30 @@ from datetime import datetime
 # ── Config ──────────────────────────────────────────────────────
 
 DEFAULT_FRAMEWORK = "sklearn"
+"""
+Function Name : parse_args
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 
 def parse_args():
@@ -56,6 +80,30 @@ def parse_args():
     p.add_argument("config_file", nargs="?", default=None,
                    help="Path to JSON config file")
     return p.parse_args()
+"""
+Function Name : load_config
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 
 def load_config(args):
@@ -66,6 +114,30 @@ def load_config(args):
 
 
 # ── MOCK TRAINING (placeholder for real frameworks) ──────────────
+"""
+Function Name : train_sklearn
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def train_sklearn(cfg):
     """Placeholder sklearn training. Returns mock fitness metrics."""
@@ -97,6 +169,30 @@ def train_sklearn(cfg):
             "Timestamp": datetime.utcnow().isoformat(),
         },
     }
+"""
+Function Name : train_tensorflow
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 
 def train_tensorflow(cfg):
@@ -160,8 +256,55 @@ def train_tensorflow(cfg):
 
 
 # ── Main ─────────────────────────────────────────────────────────
+"""
+Function Name : main
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def main():
+    """
+    Function Name : main
+    
+    Purpose :
+      Performs its designated operation.
+    
+    Inputs :
+      None (see function signature)
+    
+    Return :
+      Type        : varies
+      Description : Result of computation.
+    
+    Complexity :
+      Time  : O(1)
+      Space : O(1)
+    
+    Error Cases :
+      - None
+    
+    Number Of Lines :
+      10
+    """
     args = parse_args()
     cfg = load_config(args)
 

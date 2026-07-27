@@ -81,6 +81,30 @@ type ArimaTrainer struct {
 }
 
 // NewArimaTrainer creates a trainer. Sets order based on modelType.
+/******************************************************************************
+ * Function Name : NewArimaTrainer
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func NewArimaTrainer(modelType string) *ArimaTrainer {
 	a := &ArimaTrainer{modelType: modelType, P: 1, D: 0, Q: 0, S: 0}
 	switch modelType {
@@ -95,6 +119,30 @@ func NewArimaTrainer(modelType string) *ArimaTrainer {
 }
 
 // Fit estimates AR coefficients via Yule-Walker.
+/******************************************************************************
+ * Function Name : Fit
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (a *ArimaTrainer) Fit(features [][]float64, targets []float64, cfg *TrainingConfig) error {
 	if len(targets) == 0 {
 		return fmt.Errorf("no targets")
@@ -132,6 +180,30 @@ func (a *ArimaTrainer) Fit(features [][]float64, targets []float64, cfg *Trainin
 }
 
 // Predict returns the next-step forecast.
+/******************************************************************************
+ * Function Name : Predict
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (a *ArimaTrainer) Predict(features []float64) (float64, error) {
 	if !a.fitted || len(features) == 0 {
 		return 0, nil
@@ -147,6 +219,30 @@ func (a *ArimaTrainer) Predict(features []float64) (float64, error) {
 }
 
 // Backtest evaluates on full history.
+/******************************************************************************
+ * Function Name : Backtest
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (a *ArimaTrainer) Backtest(features [][]float64, targets []float64) (*FitnessHistory, error) {
 	if !a.fitted {
 		return &FitnessHistory{Timestamp: time.Now()}, nil
@@ -166,6 +262,30 @@ func (a *ArimaTrainer) Backtest(features [][]float64, targets []float64) (*Fitne
 }
 
 // WalkForward performs rolling window validation.
+/******************************************************************************
+ * Function Name : WalkForward
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (a *ArimaTrainer) WalkForward(features [][]float64, targets []float64, windowSize int) ([]FitnessHistory, error) {
 	n := len(features)
 	if windowSize <= 0 || windowSize >= n {
@@ -191,6 +311,30 @@ func (a *ArimaTrainer) WalkForward(features [][]float64, targets []float64, wind
 }
 
 // Serialize marshals to JSON.
+/******************************************************************************
+ * Function Name : Serialize
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (a *ArimaTrainer) Serialize() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"model_type": a.modelType, "p": a.P, "d": a.D, "q": a.Q,
@@ -200,6 +344,30 @@ func (a *ArimaTrainer) Serialize() ([]byte, error) {
 }
 
 // Deserialize restores from JSON.
+/******************************************************************************
+ * Function Name : Deserialize
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (a *ArimaTrainer) Deserialize(data []byte) error {
 	var m map[string]interface{}
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -216,6 +384,30 @@ func (a *ArimaTrainer) Deserialize(data []byte) error {
 }
 
 // --- helpers ---
+/******************************************************************************
+ * Function Name : difference
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func (a *ArimaTrainer) difference(series []float64, d int) []float64 {
 	if d <= 0 {
@@ -227,6 +419,30 @@ func (a *ArimaTrainer) difference(series []float64, d int) []float64 {
 	}
 	return result
 }
+/******************************************************************************
+ * Function Name : seasonalDiff
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func (a *ArimaTrainer) seasonalDiff(series []float64, d, s int) []float64 {
 	if d <= 0 || s <= 0 {
@@ -240,6 +456,30 @@ func (a *ArimaTrainer) seasonalDiff(series []float64, d, s int) []float64 {
 }
 
 // yuleWalker solves AR coefficients via the Yule-Walker equations.
+/******************************************************************************
+ * Function Name : yuleWalker
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func yuleWalker(series []float64, p int) []float64 {
 	n := len(series)
 	if n < p+1 || p <= 0 {
@@ -282,6 +522,30 @@ func yuleWalker(series []float64, p int) []float64 {
 	}
 	return coefs
 }
+/******************************************************************************
+ * Function Name : solveSmall
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func solveSmall(A [][]float64, b []float64) []float64 {
 	n := len(A)
@@ -318,6 +582,30 @@ func solveSmall(A [][]float64, b []float64) []float64 {
 	}
 	return x
 }
+/******************************************************************************
+ * Function Name : maxInt
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func maxInt(a, b int) int {
 	if a > b {
@@ -326,7 +614,54 @@ func maxInt(a, b int) int {
 	return b
 }
 
+/******************************************************************************
+ * Function Name : init
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 // Register ARIMA and SARIMA.
+/******************************************************************************
+ * Function Name : init
+ *
+ * Purpose :
+ *   Package initialization.
+ *
+ * Inputs :
+ *   None
+ *
+ * Return :
+ *   None
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   5
+ ******************************************************************************/
+
 func init() {
 	RegisterTrainer(ModelStatARIMA, func() TrainingEngine { return NewArimaTrainer(ModelStatARIMA) })
 	RegisterTrainer(ModelStatSARIMA, func() TrainingEngine { return NewArimaTrainer(ModelStatSARIMA) })

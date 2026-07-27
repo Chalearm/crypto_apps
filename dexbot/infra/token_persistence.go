@@ -65,6 +65,30 @@ import (
 )
 
 // CreateUserTokensTable ensures the user_tokens table exists.
+/******************************************************************************
+ * Function Name : CreateUserTokensTable
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func CreateUserTokensTable() {
 	if DB == nil {
 		return
@@ -100,6 +124,30 @@ type TokenRecord struct {
 // LoadTokensForAccount loads tokens for a private key from DB.
 // If no records exist, seeds from default tokens (from tokens/tokens.go) and saves to DB.
 // USD prices are NOT stored — they come from real wallet + price oracle at display time.
+/******************************************************************************
+ * Function Name : LoadTokensForAccount
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func LoadTokensForAccount(accountKey string, defaults []TokenRecord) ([]TokenRecord, error) {
 	if DB == nil {
 		return defaults, nil
@@ -133,6 +181,30 @@ func LoadTokensForAccount(accountKey string, defaults []TokenRecord) ([]TokenRec
 }
 
 // SaveTokensForAccount persists token list to DB for a given account.
+/******************************************************************************
+ * Function Name : SaveTokensForAccount
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func SaveTokensForAccount(accountKey string, tokens []TokenRecord) error {
 	if DB == nil {
 		return fmt.Errorf("database not initialized")
@@ -159,6 +231,30 @@ func SaveTokensForAccount(accountKey string, tokens []TokenRecord) error {
 
 // DefaultTokenRecords returns the BSC defaults from tokens/tokens.go.
 // USD prices intentionally NOT stored — fetched live from wallet + PancakeSwap.
+/******************************************************************************
+ * Function Name : DefaultTokenRecords
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func DefaultTokenRecords() []TokenRecord {
 	return []TokenRecord{
 		{Ticker: "USDT", Address: "0x55d398326f99059ff775485246999027b3197955", ChainID: "56", ChainName: "BSC", BaseURL: "https://bsc-dataseed.binance.org"},

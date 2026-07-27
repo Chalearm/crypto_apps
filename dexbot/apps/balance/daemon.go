@@ -51,7 +51,14 @@
  *
  * TODO :
  *   - Add token authentication to the localized HTTP port loop.
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * New Parts :
+ *   [Function] See function list.
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ */
 package main
 
 import (
@@ -88,6 +95,10 @@ const daemonAPIPort = ":8085"
  *   Type        : string
  *   Description : Absolute path to the PID file inside the logs directory.
  *
+ * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Cannot determine current working directory.
  *
@@ -122,6 +133,14 @@ func getPIDFilePath() string {
  * Return :
  *   Type        : bool, int
  *   Description : Returns true and the running PID if active, false and 0 if dead.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - PID file missing/corrupt returns false.
+ *   - Zombie process clears lock.
  *
  * Number Of Lines :
  *   20
@@ -181,6 +200,10 @@ pidFile := getPIDFilePath()
  * Return :
  *   None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Missing private-key param returns 400 Bad Request.
  *   - Failure to calculate payload returns 500 Internal Server Error.
@@ -223,6 +246,10 @@ func handleAPIUpdateRoute(w http.ResponseWriter, r *http.Request) {
  * Return :
  *   None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Missing private-key returns 400.
  *   - Report failure returns 500.
@@ -264,6 +291,10 @@ func handleAPIBalanceRoute(w http.ResponseWriter, r *http.Request) {
  *   r *http.Request
  * Return :
  *   None (writes JSON response)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Missing fields returns 400. DB init on nil.
  * Number Of Lines : 18 — adds a chain to user_chains DB.
@@ -303,6 +334,10 @@ func handleAPIChainAddRoute(w http.ResponseWriter, r *http.Request) {
  *   r *http.Request
  * Return :
  *   None (writes JSON response)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Missing fields returns 400. DB init on nil.
  * Number Of Lines : 18 — adds a token to user_tokens DB.
@@ -338,6 +373,10 @@ func handleAPITokenAddRoute(w http.ResponseWriter, r *http.Request) {
  *   r *http.Request
  * Return :
  *   None (writes JSON response)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Missing fields returns 400. DB init on nil.
  * Number Of Lines : 16 — cascade-deletes a chain.
@@ -369,6 +408,10 @@ func handleAPIChainDeleteRoute(w http.ResponseWriter, r *http.Request) {
  *   r *http.Request
  * Return :
  *   None (writes JSON response)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Missing fields returns 400. DB init on nil.
  * Number Of Lines : 18 — deletes a single token.
@@ -403,6 +446,10 @@ func handleAPITokenDeleteRoute(w http.ResponseWriter, r *http.Request) {
  *   r *http.Request
  * Return :
  *   None (writes JSON response)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Missing account_id returns 400. DB init on nil.
  * Number Of Lines : 16 — cascade-deletes an account.
@@ -441,6 +488,10 @@ func handleAPIAccountDeleteRoute(w http.ResponseWriter, r *http.Request) {
  * Return :
  *   None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Fails to resolve binary executable path.
  *   - HTTP server binds fail due to an obstructed port.
@@ -562,6 +613,13 @@ func HandleDaemonStart() {
  * Return :
  *   None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines :
  *   13
  ******************************************************************************/
@@ -591,6 +649,10 @@ func HandleDaemonStatus() {
  * Return :
  *   None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Daemon not running.
  *   - Insufficient permissions to kill process.

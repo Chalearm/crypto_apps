@@ -1,3 +1,54 @@
+/******************************************************************************
+ * File Name       : report.go
+ * File Path       : balance/report.go
+ *
+ * Author          : Chalearm Saelim
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : 2026-07-26 06:03:11 (UTC+7)
+ * Modified Date   : 2026-07-26 06:03:11 (UTC+7)
+ *
+ * Description     :
+ *   Balance reporting functions for on-chain token value calculation.
+ *
+ * Usage :
+ *   Directory : balance/
+ *   Package   : dexbot/balance
+ *****************************************************************************
+ *
+ * Responsibilities:
+ *   - Part of the dexbot platform.
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/infra
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Updated Parts :
+ *   None
+ *
+ * New Parts :
+ *   [Function] See function list.
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)        | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-07-26 08:00:00 (UTC+7)      | Chalearm Saelim | Initial
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add documentation.
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ */
+
 package balance
 
 import (
@@ -45,6 +96,30 @@ var TokenPrices = map[string]float64{
 	"UNI":   3.35,
 	"ETH":   3500.0,
 }
+/******************************************************************************
+ * Function Name : FormatWithSpacedDecimals
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func FormatWithSpacedDecimals(val float64) string {
 	rawStr := fmt.Sprintf("%.12f", val)
@@ -73,6 +148,30 @@ func FormatWithSpacedDecimals(val float64) string {
 
 	return formattedInt + "." + formattedDec
 }
+/******************************************************************************
+ * Function Name : Report
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func Report(
 	client bind.ContractBackend,
@@ -167,6 +266,30 @@ func Report(
 
 	return networkTotalUSD
 }
+/******************************************************************************
+ * Function Name : GetTokenBalance
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func GetTokenBalance(client bind.ContractBackend, tokenAddr, owner common.Address) (*big.Int, error) {
 	parsed, err := abi.JSON(strings.NewReader(ERC20_ABI))

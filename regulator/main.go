@@ -30,7 +30,7 @@
  *   Run :
  *     go run . <target_directory> [target_private_key]
  * 
- *  		./regulator ../dexbot 12af
+ *  		./regulator ../dexbot xxxx 
  *
  * Dependencies :
  *   Internal :

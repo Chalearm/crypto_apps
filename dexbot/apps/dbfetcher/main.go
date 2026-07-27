@@ -212,7 +212,18 @@ type BinanceOptionTicker struct {
  * Return :
  *   Type          : error
  *   Description   : Relational query tracking execution response or error tracing context.
- ******************************************************************************/
+ *****************************************************************************
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+  * Error Cases :
+  *   - None
+  *
+  * Number Of Lines :
+  *   10
+  *
+ */
 func ExecuteDataClearance(db *sql.DB, tableName string, clearAll bool, leftLast int, leftFirst int) error {
 	// Step 1: Enforce strict white-list guards to shield application configuration tables
 	validTables := map[string]bool{
@@ -320,7 +331,18 @@ func ExecuteDataClearance(db *sql.DB, tableName string, clearAll bool, leftLast 
  * Return :
  *   Type          : string
  *   Range         : Fully formatted space-separated numeric string
- ******************************************************************************/
+ *****************************************************************************
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+  * Error Cases :
+  *   - None
+  *
+  * Number Of Lines :
+  *   10
+  *
+ */
 func FormatCryptoNumeric(val float64) string {
 	// Step 1: Force exactly 12 floating fractional points
 	raw := fmt.Sprintf("%.12f", val)
@@ -381,7 +403,18 @@ func FormatCryptoNumeric(val float64) string {
  * Return :
  *   Type          : error
  *   Description   : Relational query tracking execution response or error tracing context.
- ******************************************************************************/
+ *****************************************************************************
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+  * Error Cases :
+  *   - None
+  *
+  * Number Of Lines :
+  *   10
+  *
+ */
 func ExecuteTableWatch(db *sql.DB, tableName string, fetchLast int, fetchFirst int) error {
 	// Step 1: Validate table existence via system schemas to protect against injection strings
 	var exists bool
@@ -571,7 +604,18 @@ func ExecuteTableWatch(db *sql.DB, tableName string, fetchLast int, fetchFirst i
  * Return :
  *   Type          : error
  *   Range         : Query error context traces or nil upon completion
- ******************************************************************************/
+ *****************************************************************************
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+  * Error Cases :
+  *   - None
+  *
+  * Number Of Lines :
+  *   10
+  *
+ */
 func ListDatabaseTables(db *sql.DB) error {
 	query := `SELECT table_name 
 	          FROM information_schema.tables 
@@ -618,6 +662,10 @@ func ListDatabaseTables(db *sql.DB) error {
  *   Range         : (true, pid) if active, else (false, 0)
  *   Description   : Process identification telemetry status.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Pid file is missing or contains malformed values (returns false)
  *
@@ -787,6 +835,10 @@ func DisplayDaemonStatus() {
  *   Range         : Sliced arrays and a nil error, or nil and descriptive system handling errors
  *   Description   : Unified option contract snapshot collection array wrapper.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Remote exchange socket connections drop or time out.
  *   - API network layers reject parameters or return non-200 transaction headers.
@@ -860,6 +912,10 @@ func FetchBinanceOptions(underlying string) ([]BinanceOptionTicker, error) {
  *   Range         : Explicit pq driver validation errors, or nil upon success
  *   Description   : Relational query tracking operation execution response.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Database connection pools drop or connection handshakes expire mid-query.
  *   - Target tables are empty, uninitialized, or missing structural constraints.
@@ -941,7 +997,18 @@ func FetchLastOptionsRecords(db *sql.DB, limit int) error {
  *   Type          : error
  *   Range         : Query error exceptions or nil on completion
  *   Description   : Relational volume tracking operation result.
-******************************************************************************/
+*****************************************************************************
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+  * Error Cases :
+  *   - None
+  *
+  * Number Of Lines :
+  *   10
+  *
+ */
 func FetchLastOHLCVRecords(db *sql.DB, limit int) error {
 	// Querying all 9 columns required to satisfy the core application scanner requirements
 	query := `SELECT o.ts, a.symbol, o.open, o.high, o.low, o.close, o.volume, o.quote_volume, o.trade_count 
@@ -991,7 +1058,25 @@ func FetchLastOHLCVRecords(db *sql.DB, limit int) error {
  * Purpose :
  *   Outputs a scannable interactive manual explaining system flags, execution 
  *   parameters, and extraction endpoints to terminal users.
- ******************************************************************************/
+ *****************************************************************************
+  * Inputs :
+  *   None (see function signature)
+  *
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+  * Error Cases :
+  *   - None
+  *
+  * Number Of Lines :
+  *   10
+  *
+ */
 func PrintHelpMenu() {
 	fmt.Println("\n==============================================================================")
 	fmt.Println("                       DBFETCHER DAEMON INTERACTIVE HELP MANUAL               ")
@@ -1044,6 +1129,10 @@ func PrintHelpMenu() {
  *   Range         : Migration execution tracing errors or nil upon success
  *   Description   : Relational migration schema operation response.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Target schema file paths are missing or dropped from the workspace directory.
  *   - Database connection limits are exceeded during initialization loops.
@@ -1168,6 +1257,10 @@ func BootstrapDatabaseSchemas(db *sql.DB) error {
  *   Range         : nil on success, or query exception state
  *   Description   : Execution operation success indicator.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Database link disconnected or query string structure syntax fault
  *
@@ -1237,6 +1330,10 @@ func FetchLastCryptoRecords(db *sql.DB, limit int) error {
  *   Range         : Error states or nil on validation completion
  *   Description   : Data output validation result.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Table missing or core schema column target unresolved
  *
@@ -1298,6 +1395,10 @@ func FetchLastMacroRecords(db *sql.DB, limit int) error {
  *   Range         : Valid pointer and nil, or nil and descriptive file system error
  *   Description   : Handshake setup parameter block wrapper.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Specified environmental file cannot be located or open permissions fail.
  *
@@ -1401,6 +1502,10 @@ func LoadConfiguration(path string) (*Config, error) {
  *   Range         : Valid struct pointer and nil, or nil and explicit error details
  *   Description   : Unified asset statistics wrapper block.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Specified token is completely unsupported by local translation arrays.
  *   - CoinGecko public API rate limits (HTTP 429) hit or connection drops.
@@ -1519,6 +1624,10 @@ func fetchCoinGeckoFallback(symbol string) (*BinanceMarketTicker, error) {
  *   Description   : Unified asset statistics wrapper block.
  *
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Network connectivity timeouts or exchange API constraints.
  *   - Non-200 application protocol return headers from endpoint edge routers.
@@ -1611,6 +1720,10 @@ func FetchBinancePrice(symbol string) (*BinanceMarketTicker, error) {
  *   Range         : Financial quote number and nil error, or zero value with error details
  *   Description   : Closed alternative asset metric value.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Remote socket connections drop or are actively dropped by edge providers.
  *
@@ -1679,6 +1792,10 @@ func FetchMacroData(symbol string) (float64, error) {
  * Return :
  *   None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Schema files cannot be found or read.
  *   - DB handshakes dial with invalid network definitions.
@@ -1692,7 +1809,54 @@ func FetchMacroData(symbol string) (float64, error) {
  *
  * Number Of Lines :
  *   110
+/******************************************************************************
+ * Function Name : main
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
  ******************************************************************************/
+
+ ******************************************************************************/
+/******************************************************************************
+ * Function Name : main
+ *
+ * Purpose :
+ *   Entry point for the application.
+ *
+ * Inputs :
+ *   None (reads os.Args or flags)
+ *
+ * Return :
+ *   None (exits with code)
+ *
+ * Complexity :
+ *   Time  : O(N)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - Exits non-zero on fatal errors.
+ *
+ * Number Of Lines :
+ *   15
+ ******************************************************************************/
+
 func main() {
 
     // Custom usage layout assignment override

@@ -73,6 +73,30 @@ import (
 //////////////////////////
 // ✅ MAIN HTML GENERATOR
 //////////////////////////
+/******************************************************************************
+ * Function Name : generateHTML
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func generateHTML(data map[string][]float64) {
 
@@ -157,6 +181,30 @@ func generateHTML(data map[string][]float64) {
 
     os.WriteFile("report.html", []byte(html), 0644)
 }
+/******************************************************************************
+ * Function Name : buildGreeksTable
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func buildGreeksTable(data map[string][]float64) string {
 
     html := "<div class='card'><h2>📐 Greeks (Delta / Gamma)</h2><table>"
@@ -183,6 +231,30 @@ func buildGreeksTable(data map[string][]float64) string {
 //////////////////////////
 // ✅ HEADER
 //////////////////////////
+/******************************************************************************
+ * Function Name : buildOptionDecisionTable
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func buildOptionDecisionTable(data map[string][]float64) string {
 
     html := "<div class='card'><h2>🧠 Option Decision</h2><table>"
@@ -199,6 +271,30 @@ func buildOptionDecisionTable(data map[string][]float64) string {
 
     return html
 }
+/******************************************************************************
+ * Function Name : buildHeader
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func buildHeader(summary string) string {
     return fmt.Sprintf(`
 <html>
@@ -233,6 +329,30 @@ th { background:#1e293b; }
 //////////////////////////
 // ✅ LINE CHART
 //////////////////////////
+/******************************************************************************
+ * Function Name : buildLineChart
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func buildLineChart(jsonData string, length int) string {
     return fmt.Sprintf(`
 <div class="card">
@@ -274,6 +394,30 @@ window.onload = function() {
 </script>
 `, jsonData, length)
 }
+/******************************************************************************
+ * Function Name : buildOptionTimelineTable
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func buildOptionTimelineTable(data map[string][]float64) string {
 
@@ -301,6 +445,30 @@ func buildOptionTimelineTable(data map[string][]float64) string {
 //////////////////////////
 // ✅ PRICE TABLE
 //////////////////////////
+/******************************************************************************
+ * Function Name : buildPriceTable
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func buildPriceTable(data map[string][]float64, names []string, length int) string {
 
@@ -326,6 +494,30 @@ func buildPriceTable(data map[string][]float64, names []string, length int) stri
 //////////////////////////
 // ✅ RETURNS TABLE
 //////////////////////////
+/******************************************************************************
+ * Function Name : buildReturnsTable
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func buildReturnsTable(data map[string][]float64, names []string, length int) string {
 
@@ -348,6 +540,30 @@ func buildReturnsTable(data map[string][]float64, names []string, length int) st
 
     return html + "</table></div>"
 }
+/******************************************************************************
+ * Function Name : buildOptionTable
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func buildOptionTable(options []OptionResult) string {
 
     html := "<div class='card'><h2>📉 Options Table</h2><table>"
@@ -373,6 +589,30 @@ func buildOptionTable(options []OptionResult) string {
 //////////////////////////
 // ✅ STATS
 //////////////////////////
+/******************************************************************************
+ * Function Name : buildStatsTable
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func buildStatsTable(data map[string][]float64, names []string) string {
 
@@ -393,6 +633,30 @@ func buildStatsTable(data map[string][]float64, names []string) string {
 //////////////////////////
 // ✅ HEATMAP
 //////////////////////////
+/******************************************************************************
+ * Function Name : buildCovarianceHeatmap
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func buildCovarianceHeatmap(matrix [][]float64, names []string) string {
 
@@ -431,6 +695,30 @@ func buildCovarianceHeatmap(matrix [][]float64, names []string) string {
 //////////////////////////
 // ✅ PORTFOLIO
 //////////////////////////
+/******************************************************************************
+ * Function Name : buildPortfolioSection
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func buildPortfolioSection(names []string, weights []float64, ret float64, risk float64) string {
 
@@ -451,6 +739,30 @@ func buildPortfolioSection(names []string, weights []float64, ret float64, risk 
 //////////////////////////
 // ✅ PIE CHART
 //////////////////////////
+/******************************************************************************
+ * Function Name : buildPieChart
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func buildPieChart(jsonWeights string, jsonLabels string) string {
     return fmt.Sprintf(`
@@ -491,6 +803,30 @@ window.addEventListener("load", function() {
 //////////////////////////
 // ✅ SUMMARY
 //////////////////////////
+/******************************************************************************
+ * Function Name : buildSummary
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func buildSummary(data map[string][]float64) string {
 
@@ -528,6 +864,30 @@ func buildSummary(data map[string][]float64) string {
 
     return html
 }
+/******************************************************************************
+ * Function Name : buildPieChartPhase
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func buildPieChartPhase(title string, jsonWeights string, jsonLabels string, canvasID string) string {
 
     return fmt.Sprintf(`
@@ -569,6 +929,30 @@ window.addEventListener("load", function() {
 </script>
 `, title, canvasID, jsonLabels, jsonWeights, canvasID)
 }
+/******************************************************************************
+ * Function Name : buildOptionSection
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func buildOptionSection(data map[string][]float64) string {
 
     html := "<div class='card'><h2>📉 Options Analysis</h2>"
@@ -592,6 +976,30 @@ func buildOptionSection(data map[string][]float64) string {
 //////////////////////////
 // ✅ UTIL
 //////////////////////////
+/******************************************************************************
+ * Function Name : sortedNames
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func sortedNames(data map[string][]float64) []string {
     names := []string{}

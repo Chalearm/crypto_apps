@@ -86,16 +86,46 @@ type Strategy interface {
 // ✅ DEFAULT IMPLEMENTATION
 // =====================================================
 
-/*
-Function: SimpleStrategy.ShouldBuy
-Description:
-Always returns true (baseline entry strategy)
+/******************************************************************************
+ * Function Name : ShouldBuy
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Output:
-- bool
-
-Lines: ~5
-*/
+  *
+  * Function Name : ShouldBuy
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func (s SimpleStrategy) ShouldBuy() bool {
 
     infra.Info("Strategy → ShouldBuy = TRUE")
@@ -103,20 +133,30 @@ func (s SimpleStrategy) ShouldBuy() bool {
     return true
 }
 
-/*
-Function: SimpleStrategy.ShouldSell
-Description:
-Sell when profit threshold reached.
+/******************************************************************************
+ * Function Name : ShouldSell
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-- task *TradeTask
-- price float64
-
-Output:
-- bool
-
-Lines: ~10
-*/
 func (s SimpleStrategy) ShouldSell(task *TradeTask, price float64) bool {
 
     if task.BuyPrice == 0 {

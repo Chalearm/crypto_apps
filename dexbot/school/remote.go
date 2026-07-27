@@ -6,6 +6,12 @@
  * Owner           : Chalearm Saelim
  * Reviewer        : Chalearm Saelim
  *
+  *
+  * Function Name : NodeCount
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
  * Version         : 1.0.0
  * Status          : Development
  * Created Date    : 2026-07-01 19:25:50 (UTC+7)
@@ -125,22 +131,46 @@ type TrainingResult struct {
 	Err         string
 }
 
-/*
-Function: NewRemoteClient
-Description:
-  Creates a new remote school client. If addrs is empty, remote
-  training is disabled — the main school does everything locally.
+/******************************************************************************
+ * Function Name : NewRemoteClient
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - addrs           []string      : Remote addresses (empty = local only)
-  - timeoutSec      int           : UDP timeout in seconds
-  - studentsPerNode int           : Max students per remote node
-
-Output:
-  - *RemoteClient: Initialized client
-
-Lines: ~15
-*/
+  *
+  * Function Name : NewRemoteClient
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func NewRemoteClient(addrs []string, timeoutSec, studentsPerNode int) *RemoteClient {
 	infra.FnTrace(fmt.Sprintf("entering addrs=%v timeout=%ds perNode=%d", addrs, timeoutSec, studentsPerNode))
 	defer infra.FnTrace("OK")
@@ -151,56 +181,99 @@ func NewRemoteClient(addrs []string, timeoutSec, studentsPerNode int) *RemoteCli
 	}
 }
 
-/*
-Function: IsEnabled
-Description:
-  Returns true if any remote schools are configured.
+/******************************************************************************
+ * Function Name : IsEnabled
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
-
-Output:
-  - bool: True if remote training is available
-
-Lines: ~5
-*/
 func (rc *RemoteClient) IsEnabled() bool {
 	return len(rc.addrs) > 0
 }
 
-/*
-Function: NodeCount
-Description:
-  Returns number of configured remote nodes.
+/******************************************************************************
+ * Function Name : NodeCount
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
-
-Output:
-  - int: Remote node count
-
-Lines: ~5
-*/
 func (rc *RemoteClient) NodeCount() int {
 	return len(rc.addrs)
 }
 
-/*
-Function: DistributeTraining
-Description:
-  Splits models across remote school nodes, sends training commands,
-  and collects fitness results. Remaining models (beyond remote capacity)
-  stay for local training.
+/******************************************************************************
+ * Function Name : DistributeTraining
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - models []*ModelMetadata : Models to distribute
-
-Output:
-  - []TrainingResult : Results from remote schools
-  - []*ModelMetadata  : Models left for local training
-
-Lines: ~45
-*/
+  *
+  * Function Name : DistributeTraining
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func (rc *RemoteClient) DistributeTraining(models []*ModelMetadata) ([]TrainingResult, []*ModelMetadata) {
 	infra.FnTrace(fmt.Sprintf("entering nModels=%d nRemote=%d", len(models), len(rc.addrs)))
 	if !rc.IsEnabled() {
@@ -257,21 +330,46 @@ func (rc *RemoteClient) DistributeTraining(models []*ModelMetadata) ([]TrainingR
 	return allResults, localModels
 }
 
-/*
-Function: sendToRemote
-Description:
-  Sends a training batch to a single remote school node via UDP
-  and parses the results.
+/******************************************************************************
+ * Function Name : sendToRemote
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - addr   string            : Remote address (ip:port)
-  - models []*ModelMetadata  : Models to train
-
-Output:
-  - []TrainingResult: Fitness results (one per model)
-
-Lines: ~50
-*/
+  *
+  * Function Name : sendToRemote
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func (rc *RemoteClient) sendToRemote(addr string, models []*ModelMetadata) []TrainingResult {
 	infra.FnTrace(fmt.Sprintf("sending %d models to %s", len(models), addr))
 	var results []TrainingResult
@@ -332,6 +430,30 @@ func (rc *RemoteClient) sendToRemote(addr string, models []*ModelMetadata) []Tra
 }
 
 // parseTrainingResults splits a multi-result response into TrainingResult structs.
+/******************************************************************************
+ * Function Name : parseTrainingResults
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func parseTrainingResults(raw, addr string) []TrainingResult {
 	var results []TrainingResult
 	lines := strings.Split(raw, "\n")

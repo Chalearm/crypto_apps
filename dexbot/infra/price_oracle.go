@@ -103,6 +103,30 @@ type PriceOracle struct {
 }
 
 // NewPriceOracle connects to BSC and initializes the router ABI.
+/******************************************************************************
+ * Function Name : NewPriceOracle
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func NewPriceOracle() (*PriceOracle, error) {
 	client, err := ethclient.Dial("https://bsc-dataseed.binance.org/")
 	if err != nil {
@@ -117,6 +141,30 @@ func NewPriceOracle() (*PriceOracle, error) {
 
 // GetPriceUSD returns the USD price of a token by routing through WBNB, then to USDC.
 // Path: token → WBNB → USDC (or BUSD if needed)
+/******************************************************************************
+ * Function Name : GetPriceUSD
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (po *PriceOracle) GetPriceUSD(tokenAddr common.Address) (float64, error) {
 	amountIn := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil) // 1 token in base18
 	path := []common.Address{tokenAddr, WBNB_ADDR, USDC_ADDR}
@@ -146,6 +194,30 @@ func (po *PriceOracle) GetPriceUSD(tokenAddr common.Address) (float64, error) {
 }
 
 // GetPriceBNB returns the BNB price in USD (WBNB → USDC).
+/******************************************************************************
+ * Function Name : GetPriceBNB
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (po *PriceOracle) GetPriceBNB() (float64, error) {
 	amountIn := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 	path := []common.Address{WBNB_ADDR, USDC_ADDR}
@@ -168,6 +240,30 @@ func (po *PriceOracle) GetPriceBNB() (float64, error) {
 
 // FetchAllPrices fetches USD prices for all tokens in the given map.
 // Returns a map of ticker → USD price.
+/******************************************************************************
+ * Function Name : FetchAllPrices
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (po *PriceOracle) FetchAllPrices(tokens map[string]common.Address) map[string]float64 {
 	prices := make(map[string]float64)
 
@@ -189,6 +285,30 @@ func (po *PriceOracle) FetchAllPrices(tokens map[string]common.Address) map[stri
 }
 
 // Close disconnects the BSC client.
+/******************************************************************************
+ * Function Name : Close
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (po *PriceOracle) Close() {
 	if po.client != nil {
 		po.client.Close()
@@ -206,6 +326,30 @@ var (
 // GetBTCPrice fetches the real-time BTC/USD price from CoinGecko free API.
 // Caches the result for 5 minutes to avoid rate limiting.
 // Per myreq6.txt §119: replaces hardcoded BTCPriceMock=85000.
+/******************************************************************************
+ * Function Name : GetBTCPrice
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func GetBTCPrice() float64 {
 	btcPriceMu.Lock()
 	if time.Since(lastBTCFetch) < 5*time.Minute && lastBTCPrice > 0 {

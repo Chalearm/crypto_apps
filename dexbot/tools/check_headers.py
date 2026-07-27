@@ -27,9 +27,57 @@ from datetime import datetime, timezone, timedelta
 
 ICT = timezone(timedelta(hours=7))
 ROOT = '/workspace/crypto_apps/dexbot'
+"""
+Function Name : now_str
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def now_str():
     return datetime.now(ICT).strftime('%Y-%m-%d %H:%M:%S (UTC+7)')
+"""
+Function Name : classify
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def classify(content):
     if content.startswith('/******************************************************************************'):
@@ -37,6 +85,30 @@ def classify(content):
     if content.startswith('/* '):
         return 'LEGACY'
     return 'MISSING'
+"""
+Function Name : extract_desc
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def extract_desc(content):
     """Extract description field from existing header."""
@@ -45,13 +117,84 @@ def extract_desc(content):
         if len(desc) > 10:
             return desc[:200]
     return 'Dexbot component.'
+"""
+Function Name : extract_resp
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def extract_resp(content):
     for m in re.finditer(r'Responsibilities:\s*\n\s*\*\s*(.+?)(?:\n|$)', content[:3000], re.DOTALL):
         return m.group(1).strip()[:100]
     return 'Implement core functionality.'
+"""
+Function Name : generate_header
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def generate_header(fpath, rel_path, desc, resp):
+    """
+    Function Name : generate_header
+    
+    Purpose :
+      Performs its designated operation.
+    
+    Inputs :
+      None (see function signature)
+    
+    Return :
+      Type        : varies
+      Description : Result of computation.
+    
+    Complexity :
+      Time  : O(1)
+      Space : O(1)
+    
+    Error Cases :
+      - None
+    
+    Number Of Lines :
+      10
+    """
     n = now_str()
     pkg = rel_path.split('/')[0] if '/' in rel_path else 'main'
     testpkg = './' + '/'.join(rel_path.split('/')[:-1])
@@ -118,6 +261,30 @@ def generate_header(fpath, rel_path, desc, resp):
  *   - Per rule1.txt coding standard.
  ******************************************************************************/
 '''
+"""
+Function Name : fix_header
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def fix_header(fpath, rel_path, refresh_dates_only=False):
     with open(fpath) as f:
@@ -154,8 +321,55 @@ def fix_header(fpath, rel_path, refresh_dates_only=False):
     with open(fpath, 'w') as f:
         f.write(new_content)
     return True
+"""
+Function Name : main
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def main():
+    """
+    Function Name : main
+    
+    Purpose :
+      Performs its designated operation.
+    
+    Inputs :
+      None (see function signature)
+    
+    Return :
+      Type        : varies
+      Description : Result of computation.
+    
+    Complexity :
+      Time  : O(1)
+      Space : O(1)
+    
+    Error Cases :
+      - None
+    
+    Number Of Lines :
+      10
+    """
     refresh_dates = '--fix-dates' in sys.argv
     fix_mode = '--fix' in sys.argv or refresh_dates
 

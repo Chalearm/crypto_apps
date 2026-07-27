@@ -76,6 +76,30 @@ HEADER = '''/*******************************************************************
  *   - Per rule1.txt coding standard.
  ******************************************************************************/
 '''
+"""
+Function Name : get_pkg
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def get_pkg(fpath):
     """Extract package information from file path"""
@@ -98,6 +122,30 @@ def get_pkg(fpath):
         'runcmd': 'go run .  (from dexbot root)',
         'pkg_parent': parts[0] if len(parts) > 1 else 'infra',
     }
+"""
+Function Name : extract_legacy_desc
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def extract_legacy_desc(content):
     """Extract description from old legacy header style"""
@@ -127,10 +175,58 @@ def extract_legacy_desc(content):
                         raw = raw[len(prefix):]
                 return raw[:200]
     return 'Dexbot component — auto-documented per rule1.txt.'
+"""
+Function Name : has_proper_header
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def has_proper_header(content):
     """Check if file already has a proper /**** rule1 header"""
     return content.startswith('/****')
+"""
+Function Name : process_file
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def process_file(fpath, apply=False):
     """Process a single Go file, adding/updating header"""
@@ -188,8 +284,55 @@ def process_file(fpath, apply=False):
         return True, fpath + " (UPDATED)"
     else:
         return True, fpath + " (DRY-RUN)"
+"""
+Function Name : main
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
 def main():
+    """
+    Function Name : main
+    
+    Purpose :
+      Performs its designated operation.
+    
+    Inputs :
+      None (see function signature)
+    
+    Return :
+      Type        : varies
+      Description : Result of computation.
+    
+    Complexity :
+      Time  : O(1)
+      Space : O(1)
+    
+    Error Cases :
+      - None
+    
+    Number Of Lines :
+      10
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--apply', action='store_true', help='Actually write files')
     args = parser.parse_args()

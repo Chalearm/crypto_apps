@@ -1,62 +1,14 @@
 /******************************************************************************
  * File Name       : model_registry.go
  * File Path       : governance/model_registry.go
- *
  * Author          : deepseek-4.0-pro
  * Owner           : Chalearm Saelim
  * Reviewer        : Chalearm Saelim
- *
  * Version         : 1.0.0
  * Status          : Development
  * Created Date    : 2026-07-01 19:25:45 (UTC+7)
  * Modified Date   : 2026-07-01 19:25:45 (UTC+7)
- *
- * Description     :
- *   Centralized Model Registry for all model lifecycle tracking.
- *
- * Responsibilities:
- *   - - Register experimental/graduated/retired models with independent versioning
- *
- * Usage :
- *   Directory : governance/
- *
- *   Build :
- *     go build ./governance
- *
- *   Run :
- *     go run .  (from dexbot root)
- *
- *   Test :
- *     go test ./governance
- *
- * Dependencies :
- *   Internal :
- *     - dexbot/governance
- *
- *   External :
- *     - (stdlib only)
- *
- * Configuration :
- *   - config.env
- *
- * Updated Parts :
- *   None (initial version)
- *
- * New Parts :
- *   [Functions] All exported functions in this file
- *
- * Change History :
- *   -------------------------------------------------------------------------
- *   Version | Date Time (UTC+7)      | Author          | Description
- *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-07-01 19:25:45 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
- *   -------------------------------------------------------------------------
- *
- * TODO :
- *   - Add unit tests
- *
- * Notes :
- *   - Per rule1.txt coding standard.
+ * Description     : Centralized Model Registry for all model lifecycle tracking.
  ******************************************************************************/
 package governance
 
@@ -82,33 +34,6 @@ const (
 // MODEL RECORD
 // ==============================
 
-/*
-Struct: ModelRecord
-Description:
-  Complete lifecycle record for a single model in the registry.
-  Model versioning is independent of software versioning (§33).
-
-Fields:
-  - ID                string            : Unique model identifier (UUID or name)
-  - ModelVersion      string            : Semantic model version (e.g., "v3.2")
-  - Generation        int               : Evolutionary generation number
-  - Category          string            : Model category (Options, Risk, etc.)
-  - Architecture      string            : Model architecture (LSTM, XGBoost, etc.)
-  - Framework         string            : Training framework (Python/TF, Go, etc.)
-  - Status            string            : experimental/graduated/retired/active/training
-  - Hyperparameters   map[string]string : Training hyperparameters
-  - FeatureSet        []string          : Feature names used
-  - TrainingDataset   string            : Dataset version used for training
-  - FitnessScores     []FitnessSnapshot : Per-generation fitness history
-  - Ensemble          *EnsembleDef      : Ensemble composition (if ensemble model)
-  - CreatedAt         time.Time         : First registered
-  - GraduatedAt       *time.Time        : When promoted to graduate
-  - RetiredAt         *time.Time        : When retired
-  - Deployments       []DeploymentRecord : Trading deployment history
-  - PerformanceHistory []PerformancePoint : Live trading performance over time
-
-Lines: ~15
-*/
 type ModelRecord struct {
 	ID                 string
 	ModelVersion       string
@@ -125,53 +50,26 @@ type ModelRecord struct {
 	CreatedAt          time.Time
 	GraduatedAt        *time.Time
 	RetiredAt          *time.Time
-	Deployments         []DeploymentRecord
-	PerformanceHistory  []PerformancePoint
+	Deployments        []DeploymentRecord
+	PerformanceHistory []PerformancePoint
 }
 
-/*
-Function: IsGraduated
-Description:
-  Returns true if the model has graduated status.
-
-Input:
-  - none
-
-Output:
-  - bool
-
-Lines: ~3
-*/
+/******************************************************************************
+ * Function Name : IsGraduated
+ * Purpose       : Checks if the model is in graduated status.
+ ******************************************************************************/
 func (mr *ModelRecord) IsGraduated() bool { return mr.Status == ModelStatusGraduated }
 
-/*
-Function: IsRetired
-Description:
-  Returns true if the model is retired.
-
-Input:
-  - none
-
-Output:
-  - bool
-
-Lines: ~3
-*/
+/******************************************************************************
+ * Function Name : IsRetired
+ * Purpose       : Checks if the model is in retired status.
+ ******************************************************************************/
 func (mr *ModelRecord) IsRetired() bool { return mr.Status == ModelStatusRetired }
 
-/*
-Function: LatestFitness
-Description:
-  Returns the most recent FitnessSnapshot, or nil if none.
-
-Input:
-  - none
-
-Output:
-  - *FitnessSnapshot: Latest fitness, or nil
-
-Lines: ~8
-*/
+/******************************************************************************
+ * Function Name : LatestFitness
+ * Purpose       : Retrieves the latest recorded fitness snapshot.
+ ******************************************************************************/
 func (mr *ModelRecord) LatestFitness() *FitnessSnapshot {
 	if len(mr.FitnessScores) == 0 {
 		return nil
@@ -181,27 +79,9 @@ func (mr *ModelRecord) LatestFitness() *FitnessSnapshot {
 }
 
 // ==============================
-// FITNESS SNAPSHOT
+// FITNESS SNAPSHOT & ENSEMBLE
 // ==============================
 
-/*
-Struct: FitnessSnapshot
-Description:
-  A single fitness evaluation snapshot at a point in time.
-
-Fields:
-  - Timestamp  time.Time : When evaluated
-  - Sharpe     float64   : Sharpe ratio
-  - Sortino    float64   : Sortino ratio
-  - Profit     float64   : Cumulative profit
-  - Drawdown   float64   : Maximum drawdown
-  - Accuracy   float64   : Prediction accuracy (0-100)
-  - Consistency float64  : Performance consistency
-  - Efficiency float64   : Capital efficiency
-  - Generation int       : Which generation this snapshot belongs to
-
-Lines: ~10
-*/
 type FitnessSnapshot struct {
 	Timestamp   time.Time
 	Sharpe      float64
@@ -214,28 +94,6 @@ type FitnessSnapshot struct {
 	Generation  int
 }
 
-// ==============================
-// ENSEMBLE DEFINITION
-// ==============================
-
-/*
-Struct: EnsembleDef
-Description:
-  Defines how sub-models compose into an ensemble. Per myreq3.txt §47.
-
-Fields:
-  - Type            string             : voting/stacking/blending/dynamic
-  - SubModels       []string           : IDs of component models
-  - VotingWeights   map[string]float64 : Per-model voting weight (sum to 1.0)
-  - StackingMeta    string             : Meta-model ID for stacking ensembles
-  - RegimeMap       map[string]string  : Market regime → active model
-  - Confidence      float64            : Ensemble confidence score (0-1)
-  - ContributionPct map[string]float64 : Per-model contribution percentage (§47)
-  - WeightHistory   []WeightEntry      : Historical weight updates (§47)
-  - UpdatedAt       time.Time          : Last weight update timestamp
-
-Lines: ~10
-*/
 type EnsembleDef struct {
 	Type            string
 	SubModels       []string
@@ -248,31 +106,13 @@ type EnsembleDef struct {
 	UpdatedAt       time.Time
 }
 
-// WeightEntry records a voting weight snapshot at a point in time (§47).
 type WeightEntry struct {
 	Timestamp time.Time
 	ModelID   string
 	Weight    float64
-	Reason    string // "performance", "retirement", "manual"
+	Reason    string
 }
 
-// ==============================
-// DEPLOYMENT RECORD
-// ==============================
-
-/*
-Struct: DeploymentRecord
-Description:
-  Records when a model was deployed to Trading and what agent used it.
-
-Fields:
-  - Timestamp time.Time : When deployed
-  - AgentID   string    : Which portfolio agent received it
-  - Capital   float64   : Capital allocated to the agent at deployment
-  - Status    string    : active / retired / replaced
-
-Lines: ~5
-*/
 type DeploymentRecord struct {
 	Timestamp time.Time
 	AgentID   string
@@ -280,24 +120,6 @@ type DeploymentRecord struct {
 	Status    string
 }
 
-// ==============================
-// PERFORMANCE POINT
-// ==============================
-
-/*
-Struct: PerformancePoint
-Description:
-  A single live-trading performance data point (time series).
-
-Fields:
-  - Timestamp time.Time : When recorded
-  - Sharpe    float64   : Running Sharpe
-  - PnL       float64   : Running profit/loss
-  - Drawdown  float64   : Current drawdown
-  - Trades    int       : Cumulative trade count
-
-Lines: ~5
-*/
 type PerformancePoint struct {
 	Timestamp time.Time
 	Sharpe    float64
@@ -310,63 +132,30 @@ type PerformancePoint struct {
 // MODEL REGISTRY
 // ==============================
 
-/*
-Struct: ModelRegistry
-Description:
-  Thread-safe centralized registry for all models across their lifecycle.
-  Stores experimental, graduated, and retired models. Tracks deployments
-  and live performance. Per myreq3.txt §33.
-
-Fields:
-  - mu      sync.RWMutex            : Protects concurrent access
-  - models  map[string]*ModelRecord : All models by ID
-  - history []ModelRecord           : Full history (capped)
-
-Lines: ~6
-*/
 type ModelRegistry struct {
 	mu      sync.RWMutex
 	models  map[string]*ModelRecord
 	history []ModelRecord
 }
 
-/*
-Function: NewModelRegistry
-Description:
-  Creates a new empty ModelRegistry.
-
-Input:
-  - none
-
-Output:
-  - *ModelRegistry
-
-Lines: ~8
-*/
+/******************************************************************************
+ * Function Name : NewModelRegistry
+ * Purpose       : Constructs a new ModelRegistry instance.
+ ******************************************************************************/
 func NewModelRegistry() *ModelRegistry {
 	return &ModelRegistry{
 		models: make(map[string]*ModelRecord),
 	}
 }
 
-/*
-Function: Register
-Description:
-  Registers a new model or updates an existing one. Appends to history.
-
-Input:
-  - mr *ModelRecord: Model to register
-
-Output:
-  - none
-
-Lines: ~12
-*/
+/******************************************************************************
+ * Function Name : Register
+ * Purpose       : Registers or updates a model record.
+ ******************************************************************************/
 func (r *ModelRegistry) Register(mr *ModelRecord) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Preserve deployment history on update
 	if existing, ok := r.models[mr.ID]; ok {
 		if len(mr.Deployments) == 0 {
 			mr.Deployments = existing.Deployments
@@ -383,26 +172,16 @@ func (r *ModelRegistry) Register(mr *ModelRecord) {
 	}
 	r.models[mr.ID] = mr
 
-	// Append to history (cap at 500)
 	r.history = append(r.history, *mr)
 	if len(r.history) > 500 {
 		r.history = r.history[len(r.history)-500:]
 	}
 }
 
-/*
-Function: Get
-Description:
-  Returns a model record by ID. Returns nil if not found.
-
-Input:
-  - id string: Model ID
-
-Output:
-  - *ModelRecord: Copy of the record, or nil
-
-Lines: ~12
-*/
+/******************************************************************************
+ * Function Name : Get
+ * Purpose       : Retrieves a copy of a model record by ID.
+ ******************************************************************************/
 func (r *ModelRegistry) Get(id string) *ModelRecord {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -415,19 +194,10 @@ func (r *ModelRegistry) Get(id string) *ModelRecord {
 	return &copy
 }
 
-/*
-Function: Graduate
-Description:
-  Promotes a model to graduated status. Records graduation timestamp.
-
-Input:
-  - id string: Model ID
-
-Output:
-  - error: Non-nil if model not found
-
-Lines: ~12
-*/
+/******************************************************************************
+ * Function Name : Graduate
+ * Purpose       : Promotes a model to graduated status.
+ ******************************************************************************/
 func (r *ModelRegistry) Graduate(id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -442,19 +212,10 @@ func (r *ModelRegistry) Graduate(id string) error {
 	return nil
 }
 
-/*
-Function: Retire
-Description:
-  Marks a model as retired. Records retirement timestamp.
-
-Input:
-  - id string: Model ID
-
-Output:
-  - error: Non-nil if model not found
-
-Lines: ~12
-*/
+/******************************************************************************
+ * Function Name : Retire
+ * Purpose       : Sets a model status to retired.
+ ******************************************************************************/
 func (r *ModelRegistry) Retire(id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -469,19 +230,10 @@ func (r *ModelRegistry) Retire(id string) error {
 	return nil
 }
 
-/*
-Function: ListByStatus
-Description:
-  Returns all models matching a given status.
-
-Input:
-  - status string: ModelStatusExperimental/Graduated/Retired/etc.
-
-Output:
-  - []*ModelRecord: Matching records
-
-Lines: ~12
-*/
+/******************************************************************************
+ * Function Name : ListByStatus
+ * Purpose       : Returns all model records matching a status.
+ ******************************************************************************/
 func (r *ModelRegistry) ListByStatus(status string) []*ModelRecord {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -496,19 +248,10 @@ func (r *ModelRegistry) ListByStatus(status string) []*ModelRecord {
 	return result
 }
 
-/*
-Function: ListByCategory
-Description:
-  Returns all models in a given category.
-
-Input:
-  - category string: Model category
-
-Output:
-  - []*ModelRecord: Matching records
-
-Lines: ~12
-*/
+/******************************************************************************
+ * Function Name : ListByCategory
+ * Purpose       : Returns all model records matching a category.
+ ******************************************************************************/
 func (r *ModelRegistry) ListByCategory(category string) []*ModelRecord {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -523,76 +266,38 @@ func (r *ModelRegistry) ListByCategory(category string) []*ModelRecord {
 	return result
 }
 
-/*
-Function: Count
-Description:
-  Returns total models in registry.
-
-Input:
-  - none
-
-Output:
-  - int: Total count
-
-Lines: ~5
-*/
+/******************************************************************************
+ * Function Name : Count
+ * Purpose       : Returns total models registered.
+ ******************************************************************************/
 func (r *ModelRegistry) Count() int {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return len(r.models)
 }
 
-/*
-Function: CountByStatus
-Description:
-  Returns count of models with a given status.
-
-Input:
-  - status string
-
-Output:
-  - int
-
-Lines: ~8
-*/
+/******************************************************************************
+ * Function Name : CountByStatus
+ * Purpose       : Returns count of models matching status.
+ ******************************************************************************/
 func (r *ModelRegistry) CountByStatus(status string) int {
 	return len(r.ListByStatus(status))
 }
 
-/*
-Function: Remove
-Description:
-  Permanently removes a model from the registry.
-
-Input:
-  - id string
-
-Output:
-  - none
-
-Lines: ~5
-*/
+/******************************************************************************
+ * Function Name : Remove
+ * Purpose       : Removes a model record by ID.
+ ******************************************************************************/
 func (r *ModelRegistry) Remove(id string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.models, id)
 }
 
-/*
-Function: RecordDeployment
-Description:
-  Records that a model was deployed to a trading agent.
-
-Input:
-  - id      string: Model ID
-  - agentID string: Portfolio agent ID
-  - capital float64: Capital allocated
-
-Output:
-  - error: Non-nil if model not found
-
-Lines: ~12
-*/
+/******************************************************************************
+ * Function Name : RecordDeployment
+ * Purpose       : Appends a deployment record to a model.
+ ******************************************************************************/
 func (r *ModelRegistry) RecordDeployment(id, agentID string, capital float64) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -610,20 +315,10 @@ func (r *ModelRegistry) RecordDeployment(id, agentID string, capital float64) er
 	return nil
 }
 
-/*
-Function: RecordPerformance
-Description:
-  Appends a live-performance data point to a model's history.
-
-Input:
-  - id  string          : Model ID
-  - pp  PerformancePoint: New data point
-
-Output:
-  - error: Non-nil if model not found
-
-Lines: ~12
-*/
+/******************************************************************************
+ * Function Name : RecordPerformance
+ * Purpose       : Records a live-trading performance point.
+ ******************************************************************************/
 func (r *ModelRegistry) RecordPerformance(id string, pp PerformancePoint) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -639,20 +334,10 @@ func (r *ModelRegistry) RecordPerformance(id string, pp PerformancePoint) error 
 	return nil
 }
 
-/*
-Function: RecordFitness
-Description:
-  Appends a fitness snapshot to a model's history.
-
-Input:
-  - id string        : Model ID
-  - fs FitnessSnapshot: New fitness data
-
-Output:
-  - error: Non-nil if model not found
-
-Lines: ~12
-*/
+/******************************************************************************
+ * Function Name : RecordFitness
+ * Purpose       : Records a fitness evaluation snapshot.
+ ******************************************************************************/
 func (r *ModelRegistry) RecordFitness(id string, fs FitnessSnapshot) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -669,19 +354,10 @@ func (r *ModelRegistry) RecordFitness(id string, fs FitnessSnapshot) error {
 	return nil
 }
 
-/*
-Function: AllIDs
-Description:
-  Returns all model IDs in the registry.
-
-Input:
-  - none
-
-Output:
-  - []string: All model IDs
-
-Lines: ~8
-*/
+/******************************************************************************
+ * Function Name : AllIDs
+ * Purpose       : Returns a list of all model IDs in registry.
+ ******************************************************************************/
 func (r *ModelRegistry) AllIDs() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

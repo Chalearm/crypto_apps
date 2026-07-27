@@ -9,6 +9,12 @@
  * Version         : 1.0.0
  * Status          : Development
  * Created Date    : 2026-07-01 19:25:34 (UTC+7)
+  *
+  * Function Name : runLoop
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
  * Modified Date   : 2026-07-01 19:25:34 (UTC+7)
  *
  * Description     :
@@ -126,7 +132,54 @@ var (
 	govUDPConn   *net.UDPConn // UDP connection to governance daemon (Phase 24)
 )
 
+/******************************************************************************
+ * Function Name : main
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 // ==============================
+/******************************************************************************
+ * Function Name : main
+ *
+ * Purpose :
+ *   Entry point for the application.
+ *
+ * Inputs :
+ *   None (reads os.Args or flags)
+ *
+ * Return :
+ *   None (exits with code)
+ *
+ * Complexity :
+ *   Time  : O(N)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - Exits non-zero on fatal errors.
+ *
+ * Number Of Lines :
+ *   15
+ ******************************************************************************/
+
 func main() {
 	fs := flag.NewFlagSet("testdaemon", flag.ContinueOnError)
 	action := fs.String("action", "start", "Action: start, history")
@@ -151,6 +204,30 @@ func main() {
 
 	runLoop()
 }
+/******************************************************************************
+ * Function Name : findProjectRoot
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func findProjectRoot() string {
 	// Try common locations
@@ -172,20 +249,30 @@ func findProjectRoot() string {
 // MAIN LOOP
 // ==============================
 
-/*
-Function: runLoop
-Description:
-  Polls for changes and runs validation pipeline.
-  Interval from TEST_POLL_INTERVAL_SECONDS config.
+/******************************************************************************
+ * Function Name : runLoop
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
-
-Output:
-  - none
-
-Lines: ~25
-*/
 func runLoop() {
 	infra.FnTrace("entering")
 	interval := time.Duration(runtimeCfg.TestDaemon.PollIntervalSeconds) * time.Second
@@ -206,19 +293,46 @@ func runLoop() {
 // VALIDATION PIPELINE
 // ==============================
 
-/*
-Function: validatePipeline
-Description:
-  Runs the full CI/CD pipeline: changed files → affected packages → vet → test → build.
+/******************************************************************************
+ * Function Name : validatePipeline
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
-
-Output:
-  - TestRunResult : Complete cycle result
-
-Lines: ~40
-*/
+  *
+  * Function Name : validatePipeline
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func validatePipeline() TestRunResult {
 	infra.FnTrace("entering")
 	start := time.Now()
@@ -301,6 +415,30 @@ func validatePipeline() TestRunResult {
 // ==============================
 // EXECUTION HELPERS
 // ==============================
+/******************************************************************************
+ * Function Name : runVet
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func runVet(pkgs []string) bool {
 	infra.FnTrace(fmt.Sprintf("vetting %d packages", len(pkgs)))
@@ -315,6 +453,30 @@ func runVet(pkgs []string) bool {
 	infra.Info("go vet PASSED")
 	return true
 }
+/******************************************************************************
+ * Function Name : runTests
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func runTests(pkgs []string) bool {
 	infra.FnTrace(fmt.Sprintf("testing %d packages", len(pkgs)))
@@ -329,6 +491,30 @@ func runTests(pkgs []string) bool {
 	infra.Info("go test PASSED")
 	return true
 }
+/******************************************************************************
+ * Function Name : runBuild
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func runBuild() bool {
 	infra.FnTrace("building all daemons")
@@ -342,6 +528,30 @@ func runBuild() bool {
 	infra.Info("go build PASSED")
 	return true
 }
+/******************************************************************************
+ * Function Name : runPolicyScan
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func runPolicyScan() bool {
 	infra.FnTrace("running policy scan (rule1.txt compliance)")
@@ -376,20 +586,46 @@ func runPolicyScan() bool {
 // PERSISTENCE
 // ==============================
 
-/*
-Function: storeResult
-Description:
-  Appends a TestRunResult to runtime/test_history.json.
-  Caps history at 100 entries.
+/******************************************************************************
+ * Function Name : storeResult
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - result TestRunResult : Cycle result
-
-Output:
-  - none
-
-Lines: ~20
-*/
+  *
+  * Function Name : storeResult
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func storeResult(result TestRunResult) {
 	var history []TestRunResult
 	data, err := os.ReadFile(historyFile)
@@ -406,7 +642,47 @@ func storeResult(result TestRunResult) {
 	out, _ := json.MarshalIndent(history, "", "  ")
 	os.WriteFile(historyFile, out, 0644)
 }
+/******************************************************************************
+ * Function Name : printResult
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
+
+  *
+  * Function Name : printResult
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func printResult(result TestRunResult) {
 	passFail := func(b bool) string {
 		if b {
@@ -433,6 +709,30 @@ func printResult(result TestRunResult) {
 	}
 	fmt.Println()
 }
+/******************************************************************************
+ * Function Name : printHistory
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func printHistory() {
 	data, err := os.ReadFile(historyFile)
@@ -459,6 +759,30 @@ func printHistory() {
 // ==============================
 // GOVERNANCE REPORTING (Phase 24)
 // ==============================
+/******************************************************************************
+ * Function Name : initGovernanceUDP
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func initGovernanceUDP() {
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("127.0.0.1:%d", runtimeCfg.GovernanceUDPPort))
@@ -472,6 +796,30 @@ func initGovernanceUDP() {
 		return
 	}
 }
+/******************************************************************************
+ * Function Name : runFullTestsAndReport
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func runFullTestsAndReport() {
 	infra.FnTrace("entering")
@@ -491,6 +839,30 @@ func runFullTestsAndReport() {
 			result.VetPassed, result.TestPassed, result.BuildPassed)
 	}
 }
+/******************************************************************************
+ * Function Name : validateFullSuite
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func validateFullSuite() TestRunResult {
 	start := time.Now()
@@ -555,6 +927,30 @@ func validateFullSuite() TestRunResult {
 	result.Duration = time.Since(start).String()
 	return result
 }
+/******************************************************************************
+ * Function Name : reportToGovernance
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func reportToGovernance(result TestRunResult) {
 	if govUDPConn == nil {

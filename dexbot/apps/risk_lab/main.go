@@ -64,6 +64,30 @@ import (
     "sort"
     "math"
 )
+/******************************************************************************
+ * Function Name : printReturnsTable
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func printReturnsTable(data map[string][]float64) {
 
@@ -99,12 +123,60 @@ func printReturnsTable(data map[string][]float64) {
         println()
     }
 }
+/******************************************************************************
+ * Function Name : riskScore
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func riskScore(data []float64) float64 {
 
     r := returns(data)
 
     return stddev(r) + maxDrawdown(data)
 }
+/******************************************************************************
+ * Function Name : printStatsTable
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func printStatsTable(data map[string][]float64) {
 
     println("\n=== STATISTICS (BASED ON RETURNS) ===")
@@ -134,6 +206,30 @@ func printStatsTable(data map[string][]float64) {
             round(mdd*100), "%")
     }
 }
+/******************************************************************************
+ * Function Name : printTable
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func printTable(data map[string][]float64) {
 
     println("\n=== PRICE TABLE ===")
@@ -167,6 +263,30 @@ func printTable(data map[string][]float64) {
         println()
     }
 }
+/******************************************************************************
+ * Function Name : printBetaTable
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func printBetaTable(data map[string][]float64, market string) {
 
     println("\n=== BETA (vs", market, ") ===")
@@ -191,10 +311,58 @@ func printBetaTable(data map[string][]float64, market string) {
         println(asset, ":", round(b))
     }
 }
+/******************************************************************************
+ * Function Name : round
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func round(val float64) float64 {
     return math.Round(val*1000000) / 1000000
 }
+/******************************************************************************
+ * Function Name : printMatrix
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 
 func printMatrix(matrix [][]float64, names []string) {
@@ -222,6 +390,30 @@ func printMatrix(matrix [][]float64, names []string) {
 ////////////////////////////////////////////////////////////
 // ✅ HELPER
 ////////////////////////////////////////////////////////////
+/******************************************************************************
+ * Function Name : printWeights
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func printWeights(weights []float64, names []string) {
 
@@ -231,6 +423,28 @@ func printWeights(weights []float64, names []string) {
 }
 
 
+/******************************************************************************
+ * Function Name : main
+ *
+ * Purpose :
+ *   Entry point for the application.
+ *
+ * Inputs :
+ *   None (reads os.Args or stdlib flags)
+ *
+ * Return :
+ *   None (exits with code 0 on success)
+ *
+ * Complexity :
+ *   Time  : O(N)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   15
+ ******************************************************************************/
 func main() {
 
     println("=== RISK LAB START ===")

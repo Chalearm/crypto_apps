@@ -19,7 +19,11 @@
  *          never gets populated in the browser.
  *
  * Usage : go test ./integration -v -run SpecificCheck
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ */
 package integration
 
 import (

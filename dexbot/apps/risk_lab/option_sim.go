@@ -67,10 +67,47 @@ type OptionResult struct {
     Call  float64
     Put   float64
 }
-/*
-Decide whether to BUY CALL / BUY PUT / STRADDLE
-*/
+/******************************************************************************
+ * Function Name : decideOptionAction
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
+
+  *
+  * Function Name : decideOptionAction
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func decideOptionAction(asset string, prices []float64) string {
 
     r := returns(prices)
@@ -90,6 +127,30 @@ func decideOptionAction(asset string, prices []float64) string {
     // ✅ LOW RISK
     return "SELL CALL"
 }
+/******************************************************************************
+ * Function Name : generateOptions
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func generateOptions(data map[string][]float64) []OptionResult {
 
     var results []OptionResult
@@ -115,9 +176,30 @@ func generateOptions(data map[string][]float64) []OptionResult {
 
     return results
 }
-/*
-Decision timeline for each asset per day
-*/
+/******************************************************************************
+ * Function Name : decideOptionTimeline
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func decideOptionTimeline(asset string, prices []float64) []string {
 

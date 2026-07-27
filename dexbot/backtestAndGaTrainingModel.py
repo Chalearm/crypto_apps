@@ -8,6 +8,30 @@ import pandas as pd
 class GABacktestPipelineSingleton:
     _instance = None
     _lock = threading.Lock()
+"""
+Function Name : __new__
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
     
     def __new__(cls, *args, **kwargs):
         """Thread-safe Singleton Instance Control Room Allocation."""
@@ -16,6 +40,30 @@ class GABacktestPipelineSingleton:
                 cls._instance = super(GABacktestPipelineSingleton, cls).__new__(cls)
                 cls._instance._initialized = False
             return cls._instance
+"""
+Function Name : __init__
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def __init__(self, data_directory=".", checkpoint_file="ga_state_checkpoint.json"):
         if self._initialized:
@@ -28,6 +76,30 @@ class GABacktestPipelineSingleton:
         self.best_hyperparameters = {}
         self.processed_features_summary = {}
         self._initialized = True
+"""
+Function Name : execute_pipeline
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def execute_pipeline(self):
         """Sequential control coordinator for state execution verification."""
@@ -48,6 +120,30 @@ class GABacktestPipelineSingleton:
         # Step 4: Secure Results and Save State Checkpoint
         self._save_checkpoint_state()
         print("🏁 [SYSTEM] Pipeline execution cleanly terminated. State verified.")
+"""
+Function Name : _load_checkpoint_state
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def _load_checkpoint_state(self) -> bool:
         """Looks for a saved JSON state file from a previous execution run."""
@@ -66,6 +162,30 @@ class GABacktestPipelineSingleton:
                 return False
         print("ℹ️ [STATE] No previous checkpoint detected. Creating a fresh tracking workspace.")
         return False
+"""
+Function Name : _initialize_fresh_training_state
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def _initialize_fresh_training_state(self):
         """Sets pristine parameters for a fresh Genetic Algorithm generation sweep."""
@@ -78,6 +198,30 @@ class GABacktestPipelineSingleton:
             "learning_rate": 0.001,
             "population_variants": 32
         }
+"""
+Function Name : _ingest_transformed_feature_matrices
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def _ingest_transformed_feature_matrices(self) -> bool:
         """Scans the working directory, ingesting your 12-digit high-precision transformed Go CSV files."""
@@ -104,6 +248,30 @@ class GABacktestPipelineSingleton:
                 print(f"❌ [ERROR] Failed to stream data row arrays from {file_name}: {e}")
                 return False
         return True
+"""
+Function Name : _run_mock_genetic_algorithm_loop
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def _run_mock_genetic_algorithm_loop(self):
         """Mocks the evolution generations, processing evaluations, backtests, and fitness tracking."""
@@ -129,6 +297,30 @@ class GABacktestPipelineSingleton:
                 self.current_generation = gen
                 self.best_hyperparameters["lstm_hidden_dim"] = 64 + (gen * 8)
                 self.best_hyperparameters["learning_rate"] *= 0.95  # Simulated convergence adjustment
+"""
+Function Name : _save_checkpoint_state
+
+Purpose :
+  Performs its designated operation.
+
+Inputs :
+  None (see function signature)
+
+Return :
+  Type        : varies
+  Description : Result of computation.
+
+Complexity :
+  Time  : O(1)
+  Space : O(1)
+
+Error Cases :
+  - None
+
+Number Of Lines :
+  10
+"""
+
 
     def _save_checkpoint_state(self):
         """Locks in state parameters and writes them to the target backup JSON file."""

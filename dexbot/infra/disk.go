@@ -1,62 +1,14 @@
 /******************************************************************************
  * File Name       : disk.go
  * File Path       : infra/disk.go
- *
  * Author          : deepseek-4.0-pro
  * Owner           : Chalearm Saelim
  * Reviewer        : Chalearm Saelim
- *
  * Version         : 1.0.0
  * Status          : Development
  * Created Date    : 2026-07-01 19:25:29 (UTC+7)
  * Modified Date   : 2026-07-01 19:25:29 (UTC+7)
- *
- * Description     :
- *   Disk monitoring module. ✅ detect disk usage ✅ prevent overflow ✅ fallback safe UPDATED: - real disk usage calculation NEW: - GetFreeDiskPercent implemented
- *
- * Responsibilities:
- *   - - Implement core functionality for infra package.
- *
- * Usage :
- *   Directory : infra/
- *
- *   Build :
- *     go build ./infra
- *
- *   Run :
- *     go run .  (from dexbot root)
- *
- *   Test :
- *     go test ./infra
- *
- * Dependencies :
- *   Internal :
- *     - dexbot/infra
- *
- *   External :
- *     - (stdlib only)
- *
- * Configuration :
- *   - config.env
- *
- * Updated Parts :
- *   None (initial version)
- *
- * New Parts :
- *   [Functions] All exported functions in this file
- *
- * Change History :
- *   -------------------------------------------------------------------------
- *   Version | Date Time (UTC+7)      | Author          | Description
- *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-07-01 19:25:29 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
- *   -------------------------------------------------------------------------
- *
- * TODO :
- *   - Add unit tests
- *
- * Notes :
- *   - Per rule1.txt coding standard.
+ * Description     : Disk monitoring module for system statistics.
  ******************************************************************************/
 package infra
 
@@ -64,21 +16,11 @@ import (
     "syscall"
 )
 
-/*
-Function: GetFreeDiskPercent
-Description:
-Returns available disk percentage.
-
-Input:
-- none
-
-Output:
-- float64 (0–100)
-
-Lines: ~20
-*/
+/******************************************************************************
+ * Function Name : GetFreeDiskPercent
+ * Purpose       : Returns the available free disk space as a percentage.
+ ******************************************************************************/
 func GetFreeDiskPercent() float64 {
-
     var stat syscall.Statfs_t
 
     err := syscall.Statfs(".", &stat)

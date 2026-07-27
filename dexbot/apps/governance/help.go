@@ -70,7 +70,16 @@ import (
  * Purpose       : Returns the CLI help text describing all governance actions.
  * Inputs        : args map[string]string (unused)
  * Return        : string — help text, error — always nil
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases   : none
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
  * Number Of Lines : 3
  ******************************************************************************/
 func handleHelpCommand(args map[string]string) (string, error) {
@@ -143,7 +152,16 @@ func handleHelpCommand(args map[string]string) (string, error) {
  * Purpose       : Returns configuration variable descriptions via config.Describe().
  * Inputs        : args map[string]string (unused)
  * Return        : string — config description, error — always nil
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases   : none
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
  * Number Of Lines : 3
  ******************************************************************************/
 func handleHelpConfigCommand(args map[string]string) (string, error) {
@@ -156,6 +174,11 @@ func handleHelpConfigCommand(args map[string]string) (string, error) {
  * Inputs        : args map[string]string (unused)
  * Return        : string — verbose config docs, error — always nil
  * Error Cases   : none
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
  * Number Of Lines : 3
  ******************************************************************************/
 func handleHelpConfigVVVCommand(args map[string]string) (string, error) {

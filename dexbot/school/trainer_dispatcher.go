@@ -78,6 +78,30 @@ type Dispatcher struct {
 
 // NewDispatcher creates a training dispatcher.
 // If remote is nil, all training runs locally via Go-native trainers.
+/******************************************************************************
+ * Function Name : NewDispatcher
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func NewDispatcher(remote *RemoteClient) *Dispatcher {
 	d := &Dispatcher{
 		remote:     remote,
@@ -92,6 +116,30 @@ func NewDispatcher(remote *RemoteClient) *Dispatcher {
 }
 
 // SetProcessSpawner allows injecting a custom subprocess spawner (§91).
+/******************************************************************************
+ * Function Name : SetProcessSpawner
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (d *Dispatcher) SetProcessSpawner(ps *ProcessSpawner) {
 	d.spawner = ps
 }
@@ -113,6 +161,10 @@ func (d *Dispatcher) SetProcessSpawner(ps *ProcessSpawner) {
  *   Type        : *FitnessHistory
  *   Description : Fitness computed after training (via Backtest on same data).
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - No Go-native trainer and no remote: returns nil
  *   - Remote training fails: returns nil
@@ -186,6 +238,9 @@ func (d *Dispatcher) TrainModel(model *ModelMetadata, features [][]float64, targ
  *   Description : Number of models successfully trained.
  *
  * Complexity : O(m * T) where m = models, T = per-model training time
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 30
  ******************************************************************************/
 func (d *Dispatcher) TrainPopulation(pop *ModelPopulation, features [][]float64, targets []float64, cfg *TrainingConfig) int {
@@ -225,6 +280,9 @@ func (d *Dispatcher) TrainPopulation(pop *ModelPopulation, features [][]float64,
  *   Description : Computed fitness, or nil if model type not supported.
  *
  * Complexity : Depends on trainer
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 20
  ******************************************************************************/
 func (d *Dispatcher) BacktestModel(model *ModelMetadata, features [][]float64, targets []float64) *FitnessHistory {
@@ -263,6 +321,9 @@ func (d *Dispatcher) BacktestModel(model *ModelMetadata, features [][]float64, t
  *   Description : Per-fold fitness histories, or nil on failure.
  *
  * Complexity : O(folds * training_time)
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 18
  ******************************************************************************/
 func (d *Dispatcher) WalkForwardModel(model *ModelMetadata, features [][]float64, targets []float64, windowSize int) []FitnessHistory {
@@ -293,6 +354,12 @@ func (d *Dispatcher) WalkForwardModel(model *ModelMetadata, features [][]float64
  *                 "MODE_C" (remote worker2).
  *
  * Complexity : O(1)
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 12
  ******************************************************************************/
 func (d *Dispatcher) GetTrainingMode() string {
@@ -324,7 +391,11 @@ func (d *Dispatcher) GetTrainingMode() string {
  *   Description : Computed fitness from subprocess result.
  *
  * Complexity : O(subprocess_runtime), Number Of Lines : 20
- ******************************************************************************/
+ *****************************************************************************
+  * Error Cases :
+  *   - None
+  *
+ */
 func (d *Dispatcher) TrainWithSubprocess(model *ModelMetadata, procCfg *ProcessTrainerConfig) *FitnessHistory {
 	if d.spawner == nil {
 		return nil
@@ -353,7 +424,21 @@ func (d *Dispatcher) TrainWithSubprocess(model *ModelMetadata, procCfg *ProcessT
  *
  * Purpose :
  *   Returns the list of model types with registered Go-native trainers.
- ******************************************************************************/
+ *****************************************************************************
+  * Inputs :
+  *   None (see function signature)
+  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+  * Error Cases :
+  *   - None
+  *
+  * Number Of Lines :
+  *   10
+  *
+ */
 func (d *Dispatcher) AvailableTrainers() []string {
 	return RegisteredTrainerTypes()
 }

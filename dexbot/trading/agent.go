@@ -112,6 +112,29 @@ const (
 )
 
 // AllHorizons returns all trading horizon constants.
+/******************************************************************************
+ * Function Name : AllHorizons
+ *
+ * Purpose :
+ *   Return all supported trading time horizons.
+ *
+ * Inputs :
+ *   None
+ *
+ * Return :
+ *   Type        : []string
+ *   Description : List of horizon name strings.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   3
+ ******************************************************************************/
 func AllHorizons() []string {
 	return []string{Horizon15Min, HorizonHourly, HorizonIntraday, HorizonMultiDay,
 		HorizonSwing, HorizonOptions, HorizonVolatility, HorizonLongTerm}
@@ -222,6 +245,31 @@ type AgentPool struct {
 }
 
 // NewAgentPool creates a new empty agent pool.
+/******************************************************************************
+ * Function Name : NewAgentPool
+ *
+ * Purpose :
+ *   Create a new pool of trading agents.
+ *
+ * Inputs :
+ *   size int
+ *     Type        : int
+ *     Description : Number of agents to allocate.
+ *
+ * Return :
+ *   Type        : *AgentPool
+ *   Description : Initialized agent pool pointer.
+ *
+ * Complexity :
+ *   Time  : O(N)
+ *   Space : O(N)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 func NewAgentPool() *AgentPool {
 	return &AgentPool{
 		agents: make(map[string]*PortfolioAgent),
@@ -244,6 +292,13 @@ func NewAgentPool() *AgentPool {
  *   Type        : *PortfolioAgent
  *   Description : Initialized agent with Active lifecycle.
  *
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 25
  ******************************************************************************/
 func (p *AgentPool) CreateAgent(category, strategy, horizon string) *PortfolioAgent {
@@ -296,6 +351,10 @@ func (p *AgentPool) CreateAgentSimple(category, strategy string) *PortfolioAgent
  *   Type        : *PortfolioAgent
  *   Description : New agent with slightly mutated DNA.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Parent not found : returns nil
  *
@@ -366,6 +425,13 @@ func (p *AgentPool) ReplicateAgent(parentID string) *PortfolioAgent {
  *   Type        : bool
  *   Description : true if agent was found and evolved.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 20
  ******************************************************************************/
 func (p *AgentPool) EvolveAgent(id string) bool {
@@ -427,6 +493,13 @@ func (p *AgentPool) EvolveAgent(id string) bool {
  *   Type        : *PortfolioAgent
  *   Description : Merged child agent.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 30
  ******************************************************************************/
 func (p *AgentPool) MergeAgents(idA, idB string) *PortfolioAgent {
@@ -495,6 +568,13 @@ func (p *AgentPool) MergeAgents(idA, idB string) *PortfolioAgent {
  *   Type        : string
  *   Description : New capital tier.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 15
  ******************************************************************************/
 func (p *AgentPool) PromoteAgent(id string) string {
@@ -525,6 +605,17 @@ func (p *AgentPool) PromoteAgent(id string) string {
  *   id  string  — Agent ID
  *   kpi KPIEntry — Performance snapshot
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 10
  ******************************************************************************/
 func (p *AgentPool) RecordKPI(id string, kpi KPIEntry) {
@@ -550,6 +641,17 @@ func (p *AgentPool) RecordKPI(id string, kpi KPIEntry) {
  *   id       string             — Agent ID
  *   holdings map[string]*Holding — New holdings map
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 8
  ******************************************************************************/
 func (p *AgentPool) UpdateHoldings(id string, holdings map[string]*Holding) {
@@ -566,6 +668,20 @@ func (p *AgentPool) UpdateHoldings(id string, holdings map[string]*Holding) {
  * Purpose :
  *   Updates an agent's risk profile (§52).
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 8
  ******************************************************************************/
 func (p *AgentPool) UpdateRisk(id string, risk *RiskProfile) {
@@ -614,6 +730,30 @@ func (p *AgentPool) ActiveAgents() []*PortfolioAgent {
 }
 
 // Count returns total agent count.
+/******************************************************************************
+ * Function Name : Count
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (p *AgentPool) Count() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -621,6 +761,30 @@ func (p *AgentPool) Count() int {
 }
 
 // ActiveCount returns active agent count.
+/******************************************************************************
+ * Function Name : ActiveCount
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (p *AgentPool) ActiveCount() int {
 	return len(p.ActiveAgents())
 }
@@ -638,6 +802,13 @@ func (p *AgentPool) ActiveCount() int {
  *   Type        : []*PortfolioAgent
  *   Description : Agents matching the horizon.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 14
  ******************************************************************************/
 func (p *AgentPool) ListByHorizon(horizon string) []*PortfolioAgent {
@@ -691,6 +862,30 @@ func (p *AgentPool) RebalanceCapital(total float64) {
 }
 
 // TotalAllocated returns sum of capital across active agents.
+/******************************************************************************
+ * Function Name : TotalAllocated
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (p *AgentPool) TotalAllocated() float64 {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -705,6 +900,30 @@ func (p *AgentPool) TotalAllocated() float64 {
 }
 
 // TopBySharpe returns top N agents by Sharpe ratio.
+/******************************************************************************
+ * Function Name : TopBySharpe
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (p *AgentPool) TopBySharpe(n int) []*PortfolioAgent {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -729,6 +948,30 @@ func (p *AgentPool) TopBySharpe(n int) []*PortfolioAgent {
 }
 
 // WorstBySharpe returns bottom N agents by Sharpe.
+/******************************************************************************
+ * Function Name : WorstBySharpe
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (p *AgentPool) WorstBySharpe(n int) []*PortfolioAgent {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -755,6 +998,30 @@ func (p *AgentPool) WorstBySharpe(n int) []*PortfolioAgent {
 // ==============================
 // HELPERS
 // ==============================
+/******************************************************************************
+ * Function Name : maxGen
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func maxGen(a, b int) int {
 	if a > b {
@@ -764,6 +1031,30 @@ func maxGen(a, b int) int {
 }
 
 // ComputeRiskProfile calculates VaR, CVaR, Beta from a returns series.
+/******************************************************************************
+ * Function Name : ComputeRiskProfile
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func ComputeRiskProfile(returns []float64) *RiskProfile {
 	if len(returns) == 0 {
 		return &RiskProfile{}

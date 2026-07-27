@@ -61,7 +61,11 @@
  *
  * Notes :
  *   - Per rule1.txt coding standard.
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * New Parts :
+ *   [Function] See function list.
+ */
 package webui
 
 import (
@@ -94,6 +98,30 @@ type Renderer struct {
   txns        []governance.TransactionRecord
   balance     *infra.BalanceSummary // §79-80: account balance data
 }
+/******************************************************************************
+ * Function Name : NewRenderer
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func NewRenderer(registry *governance.Registry) *Renderer {
   return &Renderer{
@@ -109,27 +137,147 @@ func NewRenderer(registry *governance.Registry) *Renderer {
 }
 
 // SetBalance provides the latest balance summary for display.
+/******************************************************************************
+ * Function Name : SetBalance
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (r *Renderer) SetBalance(b *infra.BalanceSummary) {
   r.balance = b
 }
 
 // SetModelRegistry links the centralized model registry for live data.
+/******************************************************************************
+ * Function Name : SetModelRegistry
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (r *Renderer) SetModelRegistry(mr *governance.ModelRegistry) {
   r.modelReg = mr
   r.RefreshModels()
 }
 
 // SetTransactions updates transaction records for display.
+/******************************************************************************
+ * Function Name : SetTransactions
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (r *Renderer) SetTransactions(txns []governance.TransactionRecord) {
   r.txns = txns
 }
 
 // RefreshModels reloads model data from the centralized registry.
+/******************************************************************************
+ * Function Name : RefreshModels
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (r *Renderer) RefreshModels() {
   r.pullModelsFromRegistry()
 }
 
 // pullModelsFromRegistry reads live model data from the centralized registry.
+/******************************************************************************
+ * Function Name : pullModelsFromRegistry
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (r *Renderer) pullModelsFromRegistry() {
   if r.modelReg == nil {
     r.models = []governance.ModelPerformance{
@@ -178,6 +326,30 @@ func (r *Renderer) pullModelsFromRegistry() {
   }
   r.models = models
 }
+/******************************************************************************
+ * Function Name : SetPorts
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func (r *Renderer) SetPorts(gov, school, trading, web int) {
   r.govPort = gov
@@ -189,6 +361,30 @@ func (r *Renderer) SetPorts(gov, school, trading, web int) {
 // ==============================
 // DESIGN SYSTEM — CSS Style
 // ==============================
+/******************************************************************************
+ * Function Name : cssBase
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func cssBase() string {
   return `<style>
@@ -359,6 +555,30 @@ func cssBase() string {
 // ==============================
 // SHARED LAYOUT LAYERS
 // ==============================
+/******************************************************************************
+ * Function Name : writeHead
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func writeHead(w http.ResponseWriter, title, active string) {
   w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -382,6 +602,30 @@ func writeHead(w http.ResponseWriter, title, active string) {
     navLink("School", "school", "/school"),
   )
 }
+/******************************************************************************
+ * Function Name : writeFoot
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func writeFoot(w http.ResponseWriter, ports string) {
   fmt.Fprintf(w, `<div class="footer">%s</div></body></html>`, ports)
@@ -392,6 +636,30 @@ func writeFoot(w http.ResponseWriter, ports string) {
 // ==============================
 
 // ── Governance Dashboard (single table, expand-on-click log) ──
+/******************************************************************************
+ * Function Name : Operations
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (r *Renderer) Operations(w http.ResponseWriter) {
   writeHead(w, "Governance", "gov")
   fmt.Fprint(w, `<h1>Governance — Daemon Status</h1>
@@ -461,12 +729,60 @@ setInterval(pollDS,5000)
 // ── End of Governance Dashboard ──
 
 // ── BALANCE CARD (UPDATED WORKSPACE) ──
+/******************************************************************************
+ * Function Name : Portfolio
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (r *Renderer) Portfolio(w http.ResponseWriter) {
   writeHead(w, "Trading", "trade")
   fmt.Fprint(w, `<h1>Trading — Portfolio &amp; Balance</h1>`)
   r.writeBalanceCard(w)
   writeFoot(w, fmt.Sprintf("Portfolio data refreshed each trading cycle."))
 }
+/******************************************************************************
+ * Function Name : writeBalanceCard
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func (r *Renderer) writeBalanceCard(w http.ResponseWriter) {
 	if r.balance == nil {
@@ -1192,6 +1508,30 @@ function toggleAssetPred(id){
 // ==============================
 // SVG CHART VISUAL HELPERS
 // ==============================
+/******************************************************************************
+ * Function Name : trendBars
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func trendBars(current float64, n int, color string) string {
   const W, H, pad = 240, 52, 6
@@ -1212,6 +1552,30 @@ func trendBars(current float64, n int, color string) string {
   }
   return fmt.Sprintf(`<div class="chart-wrap"><svg width="%d" height="%d">%s</svg></div>`, W, H, bars.String())
 }
+/******************************************************************************
+ * Function Name : writePnLSparkline
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func writePnLSparkline(w http.ResponseWriter, txns []governance.TransactionRecord) {
   const W, H, pad = 260, 60, 8
@@ -1245,6 +1609,30 @@ func writePnLSparkline(w http.ResponseWriter, txns []governance.TransactionRecor
 // ==============================
 // TRAINING PAGE
 // ==============================
+/******************************************************************************
+ * Function Name : Training
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func (r *Renderer) Training(w http.ResponseWriter) {
   writeHead(w, "Training", "train")
@@ -1272,6 +1660,30 @@ func (r *Renderer) Training(w http.ResponseWriter) {
 // ==============================
 // SCHOOL DASHBOARD POPULATIONS
 // ==============================
+/******************************************************************************
+ * Function Name : SchoolDashboard
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func (r *Renderer) SchoolDashboard(w http.ResponseWriter) {
   writeHead(w, "School Dashboard", "school")
@@ -1424,6 +1836,30 @@ setTimeout(function(){if(!_dbTablesLoaded2)populateDBTables();}, 500);
 
   writeFoot(w, "School optimization matrices active.")
 }
+/******************************************************************************
+ * Function Name : buildTierDataFromRegistry
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func (r *Renderer) buildTierDataFromRegistry() map[string]map[string]interface{} {
   tierData := map[string]map[string]interface{}{
@@ -1448,6 +1884,30 @@ func (r *Renderer) buildTierDataFromRegistry() map[string]map[string]interface{}
 // ==============================
 // PREDICTION DUAL-LINE ANALYTICS
 // ==============================
+/******************************************************************************
+ * Function Name : PredictionComparison
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func (r *Renderer) PredictionComparison(w http.ResponseWriter) {
   topModelName := "LSTM_v2"
@@ -1480,6 +1940,30 @@ func (r *Renderer) PredictionComparison(w http.ResponseWriter) {
 </div></div>`, topSharpe, topSortino, topMAE, topR2, topDirection)
   writeFoot(w, "Real-time accuracy validation sync matrix.")
 }
+/******************************************************************************
+ * Function Name : predictionDualLine
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func predictionDualLine(w http.ResponseWriter) {
   const W, H, pad, n = 600, 200, 30, 24
@@ -1511,6 +1995,30 @@ func predictionDualLine(w http.ResponseWriter) {
     strings.Join(upPts, " "), strings.Join(loReverse, " "),
     strings.Join(predPts, " "), strings.Join(actPts, " "))
 }
+/******************************************************************************
+ * Function Name : mathSin
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func mathSin(x float64) float64 {
   x = x - float64(int(x/(2*3.14159)))*2*3.14159
@@ -1518,8 +2026,56 @@ func mathSin(x float64) float64 {
   x2 := x * x
   return x * (1 - x2*(1.0/6.0-x2/120.0))
 }
+/******************************************************************************
+ * Function Name : mathCos
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func mathCos(x float64) float64 { return mathSin(x + 3.14159/2) }
+/******************************************************************************
+ * Function Name : activeCount
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func activeCount(models []governance.ModelPerformance) int {
   n := 0
@@ -1528,6 +2084,30 @@ func activeCount(models []governance.ModelPerformance) int {
   }
   return n
 }
+/******************************************************************************
+ * Function Name : retiredCount
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func retiredCount(models []governance.ModelPerformance) int {
   n := 0

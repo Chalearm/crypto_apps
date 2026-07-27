@@ -51,7 +51,11 @@
  *
  * TODO :
  *   - Implement connection pools throttling mechanisms.
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ */
 package main
 
 import (
@@ -79,6 +83,10 @@ var dbConn *sql.DB
  * Return :
  *   None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Empty user/dbname properties trigger process termination.
  *   - Failure to establish network connectivity on both targets exits with code 1.
@@ -164,6 +172,10 @@ func InitDB() {
  *   Type        : string
  *   Description : Chain name or empty if not found.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - DB nil or query failure returns empty string.
  *
@@ -198,6 +210,10 @@ func GetChainNameByID(accountHash, chainID string) string {
  *   Range       : true/false
  *   Description : True if exists, false otherwise.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - SQL query error (returns false and logs error).
  *

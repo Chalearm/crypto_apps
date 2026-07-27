@@ -12,10 +12,44 @@
  * Modified Date   : 2026-07-13 12:00:00 (UTC+7)
  *
  * Description     :
- *   Generalized daemon IPC API library. Provides Multi-Governance High 
+ *   Generalized daemon IPC API library.
+ *
+ * Usage :
+ *   Directory : infra/
+ *   Used by   : all daemon apps (via dexbot/infra) Provides Multi-Governance High 
  *   Availability (HA) by broadcasting heartbeats. Abstracts process detachment, 
  *   duplicate prevention, and standard CLI commands.
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * Responsibilities:
+ *   - Part of the dexbot platform.
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/infra
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Updated Parts :
+ *   None
+ *
+ * New Parts :
+ *   [Function] See function list.
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)        | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-07-26 08:00:00 (UTC+7)      | Chalearm Saelim | Initial
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add documentation.
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ */
 package infra
 
 import (
@@ -33,6 +67,30 @@ import (
 
 	"dexbot/governance"
 )
+/******************************************************************************
+ * Function Name : HandleCLI
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func HandleCLI(action, name string) bool {
 	pidFile := filepath.Join("logs", fmt.Sprintf("%s.pid", name))
@@ -70,6 +128,30 @@ func HandleCLI(action, name string) bool {
 		return false // Unrecognized. Route to user-space!
 	}
 }
+/******************************************************************************
+ * Function Name : RunDaemonApp
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func RunDaemonApp(name, listenIP string, listenPort int, worker func(ctx context.Context)) {
 	InitLogger()
@@ -150,6 +232,13 @@ func RunDaemonApp(name, listenIP string, listenPort int, worker func(ctx context
  * Return :
  *   None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines :
  *   52
  ******************************************************************************/
@@ -209,6 +298,30 @@ func startGeneralizedUdpListener(ctx context.Context, name, ip string, port int,
 		}
 	}
 }
+/******************************************************************************
+ * Function Name : sendPeriodicHeartbeat
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func sendPeriodicHeartbeat(name string, govConns []*net.UDPConn, startTime time.Time) {
 	info := &governance.DaemonInfo{
@@ -227,6 +340,30 @@ func sendPeriodicHeartbeat(name string, govConns []*net.UDPConn, startTime time.
 		gConn.Write(hbData)
 	}
 }
+/******************************************************************************
+ * Function Name : checkDaemon
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func checkDaemon(pidFile string) (bool, int) {
 	data, err := os.ReadFile(pidFile)

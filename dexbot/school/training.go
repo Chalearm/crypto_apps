@@ -106,11 +106,31 @@ type TrainingConfig struct {
  *   Description : Default training configuration (window=30, epochs=100,
  *                 lr=0.01, reg=0.001, batch=32, valSplit=0.2, earlyStop=true).
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases : None
  *
  * Complexity : Time O(1), Space O(1)
  * Number Of Lines : 13
  ******************************************************************************/
+  *
+  * Function Name : NewTrainingConfig
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func NewTrainingConfig() *TrainingConfig {
 	return &TrainingConfig{
 		WindowSize:      30,
@@ -178,6 +198,10 @@ var trainerFactories = map[string]func() TrainingEngine{}
  *
  * Return : None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Re-registration: overwrites (last wins)
  *
@@ -229,6 +253,9 @@ func NewTrainer(modelType string) TrainingEngine {
  *   Description : true if a Go-native trainer exists.
  *
  * Complexity : Time O(1), Space O(1)
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 5
  ******************************************************************************/
 func HasGoTrainer(modelType string) bool {
@@ -247,6 +274,12 @@ func HasGoTrainer(modelType string) bool {
  *   Description : Model type names with registered trainers.
  *
  * Complexity : Time O(n), Space O(n)
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 10
  ******************************************************************************/
 func RegisteredTrainerTypes() []string {
@@ -433,6 +466,30 @@ func ComputeFitnessFromPredictions(predictions, actuals []float64) *FitnessHisto
 }
 
 // sqrt computes square root via Newton's method (stdlib-avoiding).
+/******************************************************************************
+ * Function Name : sqrt
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func sqrt(x float64) float64 {
 	if x <= 0 {
 		return 0

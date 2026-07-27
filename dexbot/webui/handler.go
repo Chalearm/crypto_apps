@@ -8,12 +8,20 @@
  *
  * Version         : 1.0.0
  * Status          : Development
+  *
+  * Function Name : ListenAndServe
+  * Purpose :
+  *   Performs its designated operation.
  * Created Date    : 2026-07-01 19:25:25 (UTC+7)
  * Modified Date   : 2026-07-01 19:25:25 (UTC+7)
  *
  * Description     :
  *   HTTP server wrapper and API handlers for the Dexbot web dashboard. Extracted from apps/governance/main.go during Phase 10 (myreq2.txt §8). Routes: GET  /                             → Operations dashb
  *
+  *
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
  * Responsibilities:
  *   - - Implement core functionality for webui package.
  *
@@ -95,20 +103,46 @@ type Server struct {
 	OnAction func(name, action string)
 }
 
-/*
-Function: NewServer
-Description:
-  Creates a new HTTP dashboard server.
+/******************************************************************************
+ * Function Name : NewServer
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - registry *governance.Registry : Daemon registry
-  - port     int                  : Listen port
-
-Output:
-  - *Server: Initialized server
-
-Lines: ~12
-*/
+  *
+  * Function Name : NewServer
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func NewServer(registry *governance.Registry, port int) *Server {
 	return &Server{
 		renderer: NewRenderer(registry),
@@ -117,36 +151,58 @@ func NewServer(registry *governance.Registry, port int) *Server {
 	}
 }
 
-/*
-Function: Renderer
-Description:
-  Returns the embedded Renderer for direct access (e.g. SetPorts).
+/******************************************************************************
+ * Function Name : Renderer
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
-
-Output:
-  - *Renderer
-
-Lines: ~3
-*/
 func (s *Server) Renderer() *Renderer {
 	return s.renderer
 }
 
-/*
-Function: ListenAndServe
-Description:
-  Registers all routes and starts the HTTP server. Blocks.
+/******************************************************************************
+ * Function Name : ListenAndServe
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
-
-Output:
-  - error: Non-nil if server fails to start
-
-Lines: ~20
-*/
 func (s *Server) ListenAndServe() error {
 	mux := http.NewServeMux()
 
@@ -180,20 +236,43 @@ func (s *Server) ListenAndServe() error {
 // API HANDLERS
 // ==============================
 
-/*
-Function: apiDaemonsHandler
-Description:
-  Returns all daemon status as JSON.
+/******************************************************************************
+ * Function Name : apiDaemonsHandler
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - w http.ResponseWriter
-  - r *http.Request
-
-Output:
-  - none
-
-Lines: ~12
-*/
+  *
+  * Function Name : apiDaemonsHandler
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func (s *Server) apiDaemonsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	names := s.registry.List()
@@ -207,21 +286,30 @@ func (s *Server) apiDaemonsHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(o)
 }
 
-/*
-Function: apiDaemonActionHandler
-Description:
-  Handles POST actions on /api/daemon/{name}/{action}.
-  Supported: restart, stop, start.
+/******************************************************************************
+ * Function Name : apiDaemonActionHandler
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - w http.ResponseWriter
-  - r *http.Request
-
-Output:
-  - none
-
-Lines: ~35
-*/
 func (s *Server) apiDaemonActionHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

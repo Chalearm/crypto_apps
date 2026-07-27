@@ -13,7 +13,11 @@
  *   Finds bugs in CSS visibility, JS data embedding, and DOM structure.
  *
  * Usage : go test ./integration -v -run PageContent -timeout 30s
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ */
 package integration
 
 import (

@@ -110,6 +110,10 @@ var statisticalModelCategories = map[string]string{
  *   Range       : length = 10
  *   Description : All statistical model type constants in definition order.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   None
  *
@@ -167,6 +171,10 @@ func AllStatisticalModels() []string {
  *   Range       : never nil
  *   Description : Initialized model metadata ready for GA population.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Unknown modelType : returns a model with Architecture = "Unknown"
  *     and CategoryOptions as fallback.
@@ -225,6 +233,10 @@ func NewStatisticalModel(modelType string, modelIndex int) *ModelMetadata {
  *   Range       : true or false
  *   Description : true if modelType is a recognized statistical model.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   None
  *

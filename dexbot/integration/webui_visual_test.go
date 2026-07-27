@@ -17,7 +17,11 @@
  *   BUG #1: Account balance shows real $1.09 even when no key is entered
  *   BUG #2: Chain panel is OPEN by default (should be minimized/collapsed)
  *   BUG #3: DB dropdown has no table options populated by populateDBTables
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ */
 package integration
 
 import (

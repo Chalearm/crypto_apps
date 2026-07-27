@@ -1,62 +1,14 @@
 /******************************************************************************
  * File Name       : db.go
  * File Path       : infra/db.go
- *
  * Author          : deepseek-4.0-pro
  * Owner           : Chalearm Saelim
  * Reviewer        : Chalearm Saelim
- *
  * Version         : 1.0.0
  * Status          : Development
  * Created Date    : 2026-07-01 19:25:28 (UTC+7)
  * Modified Date   : 2026-07-01 19:25:28 (UTC+7)
- *
- * Description     :
- *   Centralized database layer for Dexbot daemons, utilizing PostgreSQL and configured via environment variables. It provides functionalities for initializing the database connection, checking its health,
- *
- * Responsibilities:
- *   - - Implement core functionality for infra package.
- *
- * Usage :
- *   Directory : infra/
- *
- *   Build :
- *     go build ./infra
- *
- *   Run :
- *     go run .  (from dexbot root)
- *
- *   Test :
- *     go test ./infra
- *
- * Dependencies :
- *   Internal :
- *     - dexbot/infra
- *
- *   External :
- *     - (stdlib only)
- *
- * Configuration :
- *   - config.env
- *
- * Updated Parts :
- *   None (initial version)
- *
- * New Parts :
- *   [Functions] All exported functions in this file
- *
- * Change History :
- *   -------------------------------------------------------------------------
- *   Version | Date Time (UTC+7)      | Author          | Description
- *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-07-01 19:25:28 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
- *   -------------------------------------------------------------------------
- *
- * TODO :
- *   - Add unit tests
- *
- * Notes :
- *   - Per rule1.txt coding standard.
+ * Description     : Centralized PostgreSQL database layer for Dexbot daemons.
  ******************************************************************************/
 package infra
 
@@ -67,24 +19,15 @@ import (
 	"os"
 	"time"
 
-	_ "github.com/lib/pq" // PostgreSQL driver
+	_ "github.com/lib/pq"
 )
 
-// DB is the global database connection pool accessible by other modules.
 var DB *sql.DB
 
-/*
-Function: InitDB
-Description:
-  Initializes the global PostgreSQL database connection pool and ensures the `market_prices`
-  table schema exists. It reads connection details from environment variables and attempts
-  to establish and verify the connection.
-Input:
-  - none
-Output:
-  - error: Returns an error if the database connection or schema creation fails; otherwise, `nil`.
-Lines: ~45
-*/
+/******************************************************************************
+ * Function Name : InitDB
+ * Purpose       : Initializes the database connection pool.
+ ******************************************************************************/
 func InitDB() error {
 	host := os.Getenv("DB_HOST")
 	port := os.Getenv("DB_PORT")
@@ -92,7 +35,6 @@ func InitDB() error {
 	password := os.Getenv("DB_PASS")
 	dbname := os.Getenv("DB_NAME")
 
-	// Fallback hosts to try in order (§124)
 	hosts := []string{host}
 	if host == "" || host == "127.0.0.1" {
 		hosts = []string{host, "db", "127.0.0.1"}
@@ -102,13 +44,19 @@ func InitDB() error {
 	}
 
 	if user == "" || dbname == "" {
-		user = "trader"; password = "secret"; dbname = "traderdb"
-		if port == "" { port = "5432" }
+		user = "trader"
+		password = "secret"
+		dbname = "traderdb"
+		if port == "" {
+			port = "5432"
+		}
 	}
 
 	var lastErr error
 	for _, h := range hosts {
-		if h == "" { continue }
+		if h == "" {
+			continue
+		}
 		connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 			h, port, user, password, dbname)
 
@@ -123,13 +71,13 @@ func InitDB() error {
 		err = DB.PingContext(ctx)
 		cancel()
 		if err != nil {
-			DB.Close(); DB = nil
+			DB.Close()
+			DB = nil
 			lastErr = err
 			continue
 		}
 
 		Info(fmt.Sprintf("Database connection established via %s:%s", h, port))
-		// Limit pool size to avoid exhausting PostgreSQL connections
 		DB.SetMaxOpenConns(10)
 		DB.SetMaxIdleConns(5)
 		DB.SetConnMaxLifetime(5 * time.Minute)
@@ -144,27 +92,16 @@ func InitDB() error {
 	return fmt.Errorf("database connection failed after trying %v", hosts)
 }
 
-/*
-Function: CheckDBHealth
-Description:
-  Checks the health of the global database connection by performing a ping operation.
-  This function is crucial for daemons to monitor the database's availability.
-Input:
-  - none
-Output:
-  - error: Returns `nil` if the database is healthy and reachable; otherwise, returns an error.
-Lines: ~20
-*/
+/******************************************************************************
+ * Function Name : CheckDBHealth
+ * Purpose       : Checks the health of the database connection using ping.
+ ******************************************************************************/
 var CheckDBHealth = func() error {
 	if DB == nil {
 		Warn("Database connection is not initialized. Attempting to re-initialize.")
-		// Attempt to re-initialize the DB if it's nil
-		// This could be problematic if InitDB relies on a running daemon setup.
-		// For robust error handling, consider if re-initialization here is truly safe/desirable.
-		return InitDB() // If InitDB fails, it will log its own error.
+		return InitDB()
 	}
 
-	// Use a context with a timeout for the health check ping
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -173,21 +110,13 @@ var CheckDBHealth = func() error {
 		return err
 	}
 
-	// Info("Database health OK.") // Too verbose for a periodic health check
 	return nil
 }
 
-/*
-Function: CreateMarketTable
-Description:
-  Creates the `market_prices` table in the connected database if it does not already exist.
-  This table is used to store historical market data for various cryptocurrencies.
-Input:
-  - none
-Output:
-  - none
-Lines: ~20
-*/
+/******************************************************************************
+ * Function Name : CreateMarketTable
+ * Purpose       : Creates the market_prices table if it does not exist.
+ ******************************************************************************/
 func CreateMarketTable() {
 	query := `
     CREATE TABLE IF NOT EXISTS market_prices (
@@ -228,30 +157,7 @@ func CreateMarketTable() {
 
 /******************************************************************************
  * Function Name : ListTables
- *
- * Purpose :
- *   Returns the names of all tables in the public schema of the connected
- *   database. Per myreq4.txt §87: enables the database browser dropdown.
- *
- * Inputs :
- *   None
- *
- * Return :
- *   Type        : []string
- *   Description : Table names in alphabetical order.
- *
- * Error Cases :
- *   - DB not initialized : returns empty slice
- *   - Query fails        : returns empty slice, logs error
- *
- * Dependencies :
- *   - DB (global *sql.DB)
- *
- * Complexity :
- *   Time  : O(1) — single system catalog query
- *   Space : O(n) where n = number of tables
- *
- * Number Of Lines : 25
+ * Purpose       : Lists all public schema tables in the database.
  ******************************************************************************/
 func ListTables() []string {
 	if DB == nil {
@@ -277,42 +183,7 @@ func ListTables() []string {
 
 /******************************************************************************
  * Function Name : QueryTableRows
- *
- * Purpose :
- *   Fetches up to `limit` rows from a given table with optional sort order.
- *   Per myreq4.txt §87: displays DB table data on the web dashboard.
- *
- * Inputs :
- *   tableName
- *     Type        : string
- *     Range       : valid public table name
- *     Description : Table to query.
- *
- *   limit
- *     Type        : int
- *     Range       : 1 ~ 25
- *     Description : Maximum number of rows to return.
- *
- *   sortOrder
- *     Type        : string
- *     Range       : "newest", "oldest", "default"
- *     Description : Sort direction (newest=DESC, oldest=ASC, default=none).
- *
- * Outputs :
- *   None (returned via []map[string]interface{})
- *
- * Return :
- *   Type        : ([]string, [][]string)
- *   Description : Column names and data rows (all values as strings).
- *
- * Dependencies :
- *   - DB (global *sql.DB)
- *
- * Complexity :
- *   Time  : O(n) where n = number of rows returned
- *   Space : O(n)
- *
- * Number Of Lines : 40
+ * Purpose       : Queries table rows with limits and sorting for dashboard display.
  ******************************************************************************/
 func QueryTableRows(tableName string, limit int, sortOrder string) ([]string, [][]string) {
 	if DB == nil {
@@ -327,7 +198,6 @@ func QueryTableRows(tableName string, limit int, sortOrder string) ([]string, []
 
 	orderClause := ""
 	if sortOrder == "newest" || sortOrder == "oldest" {
-		// Try id column first, then created_at, then ts
 		orderCol := ""
 		for _, col := range []string{"id", "created_at", "ts", "timestamp"} {
 			var exists bool
@@ -385,26 +255,7 @@ func QueryTableRows(tableName string, limit int, sortOrder string) ([]string, []
 
 /******************************************************************************
  * Function Name : InsertMarketData
- *
- * Purpose :
- *   Inserts a market price record into market_prices. Used by the School
- *   daemon to record price data for training (§13, §91).
- *
- * Inputs :
- *   symbol  string  — Token ticker (e.g., "BNB")
- *   price   float64 — Current price
- *   volume  float64 — 24h volume
- *   high24  float64 — 24h high
- *   low24   float64 — 24h low
- *   base    string  — Base asset
- *   quote   string  — Quote asset
- *   chainID string  — Chain identifier
- *
- * Return :
- *   Type        : error
- *   Description : nil on success, error otherwise.
- *
- * Complexity : O(1), Number Of Lines : 25
+ * Purpose       : Inserts a market price record into market_prices.
  ******************************************************************************/
 func InsertMarketData(symbol string, price, volume, high24, low24 float64, base, quote, chainID string) error {
 	if DB == nil {
@@ -424,20 +275,7 @@ func InsertMarketData(symbol string, price, volume, high24, low24 float64, base,
 
 /******************************************************************************
  * Function Name : FetchTrainingData
- *
- * Purpose :
- *   Fetches the last N market price records for a given symbol as
- *   feature-target pairs for model training (§90, §91).
- *
- * Inputs :
- *   symbol  string — Token ticker
- *   limit   int    — Max records (e.g., 300)
- *
- * Return :
- *   Type        : (features [][]float64, targets []float64)
- *   Description : Feature matrix and target vector suitable for TrainingEngine.
- *
- * Complexity : O(n), Number Of Lines : 30
+ * Purpose       : Fetches the last N market records for training feature-target pairs.
  ******************************************************************************/
 func FetchTrainingData(symbol string, limit int) ([][]float64, []float64) {
 	if DB == nil || limit <= 0 {
@@ -459,7 +297,6 @@ func FetchTrainingData(symbol string, limit int) ([][]float64, []float64) {
 		if err := rows.Scan(&price, &volume, &high, &low); err != nil {
 			continue
 		}
-		// Feature: [price, volume, high, low], Target: price (next-step forecast)
 		features = append(features, []float64{price, volume, high, low})
 		targets = append(targets, price)
 	}

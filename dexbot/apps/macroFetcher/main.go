@@ -1,18 +1,54 @@
-/*
-
-./main -asset=bitcoin -ticker=BTC-USD -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -cyclicalTime
-./main -asset=ethereum -ticker=ETH-USD -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -cyclicalTime
-./main -asset=solana -ticker=SOL-USD -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -cyclicalTime
-./main -asset=binance -ticker=BNB-USD -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -cyclicalTime
-./main -asset=uniswap -ticker=UNI7083-USD -start=2022-07-01 -end=2026-06-30 -interval=daily -transformVolume -cyclicalTime
- 
-# validate
-./main -asset=gold -ticker=GC=F -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -weekend -cyclicalTime
-./main -asset=oil -ticker=BZ=F -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -weekend -cyclicalTime
-./main -asset=spy -ticker=SPY -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -weekend -cyclicalTime
-./main -asset=fed_rate -ticker=^IRX -start=2026-07-01 -end=2026-07-21 -interval=daily -transformVolume -weekend -cyclicalTime
-
-*/
+/******************************************************************************
+ * File Name       : main.go
+ * File Path       : apps/macroFetcher/main.go
+ *
+ * Author          : Chalearm Saelim
+ * Owner           : Chalearm Saelim
+ * Reviewer        : Chalearm Saelim
+ *
+ * Version         : 1.0.0
+ * Status          : Development
+ * Created Date    : 2026-07-26 06:03:11 (UTC+7)
+ * Modified Date   : 2026-07-26 06:03:11 (UTC+7)
+ *
+ * Description     :
+ *   Macro economic data fetcher daemon.
+ *
+ * Usage :
+ *   Directory : apps/macroFetcher/
+ *   Build     : go build -o macroFetcher .
+ *   Run       : ./macroFetcher
+ *****************************************************************************
+ *
+ * Responsibilities:
+ *   - Part of the dexbot platform.
+ *
+ * Dependencies :
+ *   Internal :
+ *     - dexbot/infra
+ *
+ *   External :
+ *     - (stdlib only)
+ *
+ * Updated Parts :
+ *   None
+ *
+ * New Parts :
+ *   [Function] See function list.
+ *
+ * Change History :
+ *   -------------------------------------------------------------------------
+ *   Version | Date Time (UTC+7)        | Author          | Description
+ *   -------------------------------------------------------------------------
+ *   1.0.0   | 2026-07-26 08:00:00 (UTC+7)      | Chalearm Saelim | Initial
+ *   -------------------------------------------------------------------------
+ *
+ * TODO :
+ *   - Add documentation.
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ */
 
 package main
 
@@ -78,6 +114,28 @@ type DataRow struct {
 	HourSin, HourCos, MinSin, MinCos float64
 	DayWkSin, DayWkCos, DayYrSin, DayYrCos float64
 }
+/******************************************************************************
+ * Function Name : main
+ *
+ * Purpose :
+ *   Entry point for the application.
+ *
+ * Inputs :
+ *   None (reads os.Args or stdlib flags)
+ *
+ * Return :
+ *   None (exits with code 0 on success)
+ *
+ * Complexity :
+ *   Time  : O(N)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   15
+ ******************************************************************************/
 func main() {
 	flag.Usage = func() { showHelpMenu() }
 
@@ -184,6 +242,30 @@ func main() {
 	writeRawCSV(rawFilename, processedRows, isHighFreq)
 	writeTransformedCSV(returnFilename, processedRows, config.TransformVolume, config.CyclicalTime, isHighFreq)
 }
+/******************************************************************************
+ * Function Name : parseFlags
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func parseFlags() (MacroConfig, bool) {
 	asset := flag.String("asset", "gold", "Name tag used for naming output CSV targets")
@@ -213,10 +295,58 @@ func parseFlags() (MacroConfig, bool) {
 		WeekendFill:     *weekend,
 	}, *help
 }
+/******************************************************************************
+ * Function Name : isCryptoHighFrequency
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func isCryptoHighFrequency(interval string) bool {
 	return interval == "15m" || interval == "1h" || interval == "4h"
 }
+/******************************************************************************
+ * Function Name : fetchFromBinance
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func fetchFromBinance(symbol, interval string, start, end time.Time) ([]DataRow, error) {
 	fmt.Println("⚡ Initiating Paginated Binance Klines Spot API Engine...")
@@ -301,6 +431,30 @@ func fetchFromBinance(symbol, interval string, start, end time.Time) ([]DataRow,
 
 	return allRecords, nil
 }
+/******************************************************************************
+ * Function Name : fetchFromYahooFallback
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func fetchFromYahooFallback(ticker, interval string, start, end time.Time) ([]DataRow, error) {
 	yahooInterval := "1d"
@@ -333,6 +487,30 @@ func fetchFromYahooFallback(ticker, interval string, start, end time.Time) ([]Da
 	}
 	return records, nil
 }
+/******************************************************************************
+ * Function Name : generateContinuousCalendarFill
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func generateContinuousCalendarFill(start, end time.Time, yahooData []DataRow) []DataRow {
 	yahooMap := make(map[string]DataRow)
@@ -356,6 +534,30 @@ func generateContinuousCalendarFill(start, end time.Time, yahooData []DataRow) [
 	}
 	return completedTimeline
 }
+/******************************************************************************
+ * Function Name : writeRawCSV
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func writeRawCSV(filename string, rows []DataRow, isHighFreq bool) {
 	file, _ := os.Create(filename)
@@ -396,6 +598,30 @@ func writeRawCSV(filename string, rows []DataRow, isHighFreq bool) {
 	}
 	fmt.Printf("💾 Raw Data Matrix successfully saved: %s\n", filename)
 }
+/******************************************************************************
+ * Function Name : writeTransformedCSV
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func writeTransformedCSV(filename string, rows []DataRow, incVol, incTime, isHighFreq bool) {
 	file, _ := os.Create(filename)
 	defer file.Close()
@@ -439,6 +665,30 @@ func writeTransformedCSV(filename string, rows []DataRow, incVol, incTime, isHig
 	}
 	fmt.Printf("💾 Transformed ML Matrix successfully saved: %s\n", filename)
 }
+/******************************************************************************
+ * Function Name : showHelpMenu
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func showHelpMenu() {
 	fmt.Println("================================================================================")

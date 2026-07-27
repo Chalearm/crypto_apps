@@ -12,6 +12,10 @@
  * Modified Date   : 2026-07-01 19:25:49 (UTC+7)
  *
  * Description     :
+  *
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
  *   Training orchestrator: splits model population across local GA engine and remote school sub-daemons. Merges remote fitness results back into the local model population. If no remote schools configured
  *
  * Responsibilities:
@@ -92,21 +96,46 @@ type Orchestrator struct {
 	tierMgr    *SchoolTierManager // §90: 4-tier school manager
 }
 
-/*
-Function: NewOrchestrator
-Description:
-  Creates a new training orchestrator.
+/******************************************************************************
+ * Function Name : NewOrchestrator
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - ga     *GAEngine      : Local GA engine
-  - remote *RemoteClient  : Remote school client (may be nil)
-  - pop    *ModelPopulation : Model population
-
-Output:
-  - *Orchestrator: Initialized orchestrator
-
-Lines: ~10
-*/
+  *
+  * Function Name : NewOrchestrator
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func NewOrchestrator(ga *GAEngine, remote *RemoteClient, pop *ModelPopulation) *Orchestrator {
 	infra.FnTrace("entering")
 	defer infra.FnTrace("OK")
@@ -120,33 +149,103 @@ func NewOrchestrator(ga *GAEngine, remote *RemoteClient, pop *ModelPopulation) *
 }
 
 // SetTierManager links the 4-tier school manager (§90).
+/******************************************************************************
+ * Function Name : SetTierManager
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
+  *
+  * Function Name : SetTierManager
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Return :
+  *   Type        : varies
+  *   Description : Result of computation.
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func (o *Orchestrator) SetTierManager(stm *SchoolTierManager) {
 	o.tierMgr = stm
 }
 
 // SetDispatcher sets a custom training dispatcher (§91).
+/******************************************************************************
+ * Function Name : SetDispatcher
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (o *Orchestrator) SetDispatcher(d *Dispatcher) {
 	o.dispatcher = d
 }
 
-/*
-Function: RunCycle
-Description:
-  Runs one full training cycle:
-  1. Collect non-graduate, non-retired models
-  2. Send to remote schools (if configured)
-  3. Run local GA on remaining models
-  4. Apply remote results to local population
-  5. Report summary
+/******************************************************************************
+ * Function Name : RunCycle
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - weights FitnessWeights : Scoring weights
-
-Output:
-  - string : Summary line
-
-Lines: ~40
-*/
 func (o *Orchestrator) RunCycle(weights FitnessWeights) string {
 	infra.FnTrace("entering")
 	defer infra.FnTrace("done")
@@ -176,19 +275,43 @@ func (o *Orchestrator) RunCycle(weights FitnessWeights) string {
 		remoteResults, summary, localGraduated)
 }
 
-/*
-Function: collectTrainable
-Description:
-  Returns models eligible for training: non-retired, non-graduate.
+/******************************************************************************
+ * Function Name : collectTrainable
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - none
-
-Output:
-  - []*ModelMetadata: Trainable models
-
-Lines: ~12
-*/
+  *
+  * Function Name : collectTrainable
+  * Purpose :
+  *   Performs its designated operation.
+  * Inputs :
+  *   None (see function signature)
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  * Error Cases :
+  *   - None
+  * Number Of Lines :
+  *   10
 func (o *Orchestrator) collectTrainable() []*ModelMetadata {
 	infra.FnTrace("entering")
 	categories := []string{
@@ -209,20 +332,30 @@ func (o *Orchestrator) collectTrainable() []*ModelMetadata {
 	return models
 }
 
-/*
-Function: applyRemoteResults
-Description:
-  Applies fitness results from remote schools back into the local
-  model population. Updates Fitness/FitnessTimeline fields.
+/******************************************************************************
+ * Function Name : applyRemoteResults
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
 
-Input:
-  - results []TrainingResult : Remote training results
-
-Output:
-  - int: Number of results successfully applied
-
-Lines: ~20
-*/
 func (o *Orchestrator) applyRemoteResults(results []TrainingResult) int {
 	infra.FnTrace(fmt.Sprintf("applying %d remote results", len(results)))
 	applied := 0

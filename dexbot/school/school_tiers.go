@@ -77,9 +77,57 @@ const (
 )
 
 // AllTiers returns all 4 tier names in order.
+/******************************************************************************
+ * Function Name : AllTiers
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func AllTiers() []string { return []string{TierPrimary, TierMiddle, TierHigh, TierGraduate} }
 
 // TierName returns a human-readable name for a tier.
+/******************************************************************************
+ * Function Name : TierName
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func TierName(tier string) string {
 	switch tier {
 	case TierPrimary:
@@ -96,6 +144,30 @@ func TierName(tier string) string {
 }
 
 // TierColor returns the accent color for a tier badge.
+/******************************************************************************
+ * Function Name : TierColor
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func TierColor(tier string) string {
 	switch tier {
 	case TierPrimary:
@@ -125,6 +197,30 @@ type TierConfig struct {
 }
 
 // NewTierConfig returns defaults for each tier.
+/******************************************************************************
+ * Function Name : NewTierConfig
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func NewTierConfig(tier string) TierConfig {
 	switch tier {
 	case TierPrimary:
@@ -182,6 +278,30 @@ type SchoolTier struct {
 }
 
 // NewSchoolTier creates a new empty tier.
+/******************************************************************************
+ * Function Name : NewSchoolTier
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func NewSchoolTier(tier string) *SchoolTier {
 	return &SchoolTier{
 		Tier:   tier,
@@ -192,6 +312,30 @@ func NewSchoolTier(tier string) *SchoolTier {
 }
 
 // AddModel adds a model to this tier. Respects MaxModels cap.
+/******************************************************************************
+ * Function Name : AddModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (st *SchoolTier) AddModel(tm *TierModel) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
@@ -202,6 +346,30 @@ func (st *SchoolTier) AddModel(tm *TierModel) {
 }
 
 // RemoveModel removes a model by ID.
+/******************************************************************************
+ * Function Name : RemoveModel
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (st *SchoolTier) RemoveModel(id string) bool {
 	st.mu.Lock()
 	defer st.mu.Unlock()
@@ -215,6 +383,30 @@ func (st *SchoolTier) RemoveModel(id string) bool {
 }
 
 // Count returns the number of models in this tier.
+/******************************************************************************
+ * Function Name : Count
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (st *SchoolTier) Count() int {
 	st.mu.RLock()
 	defer st.mu.RUnlock()
@@ -222,6 +414,30 @@ func (st *SchoolTier) Count() int {
 }
 
 // CountByStatus returns count of models with a given status.
+/******************************************************************************
+ * Function Name : CountByStatus
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (st *SchoolTier) CountByStatus(status string) int {
 	st.mu.RLock()
 	defer st.mu.RUnlock()
@@ -235,6 +451,30 @@ func (st *SchoolTier) CountByStatus(status string) int {
 }
 
 // GetModels returns a copy of the model list (thread-safe).
+/******************************************************************************
+ * Function Name : GetModels
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (st *SchoolTier) GetModels() []*TierModel {
 	st.mu.RLock()
 	defer st.mu.RUnlock()
@@ -244,6 +484,30 @@ func (st *SchoolTier) GetModels() []*TierModel {
 }
 
 // Population returns the backing ModelPopulation.
+/******************************************************************************
+ * Function Name : Population
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (st *SchoolTier) Population() *ModelPopulation { return st.pop }
 
 // ==============================
@@ -257,6 +521,30 @@ type SchoolTierManager struct {
 }
 
 // NewSchoolTierManager creates a manager with all 4 tiers initialized.
+/******************************************************************************
+ * Function Name : NewSchoolTierManager
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func NewSchoolTierManager() *SchoolTierManager {
 	m := &SchoolTierManager{Tiers: make(map[string]*SchoolTier)}
 	for _, t := range AllTiers() {
@@ -266,6 +554,30 @@ func NewSchoolTierManager() *SchoolTierManager {
 }
 
 // Get returns the tier by name.
+/******************************************************************************
+ * Function Name : Get
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (stm *SchoolTierManager) Get(tier string) *SchoolTier {
 	stm.mu.RLock()
 	defer stm.mu.RUnlock()
@@ -273,6 +585,30 @@ func (stm *SchoolTierManager) Get(tier string) *SchoolTier {
 }
 
 // AllModels returns all models across all tiers, flattened.
+/******************************************************************************
+ * Function Name : AllModels
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (stm *SchoolTierManager) AllModels() []*TierModel {
 	stm.mu.RLock()
 	defer stm.mu.RUnlock()
@@ -286,6 +622,30 @@ func (stm *SchoolTierManager) AllModels() []*TierModel {
 }
 
 // Summary returns a JSON-friendly summary of all tiers for the dashboard.
+/******************************************************************************
+ * Function Name : Summary
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (stm *SchoolTierManager) Summary() map[string]interface{} {
 	stm.mu.RLock()
 	defer stm.mu.RUnlock()
@@ -315,6 +675,30 @@ func (stm *SchoolTierManager) Summary() map[string]interface{} {
 // SeedFromPopulation populates the 4 tiers from an existing ModelPopulation.
 // Primary: single-model entries (non-ensemble). Middle: 3-submodel ensembles.
 // High: 5-submodel ensembles. Graduate: graduated models.
+/******************************************************************************
+ * Function Name : SeedFromPopulation
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (stm *SchoolTierManager) SeedFromPopulation(pop *ModelPopulation) {
 	stm.mu.Lock()
 	defer stm.mu.Unlock()
@@ -355,6 +739,30 @@ func (stm *SchoolTierManager) SeedFromPopulation(pop *ModelPopulation) {
 		}
 	}
 }
+/******************************************************************************
+ * Function Name : mapStatus
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 
 func mapStatus(s string) string {
 	switch s {

@@ -170,6 +170,10 @@ type ArtifactDeployment struct {
  *   Type        : error
  *   Description : nil if valid, descriptive error otherwise.
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Missing ModelFile.Data : "model file data is empty"
  *   - Missing Metadata.ModelIdentifier : "model identifier is required"
@@ -225,6 +229,9 @@ func ValidateArtifact(a *ModelArtifact) error {
  *   Description : Fully populated artifact ready for transport or storage.
  *
  * Complexity : O(1)
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 30
  ******************************************************************************/
 func NewArtifactFromModel(model *ModelMetadata, serialized []byte, trainerType string, features []FeatureColumn) *ModelArtifact {
@@ -294,6 +301,9 @@ func NewArtifactFromModel(model *ModelMetadata, serialized []byte, trainerType s
  *   Description : JSON-encoded artifact.
  *
  * Complexity : O(size)
+ *
+ * Error Cases :
+ *   - None
  * Number Of Lines : 5
  ******************************************************************************/
 func MarshalArtifact(a *ModelArtifact) ([]byte, error) {
@@ -315,7 +325,11 @@ func MarshalArtifact(a *ModelArtifact) ([]byte, error) {
  *
  * Complexity : O(size)
  * Number Of Lines : 10
- ******************************************************************************/
+ *****************************************************************************
+  * Error Cases :
+  *   - None
+  *
+ */
 func UnmarshalArtifact(data []byte) (*ModelArtifact, error) {
 	var a ModelArtifact
 	if err := json.Unmarshal(data, &a); err != nil {

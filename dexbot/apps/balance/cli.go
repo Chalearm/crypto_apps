@@ -45,7 +45,11 @@
  *
  * TODO :
  *   - Add unit tests.
- ******************************************************************************/
+ *****************************************************************************
+ *
+ * Notes :
+ *   - Per regulator coding standard.
+ */
 package main
 
 import (
@@ -71,6 +75,10 @@ import (
  * Return :
  *   None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - None
  *
@@ -140,6 +148,10 @@ func HandleHelp() {
  * Return :
  *   None
  *
+  * Complexity :
+  *   Time  : O(1)
+  *   Space : O(1)
+  *
  * Error Cases :
  *   - Missing required flags triggers os.Exit(1).
  *

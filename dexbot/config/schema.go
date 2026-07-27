@@ -158,6 +158,29 @@ type TestDaemonConfig struct {
 }
 
 // Defaults returns sensible production defaults.
+/******************************************************************************
+ * Function Name : Defaults
+ *
+ * Purpose :
+ *   Return default configuration values.
+ *
+ * Inputs :
+ *   None (reads from os.Getenv)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Configured value or default.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   5
+ ******************************************************************************/
 func Defaults() RuntimeConfig {
 	return RuntimeConfig{
 		DBHost:                          "127.0.0.1",
@@ -238,6 +261,30 @@ func Defaults() RuntimeConfig {
 }
 
 // LoadFromEnv overrides config fields from config.env-style environment variables.
+/******************************************************************************
+ * Function Name : LoadFromEnv
+ *
+ * Purpose :
+ *   Performs its designated operation.
+ *
+ * Inputs :
+ *   None (see function signature)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Result of computation.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   10
+ ******************************************************************************/
+
 func (c *RuntimeConfig) LoadFromEnv() {
 	c.DBHost = envStr("DB_HOST", c.DBHost)
 	c.DBPort = envStr("DB_PORT", c.DBPort)
@@ -313,6 +360,29 @@ func (c *RuntimeConfig) LoadFromEnv() {
 	c.TestDaemon.BuildTimeoutSeconds = envInt("TEST_BUILD_TIMEOUT_SECONDS", c.TestDaemon.BuildTimeoutSeconds)
 }
 
+/******************************************************************************
+ * Function Name : envStr
+ *
+ * Purpose :
+ *   Read string env var with default.
+ *
+ * Inputs :
+ *   None (reads from os.Getenv)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Configured value or default.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   5
+ ******************************************************************************/
 func envStr(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -320,6 +390,29 @@ func envStr(key, fallback string) string {
 	return fallback
 }
 
+/******************************************************************************
+ * Function Name : envInt
+ *
+ * Purpose :
+ *   Read integer env var with default.
+ *
+ * Inputs :
+ *   None (reads from os.Getenv)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Configured value or default.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   5
+ ******************************************************************************/
 func envInt(key string, fallback int) int {
 	if v := os.Getenv(key); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
@@ -329,6 +422,29 @@ func envInt(key string, fallback int) int {
 	return fallback
 }
 
+/******************************************************************************
+ * Function Name : envFloat
+ *
+ * Purpose :
+ *   Read float env var with default.
+ *
+ * Inputs :
+ *   None (reads from os.Getenv)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Configured value or default.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   5
+ ******************************************************************************/
 func envFloat(key string, fallback float64) float64 {
 	if v := os.Getenv(key); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
@@ -338,6 +454,29 @@ func envFloat(key string, fallback float64) float64 {
 	return fallback
 }
 
+/******************************************************************************
+ * Function Name : envBool
+ *
+ * Purpose :
+ *   Read boolean env var with default.
+ *
+ * Inputs :
+ *   None (reads from os.Getenv)
+ *
+ * Return :
+ *   Type        : varies
+ *   Description : Configured value or default.
+ *
+ * Complexity :
+ *   Time  : O(1)
+ *   Space : O(1)
+ *
+ * Error Cases :
+ *   - None
+ *
+ * Number Of Lines :
+ *   5
+ ******************************************************************************/
 func envBool(key string, fallback bool) bool {
 	if v := os.Getenv(key); v != "" {
 		switch strings.ToLower(v) {
