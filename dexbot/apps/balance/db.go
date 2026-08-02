@@ -1,61 +1,80 @@
 /******************************************************************************
- * File Name       : db.go
- * File Path       : apps/balance/db.go
+ * File Name        : db.go
+ * File Path        : apps/balance/db.go
+ * Author           : Gemini 3.1 Pro & Gemini
+ * Owner            : Chalearm Saelim
+ * Reviewer         : Chalearm Saelim
+ * Version          : 1.5.1
+ * Status           : Development
+ * Created Date     : 2026-07-12 14:45:00 (UTC+7)
+ * Modified Date    : 2026-07-12 16:05:00 (UTC+7)
  *
- * Author          : Gemini 3.1 Pro
- * Owner           : Chalearm Saelim
- * Reviewer        : Chalearm Saelim
+ * Description      :
+ *    Database access layer for the Balance application. Connects to PostgreSQL,
+ *    manages dynamic network fallbacks (Container 'db' vs Localhost), and executes 
+ *    cascading SQL operations for user profiles, active chains, and tracked tokens.
  *
- * Version         : 1.5.1
- * Status          : Development
- * Created Date    : 2026-07-12 14:45:00 (UTC+7)
- * Modified Date   : 2026-07-12 16:05:00 (UTC+7)
+ * DEPENDENCY TREE & STRUCTURAL MAP:
+ * ───────────────────────────────────────────────────────────────────────────
+ * [apps/balance/db.go] (Database Persistence Engine)
+ *     │
+ *     ├── Imports Internal Modules ──> [dexbot/infra] (Logger Engine)
+ *     ├── Imports External Drivers ──> [github.com/lib/pq] (PostgreSQL Driver)
+ *     │
+ *     ├── Connection Handshake Strategy:
+ *     │     ├── Stage 1: Primary Target ──> `host=db port=5432` (Container Bridge)
+ *     │     └── Stage 2: Fallback Route ──> `host=localhost port=5432` (Host Interface)
+ *     │
+ *     └── Schema Relations (`account_key` = SHA256 identifier):
+ *           ├── `user_profiles` ──> Profile records with timestamps
+ *           ├── `user_chains`   ──> Dynamic chain registrations per account
+ *           └── `user_tokens`   ──> ERC-20/BEP-20 token tracking entries
  *
- * Description     :
- *   Handles PostgreSQL database connections, environment checking, and
- *   core raw queries for user profiles, chains, and tokens.
+ * FUNCTION DEPENDENCY MATRIX (Internal Methods):
+ * ───────────────────────────────────────────────────────────────────────────
+ * InitDB()
+ *  ├── sql.Open("postgres", primaryConnStr) ──> dbConn.Ping()
+ *  └── [On Failure] ──> sql.Open("postgres", fallbackConnStr) ──> dbConn.Ping()
  *
- * Responsibilities:
- *   - Establish open connection pool to the database context.
- *   - Fetch chain name dynamically by Chain ID for token relationships.
- *   - Explicitly handle cascaded deletions at the application level to prevent
- *     orphaned tokens when DB foreign keys lack ON DELETE CASCADE.
+ * GetChainNameByID(accountHash, chainID) ───────> dbConn.QueryRow("SELECT chain_name...")
+ * CheckUserProfileExists(accountHash) ──────────> dbConn.QueryRow("SELECT id FROM user_profiles...")
+ * InsertUserProfile(accountHash) ───────────────> dbConn.Exec("INSERT INTO user_profiles...")
+ * InsertUserChain(accountHash, chainName, ID) ──> dbConn.Exec("INSERT INTO user_chains...")
+ * InsertUserToken(accountHash, chain, ticker, addr) -> dbConn.Exec("INSERT INTO user_tokens...")
+ * DeleteAccountCascade(accountHash) ────────────> dbConn.Exec("DELETE FROM user_tokens...")
+ *                                           ──> dbConn.Exec("DELETE FROM user_chains...")
+ *                                           ──> dbConn.Exec("DELETE FROM user_profiles...")
+ * DeleteChainCascade(accountHash, chainID) ────> GetChainNameByID()
+ *                                           ──> dbConn.Exec("DELETE FROM user_tokens...")
+ *                                           ──> dbConn.Exec("DELETE FROM user_chains...")
+ * DeleteSingleToken(accountHash, chain, ticker) ─> dbConn.Exec("DELETE FROM user_tokens...")
+ *
+ * Responsibilities :
+ *    - Ensures reliable database connectivity across both local and container environments.
+ *    - Resolves numeric chain IDs to human-readable network names dynamically.
+ *    - Performs application-level cascading deletes to maintain referential integrity.
+ *    - Binds user-configured token contract addresses to relational database tables.
  *
  * Usage :
- *   Directory : apps/balance/
+ *    Directory : apps/balance/
+ *    Build     : Built as part of main package (`go build -o balance .`)
  *
  * Dependencies :
- *   Internal :
- *     - dexbot/infra
- *
- *   External :
- *     - database/sql
- *     - github.com/lib/pq
- *
- * Updated Parts :
- *   [Functions]
- *     - DeleteAccountCascade() (Added explicit manual cascading for tokens/chains)
- *     - DeleteChainCascade() (Added explicit manual cascading for tokens)
- *
- * New Parts :
- *   None
+ *    Internal  : dexbot/infra
+ *    External  : database/sql, github.com/lib/pq
  *
  * Change History :
- *   -------------------------------------------------------------------------
- *   Version | Date Time (UTC+7)       | Author         | Description
- *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-07-12 14:45:00     | Gemini         | Initial version
- *   1.5.0   | 2026-07-12 15:45:00     | Gemini         | Matched chain_name schema
- *   1.5.1   | 2026-07-12 16:05:00     | Gemini         | Explicit app-level cascade
- *   -------------------------------------------------------------------------
- *
- * TODO :
- *   - Implement connection pools throttling mechanisms.
- *****************************************************************************
+ *    -------------------------------------------------------------------------
+ *    Version | Date Time (UTC+7)         | Author          | Description
+ *    -------------------------------------------------------------------------
+ *    1.0.0   | 2026-07-12 14:45:00 (UTC+7) | Gemini 3.1 Pro  | Initial database connectivity
+ *    1.5.0   | 2026-07-12 15:45:00 (UTC+7) | Gemini 3.1 Pro  | Matched chain_name schema constraints
+ *    1.5.1   | 2026-07-12 16:05:00 (UTC+7) | Gemini 3.1 Pro  | Added explicit application-level cascade
+ *    -------------------------------------------------------------------------
  *
  * Notes :
- *   - Per regulator coding standard.
- */
+ *    - Per regulator coding standard rules.
+ ******************************************************************************/
 package main
 
 import (

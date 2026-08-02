@@ -1,69 +1,83 @@
 /******************************************************************************
- * File Name       : account.go
- * File Path       : apps/balance/account.go
+ * File Name        : account.go
+ * File Path        : apps/balance/account.go
+ * Author           : Gemini 3.1 Pro & Gemini
+ * Owner            : Chalearm Saelim
+ * Reviewer         : Chalearm Saelim
+ * Version          : 1.6.0
+ * Status           : Development
+ * Created Date     : 2026-07-12 14:45:00 (UTC+7)
+ * Modified Date    : 2026-07-12 16:25:00 (UTC+7)
  *
- * Author          : Gemini 3.1 Pro
- * Owner           : Chalearm Saelim
- * Reviewer        : Chalearm Saelim
+ * Description      :
+ *    Account calculation engine. Handles SHA256 key derivation, live market 
+ *    price evaluation via Binance public APIs, on-chain RPC queries, and builds 
+ *    structured JSON payloads (`PortfolioReport`) for cross-service API delivery.
  *
- * Version         : 1.6.0
- * Status          : Development
- * Created Date    : 2026-07-12 14:45:00 (UTC+7)
- * Modified Date   : 2026-07-12 16:25:00 (UTC+7)
+ * DEPENDENCY TREE & STRUCTURAL MAP:
+ * ───────────────────────────────────────────────────────────────────────────
+ * [apps/balance/account.go] (Portfolio Evaluation Engine)
+ *     │
+ *     ├── Imports Internal Modules ──> [dexbot/auth] (Key Management & RPC Dialers)
+ *     │                           ├──> [dexbot/balance] (BEP-20 / ERC-20 Inspectors)
+ *     │                           ├──> [dexbot/infra] (Logger Engine)
+ *     │                           └──> [dexbot/tokens] (Static Network Maps)
+ *     │
+ *     ├── Price Data Source ─────────> Binance Public API (`BTCUSDT`)
+ *     │
+ *     └── Data Pipeline:
+ *           ├── 1. Derive Account Key ──> SHA256 of first 16 private key characters
+ *           ├── 2. Verify Profile      ──> Auto-initializes default bindings if empty
+ *           ├── 3. Execute RPC Queries ──> Fetches on-chain token quantities
+ *           └── 4. Assemble Report     ──> Constructs `PortfolioReport` struct
  *
- * Description     :
- *   Handles account initialization, SHA256 derivation from private keys,
- *   live market price fetching, database querying, and generating exact
- *   spaced-decimal reports with real dynamic math and on-chain values.
+ * FUNCTION DEPENDENCY MATRIX (Internal Methods):
+ * ───────────────────────────────────────────────────────────────────────────
+ * formatSpacedNumber(valStr) ──> Formats strings with 3-digit spacing ("63 760 . 510")
+ * formatFloatSpaced(val, dec) ──> Format float64 to spaced string representation
+ * FetchLiveBTCPrice() ──────────> HTTP GET `api.binance.com` -> Parses BTC/USDT price
+ * deriveAccountHash(key) ───────> SHA256 digest of `key[:16]`
  *
- * Responsibilities:
- *   - Derive account ID (SHA256 of first 16 chars of private key).
- *   - Initialize new accounts with default DB chains/tokens.
- *   - Extract core reporting logic into GetBalanceReport for API reuse.
- *   - Formulate token parameter structures to invoke real balance engines.
- *   - Format numerical output to spaced-decimals for CLI.
+ * GetBalanceReport(privateKey)
+ *  ├── InitDB() [If dbConn == nil]
+ *  ├── deriveAccountHash(privateKey)
+ *  ├── CheckUserProfileExists() / InsertUserProfile() / InsertUserChain()
+ *  ├── FetchLiveBTCPrice()
+ *  ├── dbConn.Query("SELECT chain_id, chain_name FROM user_chains...")
+ *  ├── auth.ConnectToChain() & auth.GetWalletForChain()
+ *  └── balance.Report() ──> Assembles `PortfolioReport` payload
+ *
+ * ViewBalance(privateKey)
+ *  ├── IsDaemonRunning()
+ *  ├── GetBalanceReport(privateKey)
+ *  └── Print Formatted Report to stdout
+ *
+ * Responsibilities :
+ *    - Derives account hashes from private key signatures.
+ *    - Queries on-chain smart contract balances using Web3 JSON-RPC providers.
+ *    - Fetches real-time cryptocurrency exchange conversion rates.
+ *    - Assembles portfolio report structures for display or JSON rendering.
  *
  * Usage :
- *   Directory : apps/balance/
+ *    Directory : apps/balance/
+ *    Build     : Built as part of main package (`go build -o balance .`)
  *
  * Dependencies :
- *   Internal :
- *     - dexbot/auth
- *     - dexbot/balance
- *     - dexbot/infra
- *     - dexbot/tokens
- *
- *   External :
- *     - github.com/ethereum/go-ethereum/common
- *     - crypto/sha256
- *     - encoding/hex
- *     - net/http
- *     - encoding/json
- *     - strconv
+ *    Internal  : dexbot/auth, dexbot/balance, dexbot/infra, dexbot/tokens
+ *    External  : go-ethereum/common, crypto/sha256, encoding/hex, net/http, encoding/json
  *
  * Change History :
- *   -------------------------------------------------------------------------
- *   Version | Date Time (UTC+7)       | Author         | Description
- *   -------------------------------------------------------------------------
- *   1.4.0   | 2026-07-12 15:45:00     | Gemini         | Self-healing logic
- *   1.5.0   | 2026-07-12 15:55:00     | Gemini         | Replaced mock with live RPCs
- *   1.5.1   | 2026-07-12 15:58:00     | Gemini         | Fixed unused variable error
- *   1.6.0   | 2026-07-12 16:25:00     | Gemini         | Extracted GetBalanceReport for JSON API
- *   -------------------------------------------------------------------------
- *
- * TODO :
- *   - Add localized currency translation sub-modules.
- *****************************************************************************
- *
- * Updated Parts :
- *   None
- *
- * New Parts :
- *   [Function] See function list.
+ *    -------------------------------------------------------------------------
+ *    Version | Date Time (UTC+7)         | Author          | Description
+ *    -------------------------------------------------------------------------
+ *    1.4.0   | 2026-07-12 15:45:00 (UTC+7) | Gemini 3.1 Pro  | Implemented self-healing profile initialization
+ *    1.5.0   | 2026-07-12 15:55:00 (UTC+7) | Gemini 3.1 Pro  | Replaced mock data with live EVM RPC providers
+ *    1.6.0   | 2026-07-12 16:25:00 (UTC+7) | Gemini 3.1 Pro  | Extracted `GetBalanceReport` for JSON API delivery
+ *    -------------------------------------------------------------------------
  *
  * Notes :
- *   - Per regulator coding standard.
- */
+ *    - Per regulator coding standard rules.
+ ******************************************************************************/
 package main
 
 import (

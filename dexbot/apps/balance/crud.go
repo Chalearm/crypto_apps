@@ -1,59 +1,83 @@
 /******************************************************************************
- * File Name       : crud.go
- * File Path       : apps/balance/crud.go
+ * File Name        : crud.go
+ * File Path        : apps/balance/crud.go
+ * Author           : Gemini 3.1 Pro & Gemini
+ * Owner            : Chalearm Saelim
+ * Reviewer         : Chalearm Saelim
+ * Version          : 1.2.0
+ * Status           : Development
+ * Created Date     : 2026-07-12 14:37:38 (UTC+7)
+ * Modified Date    : 2026-07-12 15:45:00 (UTC+7)
  *
- * Author          : Gemini 3.1 Pro
- * Owner           : Chalearm Saelim
- * Reviewer        : Chalearm Saelim
+ * Description      :
+ *    Command-line CRUD handler for accounts, networks, and tokens. Validates incoming
+ *    parameters, resolves network identifiers dynamically, and bridges CLI invocation 
+ *    directly to persistence operations in `db.go`.
  *
- * Version         : 1.2.0
- * Status          : Development
- * Created Date    : 2026-07-12 14:37:38 (UTC+7)
- * Modified Date   : 2026-07-12 15:45:00 (UTC+7)
+ * DEPENDENCY TREE & STRUCTURAL MAP:
+ * ───────────────────────────────────────────────────────────────────────────
+ * [apps/balance/crud.go] (CLI CRUD Controller)
+ *     │
+ *     ├── Imports Internal Modules ──> [dexbot/infra] (Logger Module)
+ *     │
+ *     ├── Invoked By ───────────────> `cli.go` (`parseAndRouteFlags()`)
+ *     │
+ *     └── Delegation Target ────────> `db.go` (SQL Execution Functions)
+ *           ├── AddChainToAccount ──> `InsertUserChain()`
+ *           ├── AddTokenToAccount ──> `GetChainNameByID()` -> `InsertUserToken()`
+ *           ├── HandleDeleteAccount ─> `DeleteAccountCascade()`
+ *           ├── HandleDeleteChain ──> `DeleteChainCascade()`
+ *           └── HandleDeleteToken ──> `GetChainNameByID()` -> `DeleteSingleToken()`
  *
- * Description     :
- *   Handles CLI logic for CRUD operations: adding and deleting accounts,
- *   chains, and tokens. Integrates directly with db.go functions.
+ * FUNCTION DEPENDENCY MATRIX (Internal Methods):
+ * ───────────────────────────────────────────────────────────────────────────
+ * AddChainToAccount(accountHash, chainName, chainURL, chainID)
+ *  ├── InitDB() [If dbConn == nil]
+ *  └── InsertUserChain(accountHash, chainName, chainID)
  *
- * Responsibilities:
- *   - Route structural modifications to the database layer.
- *   - Resolve chainID to chainName mappings before interacting with tokens.
- *   - Ensure required inputs are provided for deletions and additions.
+ * AddTokenToAccount(accountHash, chainID, tokenName, tokenAddress)
+ *  ├── InitDB() [If dbConn == nil]
+ *  ├── GetChainNameByID(accountHash, chainID)
+ *  └── InsertUserToken(accountHash, chainName, tokenName, tokenAddress)
+ *
+ * HandleDeleteAccount(accountHash)
+ *  ├── InitDB() [If dbConn == nil]
+ *  └── DeleteAccountCascade(accountHash)
+ *
+ * HandleDeleteChain(accountHash, chainID)
+ *  ├── InitDB() [If dbConn == nil]
+ *  └── DeleteChainCascade(accountHash, chainID)
+ *
+ * HandleDeleteToken(accountHash, chainID, tokenName)
+ *  ├── InitDB() [If dbConn == nil]
+ *  ├── GetChainNameByID(accountHash, chainID)
+ *  └── DeleteSingleToken(accountHash, chainName, tokenName)
+ *
+ * Responsibilities :
+ *    - Intercepts administrative user commands to insert or remove profile records.
+ *    - Translates numeric Chain ID parameters to relational schema names before execution.
+ *    - Logs operational audit details to standard out and system log files.
  *
  * Usage :
- *   Directory : apps/balance/
+ *    Directory : apps/balance/
+ *    Build     : Built as part of main package (`go build -o balance .`)
  *
  * Dependencies :
- *   Internal :
- *     - dexbot/infra
- *
- *   External :
- *     - (stdlib only)
- *
- * Updated Parts :
- *   [Functions] 
- *     - AddTokenToAccount() (Added ID-to-Name resolution logic)
- *     - HandleDeleteToken() (Added ID-to-Name resolution logic)
- *
- * New Parts :
- *   None
+ *    Internal  : dexbot/infra
+ *    External  : stdlib (fmt)
  *
  * Change History :
- *   -------------------------------------------------------------------------
- *   Version | Date Time (UTC+7)       | Author         | Description
- *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-07-12 14:37:38     | Gemini 3.1 Pro | Initial version
- *   1.1.1   | 2026-07-12 15:45:00     | Gemini 3.1 Pro | Fixed InsertUserChain call
- *   1.2.0   | 2026-07-12 15:45:00     | Gemini 3.1 Pro | Schema ID lookup mapping
- *   -------------------------------------------------------------------------
- *
- * TODO :
- *   - Add unit tests.
- *****************************************************************************
+ *    -------------------------------------------------------------------------
+ *    Version | Date Time (UTC+7)         | Author          | Description
+ *    -------------------------------------------------------------------------
+ *    1.0.0   | 2026-07-12 14:37:38 (UTC+7) | Gemini 3.1 Pro  | Initial CLI CRUD controller
+ *    1.1.1   | 2026-07-12 15:45:00 (UTC+7) | Gemini 3.1 Pro  | Fixed argument matching for chain inserts
+ *    1.2.0   | 2026-07-12 15:45:00 (UTC+7) | Gemini 3.1 Pro  | Integrated dynamic ID-to-Name mapper
+ *    -------------------------------------------------------------------------
  *
  * Notes :
- *   - Per regulator coding standard.
- */
+ *    - Per regulator coding standard rules.
+ ******************************************************************************/
 package main
 
 import (

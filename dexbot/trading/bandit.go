@@ -116,7 +116,7 @@ type ThompsonSampling struct {
  *
  * Number Of Lines :
  *   10
- ******************************************************************************/
+ ******************************************************************************
 
   *
   * Function Name : NewThompsonSampling
@@ -134,6 +134,7 @@ type ThompsonSampling struct {
   *   - None
   * Number Of Lines :
   *   10
+  */
 func NewThompsonSampling(nArms int, rng *rand.Rand) *ThompsonSampling {
 	alpha := make([]float64, nArms)
 	beta := make([]float64, nArms)
@@ -214,7 +215,7 @@ func (ts *ThompsonSampling) SelectArm() int {
  *
  * Number Of Lines :
  *   10
- ******************************************************************************/
+ ******************************************************************************
 
   *
   * Function Name : UpdateArm
@@ -232,6 +233,7 @@ func (ts *ThompsonSampling) SelectArm() int {
   *   - None
   * Number Of Lines :
   *   10
+  * */
 func (ts *ThompsonSampling) UpdateArm(arm int, reward float64) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
@@ -309,7 +311,7 @@ func (ts *ThompsonSampling) GetProbabilities() []float64 {
  *
  * Number Of Lines :
  *   10
- ******************************************************************************/
+ ******************************************************************************
 
   *
   * Function Name : ArmCount
@@ -324,6 +326,7 @@ func (ts *ThompsonSampling) GetProbabilities() []float64 {
   *   - None
   * Number Of Lines :
   *   10
+  */
 func (ts *ThompsonSampling) ArmCount() int {
 	ts.mu.RLock()
 	defer ts.mu.RUnlock()
@@ -474,23 +477,6 @@ type HierarchicalMAB struct {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : NewHierarchicalMAB
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func NewHierarchicalMAB(nModels, nAgents int, rng *rand.Rand) *HierarchicalMAB {
 	return &HierarchicalMAB{
 		modelTS: NewThompsonSampling(nModels, rng),
@@ -577,23 +563,6 @@ func (hmab *HierarchicalMAB) SelectAgent() int {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : UpdateModelEvidence
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (hmab *HierarchicalMAB) UpdateModelEvidence(modelIdx int, kpi float64) {
 	hmab.modelTS.UpdateArm(modelIdx, kpi)
 }
@@ -677,20 +646,6 @@ func (hmab *HierarchicalMAB) ModelProbabilities() []float64 {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : AgentProbabilities
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (hmab *HierarchicalMAB) AgentProbabilities() []float64 {
 	return hmab.agentTS.GetProbabilities()
 }

@@ -1,0 +1,105 @@
+===============================================================================
+               GA-LSTM DISTRIBUTED CLUSTER COMMAND REFERENCE
+===============================================================================
+
+-------------------------------------------------------------------------------
+SECTION 1: SERVER SIDE COMMANDS (Container: llxprt / Host VM)
+-------------------------------------------------------------------------------
+
+1. RECOMPILE GO BINARY (Run on Host VM)
+   cd /tools/git/other/cWork/crypto_apps/dexbot/apps/school
+   go build -o school main.go
+
+2. INFRASTRUCTURE & REDIS SETUP
+   docker exec llxprt bash -c \
+     'export PATH=/opt/venv/bin:$PATH PYTHONPATH=/workspace/crypto_apps/dexbot/apps/school:$PYTHONPATH REDIS_HOST=redis CELERY_BROKER_URL=redis://redis:6379/0 REDIS_URL=redis://redis:6379/0 && \
+      cd /workspace/crypto_apps/dexbot/apps/school && \
+      ./school -action=set-up'
+
+3. START GA MASTER DAEMON IN BACKGROUND
+   docker exec -d llxprt bash -c \
+     'export PATH=/opt/venv/bin:$PATH PYTHONPATH=/workspace/crypto_apps/dexbot/apps/school:$PYTHONPATH REDIS_HOST=redis CELERY_BROKER_URL=redis://redis:6379/0 REDIS_URL=redis://redis:6379/0 && \
+      cd /workspace/crypto_apps/dexbot/apps/school && \
+      ./school -action=start -rotate-min=30 -rotate-mb=30 -save-min=20 -save-pct=25.0'
+docker exec -it llxprt bash -c   'export PATH=/opt/venv/bin:$PATH PYTHONPATH=/workspace/crypto_apps/dexbot/apps/school:$PYTHONPATH PYTHONUNBUFFERED=1 REDIS_HOST=redis CELERY_BROKER_URL=redis://redis:6379/0 REDIS_URL=redis://redis:6379/0 && \
+ 1599     cd /workspace/crypto_apps/dexbot/apps/school && \
+ 1600     python3 ga_master.py -num=2 -save-min=1 -save-pct=1.0 -buffer-size=36'
+
+
+4. CHECK FULL CLUSTER TELEMETRY & STATUS
+   docker exec llxprt bash -c \
+     'export PATH=/opt/venv/bin:$PATH PYTHONPATH=/workspace/crypto_apps/dexbot/apps/school:$PYTHONPATH REDIS_HOST=redis CELERY_BROKER_URL=redis://redis:6379/0 REDIS_URL=redis://redis:6379/0 && \
+      cd /workspace/crypto_apps/dexbot/apps/school && \
+      ./school -action=status'
+
+#4.2
+docker exec llxprt bash -c \
+     'export PATH=/opt/venv/bin:$PATH PYTHONPATH=/workspace/crypto_apps/dexbot/apps/school:$PYTHONPATH REDIS_HOST=redis CELERY_BROKER_URL=redis://redis:6379/0 REDIS_URL=redis://redis:6379/0 && cd /workspace/crypto_apps/dexbot/apps/school && ./school -action=status';docker exec -it llxprt python3 /workspace/crypto_apps/dexbot/apps/school/inspect_checkpoint.py;free -h
+
+5. DYNAMIC LIVE CONFIG UPDATE (SIGHUP)
+   docker exec llxprt bash -c \
+     'export PATH=/opt/venv/bin:$PATH PYTHONPATH=/workspace/crypto_apps/dexbot/apps/school:$PYTHONPATH REDIS_HOST=redis CELERY_BROKER_URL=redis://redis:6379/0 REDIS_URL=redis://redis:6379/0 && \
+      cd /workspace/crypto_apps/dexbot/apps/school && \
+      ./school -action=update -save-min=15 -save-pct=20.0 -rotate-min=15 -rotate-mb=50.0'
+
+6. INSPECT ALL ACTIVE WORKER PINGS ACROSS REDIS
+   docker exec -it llxprt bash -c \
+     'export PYTHONPATH=/workspace/crypto_apps/dexbot/apps/school:$PYTHONPATH REDIS_HOST=redis CELERY_BROKER_URL=redis://redis:6379/0 REDIS_URL=redis://redis:6379/0 && \
+      cd /workspace/crypto_apps/dexbot/apps/school && \
+      /opt/venv/bin/celery -A celery_tasks inspect ping'
+
+7. INSPECT CURRENTLY EXECUTING FOLDS ACROSS CLUSTER
+   docker exec -it llxprt bash -c \
+     'export PYTHONPATH=/workspace/crypto_apps/dexbot/apps/school:$PYTHONPATH REDIS_HOST=redis CELERY_BROKER_URL=redis://redis:6379/0 REDIS_URL=redis://redis:6379/0 && \
+      cd /workspace/crypto_apps/dexbot/apps/school && \
+      /opt/venv/bin/celery -A celery_tasks inspect active'
+
+8. CHECK PENDING TASK QUEUE LENGTH IN REDIS
+   docker exec -it llxprt redis-cli -h redis LLEN celery
+
+9. STREAM MASTER DAEMON EXECUTION LOGS
+   docker exec -it llxprt tail -f /workspace/crypto_apps/dexbot/apps/school/logs/setup.log
+
+10. STOP GA MASTER DAEMON
+    docker exec llxprt bash -c \
+      'export PATH=/opt/venv/bin:$PATH PYTHONPATH=/workspace/crypto_apps/dexbot/apps/school:$PYTHONPATH REDIS_HOST=redis CELERY_BROKER_URL=redis://redis:6379/0 REDIS_URL=redis://redis:6379/0 && \
+       cd /workspace/crypto_apps/dexbot/apps/school && \
+       ./school -action=stop'
+
+docker exec -it llxprt python3 /workspace/crypto_apps/dexbot/apps/school/inspect_checkpoint.py
+-------------------------------------------------------------------------------
+SECTION 2: CLIENT SIDE COMMANDS (Workers: worker1 / worker2 / Remote Nodes)
+-------------------------------------------------------------------------------
+
+#1. START LOCAL WORKER 1 (In Background)
+   docker restart worker1;docker exec -d worker1 bash -c \
+     'export PATH=/opt/venv/bin:$PATH PYTHONPATH=/home/worker1/dexbot/apps/school:$PYTHONPATH REDIS_HOST=redis CELERY_BROKER_URL=redis://redis:6379/0 REDIS_URL=redis://redis:6379/0 && \
+      cd /home/worker1/dexbot/apps/school && \
+      /opt/venv/bin/celery -A celery_tasks worker -n local_worker_1@worker1 -O fair --prefetch-multiplier=1 --concurrency=1 --max-tasks-per-child=10 --loglevel=info --logfile=/home/worker1/dexbot/apps/school/logs/celery_worker1.log'
+
+#2. START LOCAL WORKER 2 (In Background)
+   docker restart worker2;docker exec -d worker2 bash -c \
+     'export PATH=/opt/venv/bin:$PATH PYTHONPATH=/home/worker2/dexbot/apps/school:$PYTHONPATH REDIS_HOST=redis CELERY_BROKER_URL=redis://redis:6379/0 REDIS_URL=redis://redis:6379/0 && \
+      cd /home/worker2/dexbot/apps/school && \
+      /opt/venv/bin/celery -A celery_tasks worker -n local_worker_2@worker2 -O fair --prefetch-multiplier=1 --concurrency=1 --max-tasks-per-child=10 --loglevel=info --logfile=/home/worker2/dexbot/apps/school/logs/celery_worker2.log'
+
+3. STREAM WORKER 1 EXECUTION LOGS
+   docker exec -it worker1 tail -f /home/worker1/dexbot/apps/school/logs/celery_worker1.log
+
+4. STREAM WORKER 2 EXECUTION LOGS
+   docker exec -it worker2 tail -f /home/worker2/dexbot/apps/school/logs/celery_worker2.log
+
+5. CHECK CELERY PROCESSES ON WORKER 1 & WORKER 2
+   docker exec worker1 ps aux | grep celery
+   docker exec worker2 ps aux | grep celery
+
+6. KILL STALE CELERY PROCESSES ON WORKERS
+   docker exec worker1 pkill -9 -f celery
+   docker exec worker2 pkill -9 -f celery
+
+7. START MACBOOK WORKER 3 OVER TAILSCALE (Example)
+   docker exec -d mac_worker_tailscale bash -c \
+     'export PATH=/opt/venv/bin:$PATH PYTHONPATH=/home/mac_worker/dexbot/apps/school:$PYTHONPATH REDIS_HOST=100.x.y.z CELERY_BROKER_URL=redis://100.x.y.z:6379/0 REDIS_URL=redis://100.x.y.z:6379/0 && \
+      cd /home/mac_worker/dexbot/apps/school && \
+      /opt/venv/bin/celery -A celery_tasks worker -n mac_worker_1@macbook -O fair --prefetch-multiplier=1 --concurrency=1 --max-tasks-per-child=10 --loglevel=info --logfile=/home/mac_worker/dexbot/apps/school/logs/celery_mac.log'
+===============================================================================

@@ -1,0 +1,18 @@
+docker exec -d worker1 bash -c \
+  'export PATH=/opt/venv/bin:$PATH PYTHONPATH=/home/worker1/dexbot/apps/school:$PYTHONPATH REDIS_HOST=redis CELERY_BROKER_URL=redis://redis:6379/0 REDIS_URL=redis://redis:6379/0 && \
+   cd /home/worker1/dexbot/apps/school && \
+   /opt/venv/bin/celery -A celery_tasks worker -n local_worker_1@worker1 -O fair --prefetch-multiplier=1 --concurrency=1 --max-tasks-per-child=10 --loglevel=info --logfile=/home/worker1/dexbot/apps/school/logs/celery_worker1.log'
+
+
+docker exec -d worker2 bash -c \
+  'export PATH=/opt/venv/bin:$PATH PYTHONPATH=/home/worker2/dexbot/apps/school:$PYTHONPATH REDIS_HOST=redis CELERY_BROKER_URL=redis://redis:6379/0 REDIS_URL=redis://redis:6379/0 && \
+   cd /home/worker2/dexbot/apps/school && \
+   /opt/venv/bin/celery -A celery_tasks worker -n local_worker_2@worker2 -O fair --prefetch-multiplier=1 --concurrency=1 --max-tasks-per-child=10 --loglevel=info --logfile=/home/worker2/dexbot/apps/school/logs/celery_worker2.log'
+
+
+docker exec worker1 pkill -9 -f celery
+docker exec worker2 pkill -9 -f celery
+
+docker exec -it llxprt bash -c   'export PYTHONPATH=/workspace/crypto_apps/dexbot/apps/school:$PYTHONPATH REDIS_HOST=redis CELERY_BROKER_URL=redis://redis:6379/0 REDIS_URL=redis://redis:6379/0 && \
+   cd /workspace/crypto_apps/dexbot/apps/school && \
+   /opt/venv/bin/celery -A celery_tasks inspect ping'

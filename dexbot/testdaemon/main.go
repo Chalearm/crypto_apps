@@ -316,23 +316,6 @@ func runLoop() {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : validatePipeline
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func validatePipeline() TestRunResult {
 	infra.FnTrace("entering")
 	start := time.Now()
@@ -610,22 +593,6 @@ func runPolicyScan() bool {
  *   10
  ******************************************************************************/
 
-  *
-  * Function Name : storeResult
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func storeResult(result TestRunResult) {
 	var history []TestRunResult
 	data, err := os.ReadFile(historyFile)
@@ -665,24 +632,6 @@ func storeResult(result TestRunResult) {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-
-  *
-  * Function Name : printResult
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func printResult(result TestRunResult) {
 	passFail := func(b bool) string {
 		if b {

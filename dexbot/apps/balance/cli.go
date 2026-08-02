@@ -1,55 +1,79 @@
 /******************************************************************************
- * File Name       : cli.go
- * File Path       : apps/balance/cli.go
+ * File Name        : cli.go
+ * File Path        : apps/balance/cli.go
+ * Author           : Gemini 3.1 Pro & Gemini
+ * Owner            : Chalearm Saelim
+ * Reviewer         : Chalearm Saelim
+ * Version          : 1.4.0
+ * Status           : Development
+ * Created Date     : 2026-07-12 14:32:43 (UTC+7)
+ * Modified Date    : 2026-07-12 15:15:00 (UTC+7)
  *
- * Author          : Gemini 3.1 Pro
- * Owner           : Chalearm Saelim
- * Reviewer        : Chalearm Saelim
+ * Description      :
+ *    CLI parser and command router for the Balance application. Evaluates user
+ *    flags (`-action`, `-private-key`, `-account`, `-chain-id`, etc.), validates mandatory
+ *    input requirements, and prints user documentation.
  *
- * Version         : 1.4.0
- * Status          : Development
- * Created Date    : 2026-07-12 14:32:43 (UTC+7)
- * Modified Date   : 2026-07-12 15:15:00 (UTC+7)
+ * DEPENDENCY TREE & STRUCTURAL MAP:
+ * ───────────────────────────────────────────────────────────────────────────
+ * [apps/balance/cli.go] (Command Line Interface Dispatcher)
+ *     │
+ *     ├── Imports Internal Modules ──> [dexbot/infra] (Logger & Process Control)
+ *     │
+ *     ├── Invoked By ───────────────> `main.go` (`main()`)
+ *     │
+ *     └── Action Routing Map:
+ *           ├── `help`           ──> `HandleHelp()`
+ *           ├── `start`          ──> `HandleDaemonStart()`
+ *           ├── `status`         ──> `HandleDaemonStatus()`
+ *           ├── `terminate`      ──> `HandleDaemonTerminate()`
+ *           ├── `view-balance`   ──> `ViewBalance()`
+ *           ├── `add-chain`      ──> `AddChainToAccount()`
+ *           ├── `add-token`      ──> `AddTokenToAccount()`
+ *           ├── `delete-account` ──> `HandleDeleteAccount()`
+ *           ├── `delete-chain`   ──> `HandleDeleteChain()`
+ *           └── `delete-token`   ──> `HandleDeleteToken()`
  *
- * Description     :
- *   Handles CLI flag parsing and routes to daemon control or DB operations.
+ * FUNCTION DEPENDENCY MATRIX (Internal Methods):
+ * ───────────────────────────────────────────────────────────────────────────
+ * HandleHelp() ──> fmt.Println() [Prints usage syntax and flag examples]
  *
- * Responsibilities:
- *   - Parse -action, -private-key, -account, -chain-id, etc.
- *   - Validate command-line prerequisites.
- *   - Provide a comprehensive help menu.
+ * parseAndRouteFlags()
+ *  ├── flag.Parsed() / flag.Parse()
+ *  ├── HandleHelp()
+ *  ├── HandleDaemonStart() / HandleDaemonStatus() / HandleDaemonTerminate()
+ *  ├── ViewBalance(*flagPrivateKey)
+ *  ├── AddChainToAccount(*flagAccount, *flagChainName, *flagChainURL, *flagChainID)
+ *  ├── AddTokenToAccount(*flagAccount, *flagChainID, *flagTokenName, *flagTokenAddr)
+ *  ├── HandleDeleteAccount(*flagAccount)
+ *  ├── HandleDeleteChain(*flagAccount, *flagChainID)
+ *  └── HandleDeleteToken(*flagAccount, *flagChainID, *flagTokenName)
+ *
+ * Responsibilities :
+ *    - Parses flags passed via execution parameters.
+ *    - Validates presence of mandatory arguments prior to invoking database tasks.
+ *    - Displays operational help menus formatted for standard terminal viewports.
  *
  * Usage :
- *   Internal use by main.go
+ *    Directory : apps/balance/
+ *    Build     : Built as part of main package (`go build -o balance .`)
  *
  * Dependencies :
- *   - dexbot/infra
- *
- * Updated Parts :
- *   - parseAndRouteFlags() - Added help action support.
- *
- * New Parts :
- *   [Functions]
- *     - HandleHelp()
+ *    Internal  : dexbot/infra
+ *    External  : stdlib (flag, fmt, os)
  *
  * Change History :
- *   -------------------------------------------------------------------------
- *   Version | Date Time (UTC+7)       | Author         | Description
- *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-07-12 14:32:43     | Gemini 3.1 Pro | Initial routing implementation
- *   1.1.0   | 2026-07-12 14:55:00     | Gemini 3.1 Pro | Wired unused flags to crud actions
- *   1.2.0   | 2026-07-12 15:10:00     | Gemini 3.1 Pro | Rule1.txt header compliance
- *   1.3.0   | 2026-07-12 15:05:00     | Gemini 3.1 Pro | Added -action=terminate support
- *   1.4.0   | 2026-07-12 15:15:00     | Gemini 3.1 Pro | Added -action=help menu
- *   -------------------------------------------------------------------------
- *
- * TODO :
- *   - Add unit tests.
- *****************************************************************************
+ *    -------------------------------------------------------------------------
+ *    Version | Date Time (UTC+7)         | Author          | Description
+ *    -------------------------------------------------------------------------
+ *    1.0.0   | 2026-07-12 14:32:43 (UTC+7) | Gemini 3.1 Pro  | Initial routing implementation
+ *    1.3.0   | 2026-07-12 15:05:00 (UTC+7) | Gemini 3.1 Pro  | Integrated daemon termination action
+ *    1.4.0   | 2026-07-12 15:15:00 (UTC+7) | Gemini 3.1 Pro  | Added formatted CLI help menu
+ *    -------------------------------------------------------------------------
  *
  * Notes :
- *   - Per regulator coding standard.
- */
+ *    - Per regulator coding standard rules.
+ ******************************************************************************/
 package main
 
 import (

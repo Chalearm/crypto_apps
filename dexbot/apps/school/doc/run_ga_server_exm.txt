@@ -1,0 +1,27 @@
+# 1. Terminate all running processes
+./school -action=terminate
+
+# 2. Delete the checkpoint file to reset generation state
+./school -action=clear-state
+
+# 3. Launch fresh setup
+nohup ./school -action=set-up > logs/setup.log 2>&1 &
+
+# 4. Spawn workers
+./school -action=create-work -num=3
+
+# 5. Check status report
+./school -action=status
+
+
+# 1. Sweep active processes and clear stale queues
+./school -action=terminate
+
+# 2. Launch fresh setup in background
+nohup ./school -action=set-up > logs/setup.log 2>&1 &
+
+# 3. Launch 3 workers
+./school -action=create-work -num=3
+
+# 4. Verify that model IDs now match the active generation cleanly (G2-M0, G2-M1, etc.)
+tail -f logs/local_worker_1.log logs/local_worker_2.log logs/local_worker_3.log

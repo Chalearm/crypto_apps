@@ -1,73 +1,75 @@
 /******************************************************************************
- * File Name       : main.go
- * File Path       : apps/governance/main.go
+ * File Name        : main.go
+ * File Path        : apps/governance/main.go
+ * Author           : deepseek-4.0-pro & Gemini
+ * Owner            : Chalearm Saelim
+ * Reviewer         : Chalearm Saelim
+ * Version          : 3.0.0
+ * Status           : Development
+ * Created Date     : 2026-07-01 19:25:43 (UTC+7)
+ * Modified Date    : 2026-07-13 10:00:00 (UTC+7)
  *
- * Author          : deepseek-4.0-pro
- * Owner           : Chalearm Saelim
- * Reviewer        : Chalearm Saelim
+ * Description      :
+ *    Central orchestration daemon for the Dexbot system. Monitors health of all daemons 
+ *    via UDP heartbeats, manages dynamic daemon lifecycles based on config parameters, 
+ *    publishes dashboard web assets, handles CLI dispatching, and hosts TCP action listener.
  *
- * Version         : 3.0.0
- * Status          : Development
- * Created Date    : 2026-07-01 19:25:43 (UTC+7)
- * Modified Date   : 2026-07-13 10:00:00 (UTC+7)
+ * DEPENDENCY TREE & STRUCTURAL MAP:
+ * ───────────────────────────────────────────────────────────────────────────
+ * [apps/governance/main.go] (Central Governance Orchestrator)
+ *     │
+ *     ├── Imports Internal Modules ──> [dexbot/governance] (Registry & Model Sync)
+ *     │                           ├──> [dexbot/infra] (Logger, Publisher, DB Engine)
+ *     │                           └──> [dexbot/webui] (Dashboard HTML Renderer)
+ *     │
+ *     ├── Inter-Daemon Orchestration:
+ *     │     ├── Listens UDP (Port 8081) <── Receives heartbeats from Trading & School
+ *     │     ├── Probes UDP (Ports 8082/8083) ─> Sends health checks to managed daemons
+ *     │     └── Probes TCP (Port 8085)  <── Action control listener from Web Dashboard
+ *     │
+ *     └── Output Pipelines:
+ *           ├── Auto-Recreates Unhealthy/Killed Processes via OS exec
+ *           └── Renders Dashboard Pages ──> [web_output/*.html, web_output/api/*.json]
  *
- * Description     :
- *   Central orchestration daemon for the Dexbot system. Monitors daemon health
- *   via UDP heartbeats, manages daemon lifecycle dynamically from config.env
- *   (MANAGED_DAEMONS + DAEMON_{NAME}_* env vars), provides CLI commands,
- *   publishes dashboard HTML/JSON files, and hosts a TCP action listener.
+ * FUNCTION DEPENDENCY MATRIX (Internal Methods):
+ * ───────────────────────────────────────────────────────────────────────────
+ * main()
+ *  ├── initDynamicDaemons()
+ *  ├── handleCLI() [If CLI flag provided]
+ *  └── startDaemon() [If start action]
+ *       ├── governance.NewRegistry()
+ *       ├── go startUdpListener() ───────> handleModelSync() & governance.ParseHeartbeat()
+ *       ├── go startHealthCheckLoop() ───> getOrCreateInfo() & recreateDaemon()
+ *       ├── webui.NewRenderer()
+ *       ├── go startPublisher() ─────────> refreshDashboard() ──> dashRenderer.Operations()
+ *       └── go startActionListener() ────> recreateDaemon()
  *
- * Responsibilities:
- *   - Parse MANAGED_DAEMONS from config.env and init UDP connections
- *   - Listen on UDP port (default 8081) for heartbeats from all daemons
- *   - Periodically health-check each daemon and recreate if unhealthy
- *   - Publish dashboard pages (index, trading/portfolio, school, predict) every 10s
- *   - Listen on TCP ACTION_PORT for UI-triggered daemon lifecycle actions
- *   - Provide CLI status, restart, stop, start, shutdown commands
+ * Responsibilities :
+ *    - Dynamic daemon registration via environment variables.
+ *    - UDP health probing and process restart/recovery triggering.
+ *    - Serves static HTML dashboard pages and JSON API endpoints.
+ *    - Processes manual command dispatches from system administrator or CLI interface.
  *
  * Usage :
- *   Directory : apps/governance/
- *   Build     : go build -o governance .
- *   Run       : ./governance -action=start
- *   Test      : go test ./apps/governance
+ *    Directory : apps/governance/
+ *    Build     : go build -o governance main.go
+ *    Run       : ./governance -action=start
  *
  * Dependencies :
- *   Internal :
- *     - dexbot/governance (registry, heartbeat parser, commander)
- *     - dexbot/infra (logger, publisher, env loader, DB)
- *     - dexbot/webui (dashboard renderer)
- *   External :
- *     - (stdlib only)
- *
- * Configuration :
- *   - config.env (all DAEMON_* vars, MANAGED_DAEMONS, ports, intervals)
- *
- * Updated Parts :
- *   [Function]
- *     - startHealthCheckLoop() — message format corrected
- *   [Global Variables]
- *     - managedDaemons — now map[string]*DaemonConfig for dynamic init
- *
- * New Parts :
- *   [Struct]
- *     - DaemonConfig — holds IP, port, path, UDP connection per registered daemon
- *   [Function]
- *     - initDynamicDaemons() — reads MANAGED_DAEMONS + DAEMON_{NAME}_* from env
+ *    Internal  : dexbot/governance, dexbot/infra, dexbot/webui
+ *    External  : stdlib (net, http, os, exec, flag, time)
  *
  * Change History :
- *   -------------------------------------------------------------------------
- *   Version | Date Time (UTC+7)      | Author          | Description
- *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-07-01 19:25:43    | deepseek-4.0-pro | Initial version
- *   2.0.0   | 2026-07-13 08:00:00    | deepseek-4.0-pro | Dynamic daemon init
- *   3.0.0   | 2026-07-13 10:00:00    | deepseek-4.0-pro | Health msg fix, format
- *   -------------------------------------------------------------------------
- *
- * TODO :
- *   - Add live log viewer on dashboard
+ *    -------------------------------------------------------------------------
+ *    Version | Date Time (UTC+7)         | Author           | Description
+ *    -------------------------------------------------------------------------
+ *    1.0.0   | 2026-07-01 19:25:43 (UTC+7) | deepseek-4.0-pro | Initial release
+ *    2.0.0   | 2026-07-13 08:00:00 (UTC+7) | deepseek-4.0-pro | Added dynamic daemon initialization
+ *    3.0.0   | 2026-07-13 10:00:00 (UTC+7) | deepseek-4.0-pro | Fixed health message probe protocols
+ *    -------------------------------------------------------------------------
  *
  * Notes :
- *   - Per rule1.txt coding standard.
+ *    - Per regulator coding standard rules.
  ******************************************************************************/
 package main
 

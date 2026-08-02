@@ -118,23 +118,6 @@ type DepChecker struct {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : NewDepChecker
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func NewDepChecker(root string) *DepChecker {
 	return &DepChecker{projectRoot: root}
 }
@@ -217,20 +200,6 @@ func (dc *DepChecker) ChangedFiles() ([]string, error) {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : AffectedPackages
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (dc *DepChecker) AffectedPackages(changedFiles []string) ([]string, error) {
 	if len(changedFiles) == 0 {
 		return nil, nil
@@ -313,19 +282,6 @@ func (dc *DepChecker) AffectedPackages(changedFiles []string) ([]string, error) 
  *   10
  ******************************************************************************/
 
-  *
-  * Function Name : AffectedTests
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (dc *DepChecker) AffectedTests(affectedPkgs []string) ([]string, error) {
 	if len(affectedPkgs) == 0 {
 		return nil, nil

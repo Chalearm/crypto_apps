@@ -1,0 +1,11 @@
+
+#2. Compile inside worker2
+
+docker exec worker1 bash -c \
+  "export VIRTUAL_ENV=/opt/venv && cd /home/worker1/dexbot/apps/school/rust_lstm_engine && maturin develop --release"
+
+  docker exec worker2 bash -c \
+  "export VIRTUAL_ENV=/opt/venv && cd /home/worker2/dexbot/apps/school/rust_lstm_engine && maturin develop --release"
+#Confirm that Python loads the native Rust module cleanly:
+  docker exec worker1 python3 -c "import rust_lstm_engine; print('worker1 Rust engine ready')"
+  docker exec worker2 python3 -c "import rust_lstm_engine; print('worker1 Rust engine ready')"

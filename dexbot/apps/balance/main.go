@@ -1,69 +1,84 @@
 /******************************************************************************
- * File Name       : main.go
- * File Path       : apps/balance/main.go
+ * File Name        : main.go
+ * File Path        : apps/balance/main.go
+ * Author           : Gemini 3.1 Pro & Gemini
+ * Owner            : Chalearm Saelim
+ * Reviewer         : Chalearm Saelim
+ * Version          : 1.3.0
+ * Status           : Development
+ * Created Date     : 2026-07-12 14:32:43 (UTC+7)
+ * Modified Date    : 2026-07-29 01:00:00 (UTC+7)
  *
- * Author          : Gemini 3.1 Pro
- * Owner           : Chalearm Saelim
- * Reviewer        : Chalearm Saelim
+ * Description      :
+ *    Main entry point for the Balance Tracker daemon and CLI utility. Resolves working
+ *    directory to project root, manually parses `config.env` key-value pairs, starts
+ *    the HTTP API service (defaulting to port 8087) for web UI queries, or dispatches
+ *    CLI routing commands.
  *
- * Version         : 1.3.0
- * Status          : Development
- * Created Date    : 2026-07-12 14:32:43 (UTC+7)
- * Modified Date   : 2026-07-12 15:30:00 (UTC+7)
+ * DEPENDENCY TREE & STRUCTURAL MAP:
+ * ───────────────────────────────────────────────────────────────────────────
+ * [apps/balance/main.go] (Balance Application Entry Point)
+ *     │
+ *     ├── Imports Internal Modules ──> [dexbot/auth] (Key Management & RPC Connections)
+ *     │                           ├──> [dexbot/balance] (On-Chain Balance Calculators)
+ *     │                           ├──> [dexbot/infra] (Daemon Loop & Logger Engine)
+ *     │                           └──> [dexbot/tokens] (Supported Chain Configurations)
+ *     │
+ *     ├── Direct Execution Modes:
+ *     │     ├── Legacy Mode ───────> `runLegacyBalance()` (Direct text report across chains)
+ *     │     ├── CLI Router ────────> `parseAndRouteFlags()` (Processes CRUD flags)
+ *     │     └── Background Daemon ─> `HandleDaemonStart()` -> `bootDaemon()`
+ *     │
+ *     └── HTTP API Gateway (Port 8087):
+ *           ├── `/api/ping`        ──> Health probe endpoint
+ *           ├── `/api/balance`     ──> Dynamic portfolio JSON report endpoint
+ *           ├── `/api/update`      ──> Live wallet state update handler
+ *           └── `/api/chain/*` & `/api/token/*` ──> Relational modification endpoints
  *
- * Description     :
- *   Main entry point of the Balance Tracker. Automatically changes directory
- *   to project root, parses config.env configuration settings, and boots the 
- *   CLI router or legacy tracking engine.
+ * FUNCTION DEPENDENCY MATRIX (Internal Methods):
+ * ───────────────────────────────────────────────────────────────────────────
+ * main()
+ *  ├── LoadEnvConfig()
+ *  ├── infra.InitLogger()
+ *  ├── infra.SetDaemonID("balance-app")
+ *  ├── runLegacyBalance() [If no flags passed]
+ *  │    ├── auth.LoadPrivateKey()
+ *  │    ├── auth.ConnectToChain()
+ *  │    ├── auth.GetWalletForChain()
+ *  │    ├── balance.Report()
+ *  │    └── balance.FormatWithSpacedDecimals()
+ *  ├── HandleDaemonStart() [If -action=start]
+ *  │    └── bootDaemon()
+ *  │         ├── infra.RunDaemonApp()
+ *  │         └── http.Server.ListenAndServe()
+ *  └── parseAndRouteFlags() [If other flags passed]
  *
- * Responsibilities:
- *   - Auto-detect project root to resolve file pathways cleanly.
- *   - Parse config.env key-value pairs manually into active process environment.
- *   - Route execution based on flags or fallback to standard balance summary.
+ * Responsibilities :
+ *    - Automatically locates `config.env` and binds environment variables to the process.
+ *    - Initializes network HTTP API endpoints for cross-daemon JSON communication.
+ *    - Executes multi-chain balance inquiries across EVM networks (BSC, Polygon, opBNB).
+ *    - Registers daemon instance with high-availability lifecycle supervisors.
  *
  * Usage :
- *   Directory : apps/balance/
- *
- *   Build :
- *     go build -o balance .
- *
- *   Run :
- *     ./balance
- *     ./balance -action=start
+ *    Directory : apps/balance/
+ *    Build     : go build -o balance main.go db.go crud.go cli.go account.go api_routes.go
+ *    Run       : ./balance -action=start
  *
  * Dependencies :
- *   Internal :
- *     - dexbot/auth
- *     - dexbot/balance
- *     - dexbot/tokens
- *     - dexbot/infra
- *
- *   External :
- *     - (stdlib only)
- *
- * Updated Parts :
- *   [Function]
- *     - main() (Integrated LoadEnvConfig logic invocation)
- *
- * New Parts :
- *   [Function]
- *     - LoadEnvConfig()
+ *    Internal  : dexbot/auth, dexbot/balance, dexbot/infra, dexbot/tokens
+ *    External  : stdlib (bufio, context, flag, fmt, net/http, os, strconv, strings)
  *
  * Change History :
- *   -------------------------------------------------------------------------
- *   Version | Date Time (UTC+7)       | Author         | Description
- *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-07-01 19:25:44     | GPT-4          | Initial version
- *   1.1.0   | 2026-07-12 14:32:43     | Gemini 3.1 Pro | Added Daemon & CLI routing
- *   1.2.0   | 2026-07-12 15:10:00     | Gemini 3.1 Pro | Auto-Chdir fix for paths
- *   1.3.0   | 2026-07-12 15:30:00     | Gemini 3.1 Pro | Added custom config.env parser
- *   -------------------------------------------------------------------------
- *
- * TODO :
- *   - Add structural unit testing frameworks.
+ *    -------------------------------------------------------------------------
+ *    Version | Date Time (UTC+7)         | Author          | Description
+ *    -------------------------------------------------------------------------
+ *    1.0.0   | 2026-07-01 19:25:44 (UTC+7) | GPT-4           | Initial release
+ *    1.1.0   | 2026-07-12 14:32:43 (UTC+7) | Gemini 3.1 Pro | Added Daemon & CLI routing
+ *    1.3.0   | 2026-07-12 15:30:00 (UTC+7) | Gemini 3.1 Pro | Added manual env parser
+ *    -------------------------------------------------------------------------
  *
  * Notes :
- *   - Per rule1.txt coding standard.
+ *    - Per regulator coding standard rules.
  ******************************************************************************/
 package main
 
@@ -207,31 +222,6 @@ func LoadEnvConfig() {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
- ******************************************************************************/
-/******************************************************************************
- * Function Name : main
- *
- * Purpose :
- *   Entry point for the application.
- *
- * Inputs :
- *   None (reads os.Args or flags)
- *
- * Return :
- *   None (exits with code)
- *
- * Complexity :
- *   Time  : O(N)
- *   Space : O(1)
- *
- * Error Cases :
- *   - Exits non-zero on fatal errors.
- *
- * Number Of Lines :
- *   15
- ******************************************************************************/
-
 func main() {
     // 1. Directory and Env setup (Kept exactly as you had it)
     if _, err := os.Stat("config.env"); os.IsNotExist(err) {

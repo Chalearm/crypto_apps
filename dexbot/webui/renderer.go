@@ -1,71 +1,82 @@
 /******************************************************************************
- * File Name       : renderer.go
- * File Path       : webui/renderer.go
+ * File Name        : renderer.go
+ * File Path        : webui/renderer.go
+ * Author           : deepseek-4.0-pro & Gemini
+ * Owner            : Chalearm Saelim
+ * Reviewer         : Chalearm Saelim
+ * Version          : 1.3.1
+ * Status           : Development
+ * Created Date     : 2026-07-01 19:25:26 (UTC+7)
+ * Modified Date    : 2026-07-03 19:54:12 (UTC+7)
  *
- * Author          : deepseek-4.0-pro
- * Owner           : Chalearm Saelim
- * Reviewer        : Chalearm Saelim
+ * Description      :
+ *    Core Web UI design system and HTML/SVG rendering engine for Dexbot web UI.
+ *    Provides interactive balance views, multi-chain/token management interfaces,
+ *    daemon log inspectors, dual-line prediction plots, and DB browser cards.
  *
- * Version         : 1.3.1
- * Status          : Development
- * Created Date    : 2026-07-01 19:25:26 (UTC+7)
- * Modified Date   : 2026-07-03 19:54:12 (UTC+7)
+ * DEPENDENCY TREE & STRUCTURAL MAP:
+ * ───────────────────────────────────────────────────────────────────────────
+ * [webui/renderer.go] (UI Component & Rendering Engine)
+ *     │
+ *     ├── Imports Internal Packages ──> [dexbot/governance] (Registry Data Types)
+ *     │                            ├──> [dexbot/infra] (Balance & Account Manager)
+ *     │                            └──> [dexbot/school] (Tier Model Data Specs)
+ *     │
+ *     ├── Web Views Rendered:
+ *     │     ├── Operations Dashboard ───> Governance process controls & live log viewer
+ *     │     ├── Portfolio Page ─────────> Multi-chain asset holdings & balance editor
+ *     │     ├── School Page ────────────> 4-tier model evolution status & DB browser
+ *     │     └── Predict Page ───────────> SVG dual-line prediction vs actual charts
+ *     │
+ *     └── Output Receiver:
+ *           └── Accepts http.ResponseWriter (or internal fakeResp buffer for file export)
  *
- * Description     :
- *   Modern, eye-friendly HTML renderers for the Dexbot web dashboard. Refined
- *   from v1.0 with professional design system per myreq2.txt §8. Features an
- *   interactive balance header layout showcasing right-aligned option balances
- *   formatted in unique space-separated 9-decimal precision.
+ * FUNCTION DEPENDENCY MATRIX (Internal Methods):
+ * ───────────────────────────────────────────────────────────────────────────
+ * NewRenderer(registry)
+ * SetBalance(b) / SetModelRegistry(mr) / RefreshModels()
+ *  └── pullModelsFromRegistry()
  *
- * Responsibilities:
- *   - Implement core functionality for webui package.
+ * Operations(w)
+ *  ├── writeHead()
+ *  ├── cssBase()
+ *  └── writeFoot()
+ *
+ * Portfolio(w)
+ *  └── writeBalanceCard() ──────────────> infra.GetBalanceSummary() & tokenReg.ListTokens()
+ *
+ * SchoolDashboard(w)
+ *  └── buildTierDataFromRegistry()
+ *
+ * PredictionComparison(w)
+ *  └── predictionDualLine() ───────────> mathSin() & mathCos()
+ *
+ * Responsibilities :
+ *    - Formats HTML pages with responsive CSS styles and dark mode theme.
+ *    - Dynamically generates interactive JavaScript modules for asset management.
+ *    - Renders math-based inline SVG charts without relying on external frontend libraries.
+ *    - Provides fallback templates for database inspection and model performance.
  *
  * Usage :
- *   Directory : webui/
- *
- *   Build :
- *     go build ./webui
- *
- *   Run :
- *     go run .  (from dexbot root)
- *
- *   Test :
- *     go test ./webui
+ *    Directory : webui/
+ *    Build     : go build ./webui
+ *    Run       : Invoked via Governance publisher thread (`refreshDashboard`)
  *
  * Dependencies :
- *   Internal :
- *     - dexbot/governance
- *     - dexbot/infra
- *     - dexbot/school
- *
- *   External :
- *     - (stdlib only)
- *
- * Configuration :
- *   - config.env
- *
- * Updated Parts :
- *   - Integrated interactive balance header toggling and multi-chain select.
- *   - Preserved all original legacy operations, charts, and database engines.
+ *    Internal  : dexbot/governance, dexbot/infra, dexbot/school
+ *    External  : stdlib (html, net/http, json, os, strconv, strings)
  *
  * Change History :
- *   -------------------------------------------------------------------------
- *   Version | Date Time (UTC+7)      | Author          | Description
- *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-07-01 19:25:26    | deepseek-4.0-pro| Header validation — rule1.txt compliant
- *   1.3.1   | 2026-07-03 19:54:12    | Gemini          | Value toggle, 9-decimal right alignment, full retain
- *   -------------------------------------------------------------------------
- *
- * TODO :
- *   - Add unit tests
+ *    -------------------------------------------------------------------------
+ *    Version | Date Time (UTC+7)         | Author           | Description
+ *    -------------------------------------------------------------------------
+ *    1.0.0   | 2026-07-01 19:25:26 (UTC+7) | deepseek-4.0-pro | Initial release
+ *    1.3.1   | 2026-07-03 19:54:12 (UTC+7) | Gemini           | 9-decimal precision layout & asset panel
+ *    -------------------------------------------------------------------------
  *
  * Notes :
- *   - Per rule1.txt coding standard.
- *****************************************************************************
- *
- * New Parts :
- *   [Function] See function list.
- */
+ *    - Per regulator coding standard rules.
+ ******************************************************************************/
 package webui
 
 import (
@@ -762,8 +773,8 @@ func (r *Renderer) Portfolio(w http.ResponseWriter) {
 /******************************************************************************
  * Function Name : writeBalanceCard
  *
- * Purpose :
- *   Performs its designated operation.
+ * Purpose       : Renders an expandable, tabbed portfolio balance card.
+ *                 Fetches live data directly from Balance API (Port 8087).
  *
  * Inputs :
  *   None (see function signature)
@@ -782,138 +793,216 @@ func (r *Renderer) Portfolio(w http.ResponseWriter) {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-
 func (r *Renderer) writeBalanceCard(w http.ResponseWriter) {
-	if r.balance == nil {
-		am := infra.NewAccountManager()
-		r.balance = infra.GetBalanceSummary(am)
-	}
-	b := r.balance
+  if r.balance == nil {
+    am := infra.NewAccountManager()
+    r.balance = infra.GetBalanceSummary(am)
+  }
 
-	if v := os.Getenv("BALANCE_REFRESH_SECONDS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			_ = n // balanceRefreshSec used in JS template
-		}
-	}
+  var preAssets []infra.BalanceAsset = []infra.BalanceAsset{}
+  assetJSON, _ := json.Marshal(preAssets)
 
-	_ = b.IsPaperTrade // paperWarn
-	_ = b.TotalUSD     // display values computed below
+  fmt.Fprintf(w, `<style>
+  /* Expandable Card Layout & Styling */
+  .balance-card-container {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+  }
 
-	// Pre-populate assetsData from token registry so chain dropdown and token
-	// list are never empty (fixes empty assetsData bug — myreq6.txt §120, §109.1).
-	// Balances start at 0 until AJAX fetches real data from /api/balance.
-	var preAssets []infra.BalanceAsset
+  .balance-card-container.enlarged {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    bottom: 20px;
+    z-index: 9999;
+    margin: 0;
+    overflow-y: auto;
+    box-shadow: 0 0 30px rgba(0,0,0,0.8);
+    background: var(--bg-deep);
+    border-color: var(--accent);
+  }
 
-	// Try to load defaults from token registry (tokens.go)
-	tokenReg := infra.NewTokenRegistry()
-	defaultTokens := tokenReg.ListTokens()
-	for _, dt := range defaultTokens {
-		preAssets = append(preAssets, infra.BalanceAsset{
-			Ticker:    dt.Ticker,
-			BSCAddr:   dt.Address,
-			ChainID:   dt.ChainID,
-			ChainName: dt.ChainName,
-			Amount:    0,
-			USDValue:  0,
-			USDPrice:  dt.USDPrice,
-		})
-	}
+  .card-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+  }
 
-	// If token registry is empty, embed known BSC tokens as fallback
-	if len(preAssets) == 0 {
-		preAssets = []infra.BalanceAsset{
-			{Ticker: "BNB", BSCAddr: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", ChainID: "56", ChainName: "BSC", Amount: 0, USDValue: 0},
-			{Ticker: "BTT", BSCAddr: "0x8595F9dA7b868b1822194fAEd312235E4307654b", ChainID: "56", ChainName: "BSC", Amount: 0, USDValue: 0},
-			{Ticker: "USDC", BSCAddr: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", ChainID: "56", ChainName: "BSC", Amount: 0, USDValue: 0},
-			{Ticker: "CAKE", BSCAddr: "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82", ChainID: "56", ChainName: "BSC", Amount: 0, USDValue: 0},
-			{Ticker: "UNI", BSCAddr: "0xBf5140A22578168FD562DCcF235E5D43A02ce9B1", ChainID: "56", ChainName: "BSC", Amount: 0, USDValue: 0},
-			{Ticker: "SHIB", BSCAddr: "0x2859e4544C4bB03966803b044A93563Bd2D0DD4D", ChainID: "56", ChainName: "BSC", Amount: 0, USDValue: 0},
-		}
-	}
-	// Variables computed by JS at runtime (embedded as template values)
-	_ = 0.0  // displayTotalUSD placeholder
-	_ = 0.0  // displayTotalBTC placeholder
-	_ = 0.0  // displayBscTotal placeholder
-	_ = 0.0  // displayBTCPrice placeholder
-	assetJSON, _ := json.Marshal(preAssets)
+  .card-tabs {
+    display: flex;
+    gap: 8px;
+  }
 
-	fmt.Fprintf(w, `<div class="balance-card">
-  <div class="balance-interactive-header" onclick="toggleChainPanel()">
-    <div class="card-title">
-      <span style="font-size:.95rem; color:var(--text-secondary)">Account:</span>
-      <input id="pkInput" type="password" placeholder="Enter private key..." style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-deep);color:var(--text-primary);font-size:.7rem;width:180px" value="">
-      <button onclick="unlockWallet()" style="padding:4px 12px;border-radius:6px;border:none;background:var(--accent-dim);color:#fff;cursor:pointer;font-size:.7rem;font-weight:600">OK</button>
-      <span id="acctStatus" style="font-family:monospace;font-size:.7rem;color:var(--text-muted);display:none"></span>
+  .tab-btn {
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tab-btn.active {
+    background: var(--accent-dim);
+    color: #ffffff;
+    border-color: var(--accent);
+  }
+
+  .top-right-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .last-update-tag {
+    font-size: 0.68rem;
+    font-family: monospace;
+    color: var(--text-muted);
+    background: var(--bg-surface);
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  .enlarge-btn {
+    background: var(--bg-surface);
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .enlarge-btn:hover {
+    background: var(--bg-elevated);
+  }
+
+  .tab-content {
+    display: none;
+  }
+
+  .tab-content.active {
+    display: block;
+  }
+</style>
+
+<div class="balance-card-container" id="mainBalanceCard">
+  <!-- Top Bar: Tabs & Top-Right Header Info -->
+  <div class="card-top-bar">
+    <div class="card-tabs">
+      <button class="tab-btn active" onclick="switchBalanceTab('overview')">💳 Overview</button>
+      <button class="tab-btn" onclick="switchBalanceTab('chains')">⛓️ Chains & Tokens</button>
+      <button class="tab-btn" onclick="switchBalanceTab('account')">⚙️ Account & Key</button>
     </div>
-    <div class="balance-amount-display" id="balanceClickBlock" onclick="event.stopPropagation(); toggleBalancePrivacy()">
-      $ <span id="balanceAmount">0 . 000 000 000 000</span>
-    </div>
-    <div style="margin-left: auto; display: flex; align-items: center; gap: 12px;" onclick="event.stopPropagation();">
-      <label style="display:flex;align-items:center;gap:4px;font-size:.7rem;color:var(--text-muted);cursor:pointer">
-        <input type="checkbox" id="btcToggle" onchange="refreshAssetPanel()"> BTC
-      </label>
+
+    <div class="top-right-meta">
+      <span class="last-update-tag" id="lastUpdatedTimeTag">Updated: -- : -- : --</span>
+      <button class="enlarge-btn" onclick="toggleCardEnlarge()" title="Toggle Fullscreen Expand/Shrink" id="enlargeIconBtn">⤢ Enlarge</button>
     </div>
   </div>
 
-  <div class="chain-panel" id="chainPanel">
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px">
-      <select id="chainSelect" onchange="checkChainSelection()" style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-deep);color:var(--text-primary);font-size:.8rem; width:100%%; max-width:550px;">
-        <option value="BSC" selected>BSC</option>
-        <option value="__add__" style="color:var(--accent);font-weight:bold">+ Add New Chain</option>
+  <!-- TAB 1: OVERVIEW -->
+  <div class="tab-content active" id="tab-overview">
+    <div class="balance-interactive-header">
+      <div style="display:flex; align-items:center; justify-content:space-between; width:100%%;">
+        <div>
+          <span style="font-size:.85rem; color:var(--text-muted)">Total Portfolio Balance</span>
+          <div class="balance-amount-display" id="balanceClickBlock" onclick="toggleBalancePrivacy()" style="cursor:pointer; font-size:1.6rem; font-weight:bold; color:var(--accent);">
+            $ <span id="balanceAmount">0 . 000 000 000 000</span>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:16px;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:.8rem; color:var(--text-secondary); cursor:pointer;">
+            <input type="checkbox" id="btcToggle" onchange="refreshAssetPanel()"> Denominate in BTC
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: CHAINS & TOKENS -->
+  <div class="tab-content" id="tab-chains">
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+      <select id="chainSelect" onchange="checkChainSelection()" style="padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--bg-deep); color:var(--text-primary); font-size:.8rem; flex:1; max-width:400px;">
+        <option value="" disabled selected>(No chains loaded)</option>
+        <option value="__add__" style="color:var(--accent); font-weight:bold">+ Add New Chain</option>
       </select>
       <span class="pencil-icon" title="Edit dynamic tracking records" onclick="openTokenEditor()"></span>
-    <label style="display:flex;align-items:center;gap:4px;font-size:.7rem;color:var(--text-muted);cursor:pointer;margin-left:auto">
-      <input type="checkbox" id="showAllTokens" onchange="renderAssetRows()"> Show all tokens
-    </label>
-    <span style="font-size:.7rem;color:var(--text-muted)">Index Ref: 1 BTC = <span id="btcPrice">...</span> USD</span>
+      <label style="display:flex; align-items:center; gap:4px; font-size:.7rem; color:var(--text-muted); cursor:pointer; margin-left:auto;">
+        <input type="checkbox" id="showAllTokens" onchange="renderAssetRows()"> Show zero balances
+      </label>
+      <span style="font-size:.7rem; color:var(--text-muted)">1 BTC = <span id="btcPrice">...</span> USD</span>
     </div>
 
-    <!-- Inline chain-add form (shown when + Add New Chain selected) -->
+    <!-- Inline Chain-Add Row -->
     <div class="chain-add-row" id="chainAddRow">
-      <input id="chainNameInput" placeholder="Chain Name (e.g. POLYGON)" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-deep);color:var(--text-primary);font-size:.75rem;flex:1;min-width:120px">
-      <input id="chainIdInput" placeholder="Chain ID (e.g. 137)" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-deep);color:var(--text-primary);font-size:.75rem;width:120px">
-      <input id="chainBaseUrlInput" placeholder="RPC URL" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-deep);color:var(--text-primary);font-size:.75rem;flex:2;min-width:200px">
-      <button onclick="saveChain()" class="btn btn-start" style="padding:6px 14px;font-size:.75rem">OK</button>
-      <button onclick="cancelChainAdd()" class="btn btn-stop" style="padding:6px 14px;font-size:.75rem">Cancel</button>
+      <input id="chainNameInput" placeholder="Chain Name (e.g. POLYGON)" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-deep); color:var(--text-primary); font-size:.75rem; flex:1;">
+      <input id="chainIdInput" placeholder="Chain ID (e.g. 137)" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-deep); color:var(--text-primary); font-size:.75rem; width:100px;">
+      <input id="chainBaseUrlInput" placeholder="RPC URL" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-deep); color:var(--text-primary); font-size:.75rem; flex:2;">
+      <button onclick="saveChain()" class="btn btn-start" style="padding:6px 14px; font-size:.75rem">OK</button>
+      <button onclick="cancelChainAdd()" class="btn btn-stop" style="padding:6px 14px; font-size:.75rem">Cancel</button>
     </div>
 
-    <!-- Chain-delete row (shown in edit mode, each chain with red (-) chip) -->
-    <div id="chainDeleteRow" style="display:none;gap:6px;padding:8px 0;flex-wrap:wrap;align-items:center;border-top:1px solid var(--border);margin-top:4px">
-      <span style="font-size:.7rem;color:var(--rose);margin-right:4px">Delete chain:</span>
+    <!-- Chain Delete Chips -->
+    <div id="chainDeleteRow" style="display:none; gap:6px; padding:8px 0; flex-wrap:wrap; align-items:center; border-top:1px solid var(--border); margin-top:4px;">
+      <span style="font-size:.7rem; color:var(--rose); margin-right:4px">Delete chain:</span>
     </div>
 
+    <!-- Dynamic Asset List -->
     <div id="assetRows"></div>
 
-    <!-- Green add-token button (shown in edit mode, hidden during add) -->
-    <div id="addTokenBtnRow" style="display:none;padding:8px 0">
-      <button onclick="showAddTokenFields()" class="btn btn-start" style="background:rgba(52,211,153,.15);color:#34d399;font-size:.9rem;font-weight:700;padding:4px 14px">+</button>
-      <span style="font-size:.75rem;color:var(--text-muted);margin-left:6px">Add new token</span>
+    <!-- Add Token Button Row -->
+    <div id="addTokenBtnRow" style="display:none; padding:8px 0;">
+      <button onclick="showAddTokenFields()" class="btn btn-start" style="background:rgba(52,211,153,.15); color:#34d399; font-size:.85rem; font-weight:700; padding:4px 14px">+ Add Token</button>
     </div>
 
-    <!-- Inline add-token form (hidden initially, shown when green (+) clicked) -->
-    <div id="addTokenFields" style="display:none;gap:8px;padding:8px 0;border-top:1px solid var(--border);margin-top:4px">
-      <input id="tokTicker" placeholder="Token ticker (e.g. CAKE)" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-deep);color:var(--text-primary);font-size:.75rem;width:120px">
-      <input id="tokAddr" placeholder="Contract address (0x followed by 40 hex chars)" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-deep);color:var(--text-primary);font-size:.75rem;flex:1;min-width:240px">
-      <button onclick="addTokenSubmit()" class="btn btn-start" style="padding:6px 14px;font-size:.75rem">Submit</button>
-      <button onclick="cancelAddToken()" class="btn btn-stop" style="padding:6px 14px;font-size:.75rem">Cancel</button>
+    <!-- Inline Add Token Fields -->
+    <div id="addTokenFields" style="display:none; gap:8px; padding:8px 0; border-top:1px solid var(--border); margin-top:4px;">
+      <input id="tokTicker" placeholder="Ticker (e.g. CAKE)" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-deep); color:var(--text-primary); font-size:.75rem; width:120px;">
+      <input id="tokAddr" placeholder="Contract Address (0x...)" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-deep); color:var(--text-primary); font-size:.75rem; flex:1;">
+      <button onclick="addTokenSubmit()" class="btn btn-start" style="padding:6px 14px; font-size:.75rem">Submit</button>
+      <button onclick="cancelAddToken()" class="btn btn-stop" style="padding:6px 14px; font-size:.75rem">Cancel</button>
     </div>
 
-    <!-- Edit mode OK/Cancel (for delete confirmation) -->
+    <!-- Edit Confirmation Actions -->
     <div class="edit-actions" id="editActions">
-      <button id="editOkBtn" onclick="saveTokenEdits()" class="btn btn-start" style="padding:6px 16px;font-size:.75rem" disabled>OK</button>
-      <button onclick="cancelEditMode()" class="btn btn-stop" style="padding:6px 16px;font-size:.75rem">Cancel</button>
+      <button id="editOkBtn" onclick="saveTokenEdits()" class="btn btn-start" style="padding:6px 16px; font-size:.75rem" disabled>OK</button>
+      <button onclick="cancelEditMode()" class="btn btn-stop" style="padding:6px 16px; font-size:.75rem">Cancel</button>
+    </div>
+  </div>
+
+  <!-- TAB 3: ACCOUNT & KEY -->
+  <div class="tab-content" id="tab-account">
+    <div style="display:flex; align-items:center; gap:12px; padding:12px 0;">
+      <span style="font-size:.9rem; color:var(--text-secondary)">Private Key:</span>
+      <input id="pkInput" type="password" placeholder="Enter private key..." style="padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--bg-deep); color:var(--text-primary); font-size:.8rem; width:280px;" value="">
+      <button onclick="unlockWallet()" class="btn btn-start" style="padding:6px 16px; font-size:.8rem;">Unlock Wallet</button>
+      <span id="acctStatus" style="font-family:monospace; font-size:.75rem; color:var(--text-muted); display:none;"></span>
     </div>
   </div>
 </div>
 
-
 <script>
+// Empty Default State
 var assetsData = %s;
-var totalUSD = %.9f;
-var totalBTC = %.9f;
-var bscOnlyUSD = %.9f;
-var btcPrice = %.9f;
+var totalUSD = 0.0;
+var totalBTC = 0.0;
+var btcPrice = 0.0;
 var showAllNumbers = false;
 var editMode = false;
 var addTokenMode = false;
@@ -921,9 +1010,33 @@ var deletedTokens = {};
 var addedTokens = {};
 var deletedChains = {};
 var _changesPending = 0;
-var userChains = [];
+
+function switchBalanceTab(tabName) {
+  var contents = document.querySelectorAll('.tab-content');
+  var btns = document.querySelectorAll('.tab-btn');
+  contents.forEach(function(el) { el.classList.remove('active'); });
+  btns.forEach(function(el) { el.classList.remove('active'); });
+
+  var targetContent = document.getElementById('tab-' + tabName);
+  if (targetContent) targetContent.classList.add('active');
+
+  event.currentTarget.classList.add('active');
+}
+
+function toggleCardEnlarge() {
+  var card = document.getElementById('mainBalanceCard');
+  var btn = document.getElementById('enlargeIconBtn');
+  if (card.classList.contains('enlarged')) {
+    card.classList.remove('enlarged');
+    btn.textContent = '⤢ Enlarge';
+  } else {
+    card.classList.add('enlarged');
+    btn.textContent = '⤝ Shrink';
+  }
+}
 
 function format9Decimal(v) {
+  if (!v || isNaN(v)) v = 0;
   var neg = v < 0; 
   v = Math.abs(v);
   var parts = v.toFixed(9).split('.');
@@ -950,14 +1063,15 @@ function computeChainBalances() {
 
 function updateDropdownOptionLabels() {
   var selectBox = document.getElementById('chainSelect');
-  var btcChecked = document.getElementById('btcToggle').checked;
+  if (!selectBox) return;
+  var btcChecked = document.getElementById('btcToggle') ? document.getElementById('btcToggle').checked : false;
   var chainTotals = computeChainBalances();
   var sym = btcChecked ? '\u20BF ' : '$ ';
   for (var i = 0; i < selectBox.options.length; i++) {
     var opt = selectBox.options[i];
-    if (opt.value === '__add__') continue;
+    if (opt.value === '__add__' || !opt.value) continue;
     var chainUSD = chainTotals[opt.value] || 0;
-    var computedVal = btcChecked ? (chainUSD / btcPrice) : chainUSD;
+    var computedVal = btcChecked ? (btcPrice > 0 ? chainUSD / btcPrice : 0) : chainUSD;
     var baseLabel = opt.value;
     var balanceString = showAllNumbers ? sym + format9Decimal(computedVal) : '******';
     var totalWidth = 64;
@@ -970,407 +1084,158 @@ function updateDropdownOptionLabels() {
 
 function renderAssetRows(){
   var html='';
-  var btcChecked = document.getElementById('btcToggle').checked;
-  var selectedChain = document.getElementById('chainSelect').value;
-  var showAll = document.getElementById('showAllTokens').checked;
+  var btcToggle = document.getElementById('btcToggle');
+  var btcChecked = btcToggle ? btcToggle.checked : false;
+  var chainSelect = document.getElementById('chainSelect');
+  var selectedChain = chainSelect ? chainSelect.value : '';
+  var showAllTokens = document.getElementById('showAllTokens');
+  var showAll = showAllTokens ? showAllTokens.checked : false;
   var chainSum = 0;
+
   for(var i=0; i<assetsData.length; i++){
-    var a=assetsData[i];
+    var a = assetsData[i];
     if(a.chain_name !== selectedChain) continue;
     if(deletedTokens[i]) continue;
-    var usd=a.usd_value || 0;
+    var usd = a.usd_value || 0;
     chainSum += usd;
     var isZero = (!a.amount || a.amount <= 0.000000001);
     if(isZero && !showAll) continue;
-    var computedVal = btcChecked ? (usd / btcPrice) : usd;
+    var computedVal = btcChecked ? (btcPrice > 0 ? usd / btcPrice : 0) : usd;
     var sym = btcChecked ? '\u20BF ' : '$ ';
     var dim = isZero ? ' style="opacity:0.35"' : '';
     var delBtn = (editMode && !addTokenMode) ? '<button class="delete-token-btn" onclick="markTokenDeleted('+i+',event)" style="color:var(--rose);opacity:1;font-weight:bold" title="Remove token">\u2212</button>' : '';
-    var priceStr = (a.usd_price&&a.usd_price>0) ? (btcChecked ? '\u20BF ' + format9Decimal(a.usd_price/btcPrice) : '$ ' + format9Decimal(a.usd_price)) : '--';
-    html+='<div class="asset-row'+(editMode?' editing':'')+'"'+dim+'><span class="asset-ticker">'+a.ticker+'</span><span class="asset-price">'+priceStr+'</span><span class="asset-amount">'+(showAllNumbers ? format9Decimal(a.amount||0) : '******')+' '+a.ticker+'</span><span class="asset-usd">(' + (showAllNumbers ? sym + format9Decimal(computedVal) : '******') + ')</span>'+delBtn+'</div>';
+    var priceStr = (a.usd_price && a.usd_price > 0) ? (btcChecked ? '\u20BF ' + format9Decimal(a.usd_price / (btcPrice||1)) : '$ ' + format9Decimal(a.usd_price)) : '--';
+    html += '<div class="asset-row'+(editMode?' editing':'')+'"'+dim+'><span class="asset-ticker">'+a.ticker+'</span><span class="asset-price">'+priceStr+'</span><span class="asset-amount">'+(showAllNumbers ? format9Decimal(a.amount||0) : '******')+' '+a.ticker+'</span><span class="asset-usd">(' + (showAllNumbers ? sym + format9Decimal(computedVal) : '******') + ')</span>'+delBtn+'</div>';
   }
-  document.getElementById('assetRows').innerHTML = html || '<div style="color:var(--text-muted);font-size:.8rem;padding:6px 0">No active assets on ' + selectedChain + '.</div>';
+
+  var container = document.getElementById('assetRows');
+  if (container) {
+    container.innerHTML = html || '<div style="color:var(--text-muted);font-size:.8rem;padding:6px 0">No active assets on ' + (selectedChain || 'selected chain') + '.</div>';
+  }
+
   var globalVal = btcChecked ? totalBTC : totalUSD;
   var globalSym = btcChecked ? '\u20BF ' : '$ ';
-  document.getElementById('balanceAmount').textContent = showAllNumbers ? globalSym + format9Decimal(globalVal) : '******';
-  var activeChainVal = btcChecked ? (chainSum / btcPrice) : chainSum;
-  var cd = document.getElementById('chainTotalDisplay');
-  if(cd) cd.textContent = showAllNumbers ? (btcChecked ? '\u20BF ' : '$ ') + format9Decimal(activeChainVal) : '******';
+  var balAmt = document.getElementById('balanceAmount');
+  if (balAmt) {
+    balAmt.textContent = showAllNumbers ? globalSym + format9Decimal(globalVal) : '******';
+  }
   updateDropdownOptionLabels();
 }
 
-// ── Edit mode (pencil icon) ──
-function toggleEditMode(){
-  editMode = !editMode;
-  addTokenMode = false;
-  deletedTokens = {};
-  addedTokens = {};
-  deletedChains = {};
-  document.getElementById('editActions').classList.toggle('visible', editMode);
-  document.getElementById('addTokenBtnRow').style.display = editMode ? 'block' : 'none';
-  document.getElementById('addTokenFields').style.display = 'none';
-  document.getElementById('editOkBtn').disabled = true;
-  // Show/hide chain-delete row for chain deletion
-  var cdr = document.getElementById('chainDeleteRow');
-  if(cdr){
-    cdr.style.display = editMode ? 'flex' : 'none';
-    if(editMode){ populateChainDeleteChips(); }
-  }
-  renderAssetRows();
-}
-// Build red (-) chips for each chain in the dropdown
-function populateChainDeleteChips(){
-  var cdr = document.getElementById('chainDeleteRow');
-  if(!cdr) return;
-  var sel = document.getElementById('chainSelect');
-  var html = '<span style="font-size:.7rem;color:var(--rose);margin-right:4px">Delete chain:</span>';
-  for(var i=0; i<sel.options.length; i++){
-    var opt = sel.options[i];
-    if(opt.value === '__add__') continue;
-    if(deletedChains[opt.value]) continue; // don't show chip for already-marked chain
-    html += '<span class="chain-chip" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;background:var(--bg-elevated);font-size:.75rem;color:var(--text-primary)">' +
-      opt.value +
-      ' <button data-chain="' + opt.value + '" onclick="markChainDeleted(this.getAttribute(\'data-chain\'))" style="background:none;border:none;color:var(--rose);cursor:pointer;font-weight:bold;font-size:.9rem;padding:0 4px" title="Remove ' + opt.value + '">\u2212</button>' +
-      '</span>';
-  }
-  cdr.innerHTML = html;
-}
-// Mark a chain for deletion (same pattern as markTokenDeleted — just flag, don't POST yet)
-function markChainDeleted(name){
-  deletedChains[name] = true;
-  // Remove from dropdown immediately (visual feedback), restore on cancel
-  var sel = document.getElementById('chainSelect');
-  for(var i=0; i<sel.options.length; i++){
-    if(sel.options[i].value === name){ sel.remove(i); break; }
-  }
-  populateChainDeleteChips();
-  document.getElementById('editOkBtn').disabled = false;
-  refreshAssetPanel();
-}
-// Green (+) clicked — show add-token form, hide delete buttons + green button
-function showAddTokenFields(){
-  addTokenMode = true;
-  document.getElementById('addTokenFields').style.display = 'flex';
-  document.getElementById('addTokenBtnRow').style.display = 'none';
-  renderAssetRows();
-}
-function addTokenSubmit(){
-  var t = document.getElementById('tokTicker').value.trim().toUpperCase();
-  var a = document.getElementById('tokAddr').value.trim();
-  var ch = document.getElementById('chainSelect').value;
-  if(!t||!a||!ch||ch==='__add__'){ alert('Ticker, address, and chain required.'); return; }
-  if(!/^0x[a-fA-F0-9]{40}$/.test(a)){ alert('Address must be: 0x followed by 40 hex characters (0-9, a-f).'); return; }
-  var id = ch==='BSC'?'56':ch==='POLYGON'?'137':ch==='ETHEREUM'?'1':ch==='OPBNB'?'204':ch;
-  var accountId = window._profileKey || window._accountId || 'default';
-  fetch('/api/verify/token/add',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({ticker:t,address:a,chain_name:ch,account_id:accountId})})
-  .then(r=>r.json()).then(d=>{
-    if(d.status==='ok'){
-      assetsData.push({ticker:t,amount:0,usd_price:0,usd_value:0,bsc_addr:a,chain_id:id,chain_name:ch});
-      addedTokens[assetsData.length-1] = true;
-      document.getElementById('tokTicker').value='';document.getElementById('tokAddr').value='';
-      document.getElementById('addTokenFields').style.display='none';
-      document.getElementById('addTokenBtnRow').style.display='block';
-      document.getElementById('editOkBtn').disabled = false;
-      addTokenMode = false;
-      renderAssetRows();
-    } else { alert(d.message||'Token add failed'); }
-  }).catch(function(e){alert('Cannot reach server');});
-}
-// Cancel add-token: hide inputs, show green (+) again
-function cancelAddToken(){
-  document.getElementById('tokTicker').value='';document.getElementById('tokAddr').value='';
-  document.getElementById('addTokenFields').style.display='none';
-  document.getElementById('addTokenBtnRow').style.display='block';
-  addTokenMode = false;
-  renderAssetRows();
-}
-function markTokenDeleted(idx, evt){
-  evt.stopPropagation();
-  deletedTokens[idx] = true;
-  document.getElementById('editOkBtn').disabled = false;
-  renderAssetRows();
-}
-function cancelEditMode(){
-  // Restore chains that were marked for deletion
-  for(var cn in deletedChains){
-    if(!deletedChains[cn]) continue;
-    // Re-add to select dropdown
-    var sel = document.getElementById('chainSelect');
-    var addOpt = sel.querySelector('option[value=__add__]');
-    var opt = document.createElement('option');
-    opt.value = cn; opt.textContent = cn;
-    if(addOpt) sel.insertBefore(opt, addOpt);
-    else sel.appendChild(opt);
-    // Sort alphabetically
-    var opts = [];
-    for(var i=0; i<sel.options.length; i++) opts.push(sel.options[i]);
-    opts.sort(function(a,b){ return a.value < b.value ? -1 : 1; });
-    sel.innerHTML = ''; for(var i=0; i<opts.length; i++) sel.appendChild(opts[i]);
-  }
-  deletedTokens = {};
-  addedTokens = {};
-  deletedChains = {};
-  addTokenMode = false;
-  document.getElementById('addTokenFields').style.display='none';
-  document.getElementById('tokTicker').value='';document.getElementById('tokAddr').value='';
-  toggleEditMode();
-}
-function saveTokenEdits(){
-  var toDelete = [];
-  for(var k in deletedTokens){ if(deletedTokens[k]) toDelete.push(parseInt(k)); }
-  var promises = [];
-  if(toDelete.length > 0){
-    var accountId = window._profileKey || window._accountId || 'default';
-    promises.push(fetch('/api/tokens/delete', {method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({account_id:accountId, indices:toDelete, chain:document.getElementById('chainSelect').value})})
-    .then(r=>r.json()).then(d=>{
-      for(var i=toDelete.length-1; i>=0; i--){ assetsData.splice(toDelete[i],1); }
-    }));
-  }
-  // Persist newly added tokens to server
-  for(var k in addedTokens){
-    if(!addedTokens[k]) continue;
-    var a = assetsData[parseInt(k)];
-    if(!a) continue;
-    promises.push(fetch('/api/verify/token/add',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ticker:a.ticker,address:a.bsc_addr,chain_name:a.chain_name,chain_id:a.chain_id})}));
-  }
-  // Persist chain deletions (markChainDeleted flag, not immediate)
-  accountId = window._profileKey || window._accountId || 'default';
-  for(var cn in deletedChains){
-    if(!deletedChains[cn]) continue;
-    promises.push(fetch('/api/verify/chain/delete',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({account_id:accountId,chain_name:cn})})
-    .then(r=>r.json()).then(d=>{
-      if(d.status!=='ok') alert('Chain delete failed: '+(d.message||cn));
-    }));
-  }
-  // Block balance refresh for 10s after edit
-  _changesPending = Date.now() + 10000;
-  if(promises.length > 0){
-    Promise.all(promises).then(function(){
-      toggleEditMode();
-      renderAssetRows();
-    }).catch(function(){ toggleEditMode(); renderAssetRows(); });
-  } else {
-    toggleEditMode();
-  }
-}
+// ── Direct API Communications with apps/balance Daemon (Port 8087) ──
+function fetchBalanceFromService() {
+  var pkInput = document.getElementById('pkInput');
+  var pk = pkInput ? pkInput.value.trim() : '';
 
-// ── Chain add inline ──
-function checkChainSelection() {
-  var v = document.getElementById('chainSelect').value;
-  if (v === '__add__') {
-    document.getElementById('chainAddRow').classList.add('visible');
-  } else {
-    document.getElementById('chainAddRow').classList.remove('visible');
-    refreshAssetPanel();
+  if (!pk) {
+    assetsData = [];
+    totalUSD = 0;
+    totalBTC = 0;
+    renderAssetRows();
+    return;
   }
-}
-function cancelChainAdd() {
-  document.getElementById('chainAddRow').classList.remove('visible');
-  document.getElementById('chainNameInput').value = '';
-  document.getElementById('chainIdInput').value = '';
-  document.getElementById('chainBaseUrlInput').value = '';
-  document.getElementById('chainSelect').value = 'BSC';
-}
-function saveChain() {
-  var name = document.getElementById('chainNameInput').value.trim().toUpperCase();
-  var id = document.getElementById('chainIdInput').value.trim();
-  var baseUrl = document.getElementById('chainBaseUrlInput').value.trim();
-  if(!name || !id) { alert('Chain name and ID required.'); return; }
-  var accountId = window._profileKey || window._accountId || 'default';
-  fetch('/api/verify/chain/add',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({name:name,chain_id:id,base_url:baseUrl,account_id:accountId})})
-  .then(r=>r.json()).then(d=>{
-    if(d.status==='ok'){
-      var sel = document.getElementById('chainSelect');
-      var o = document.createElement('option'); o.value = name; o.textContent = name;
-      sel.insertBefore(o, sel.lastChild); sel.value = name;
-      cancelChainAdd(); refreshAssetPanel();
-    } else { alert(d.message||'Chain add failed'); }
-  }).catch(function(e){alert('Cannot reach server');});
-}
 
-function refreshAssetPanel(){ renderAssetRows(); }
-
-function toggleBalancePrivacy() { showAllNumbers = !showAllNumbers; renderAssetRows(); }
-
-function toggleChainPanel(){
-  var el = document.getElementById('chainPanel');
-  var isOpen = el.classList.contains('open');
-  if(isOpen){ el.classList.remove('open'); }
-  else { el.classList.add('open'); refreshAssetPanel(); }
-}
-
-// ── Wallet unlock ──
-function unlockWallet(){
-  var pk = document.getElementById('pkInput').value.trim();
-  if(!pk) return;
-  var okBtn = document.querySelector('#balance-interactive-header button');
-  if(okBtn) okBtn.disabled = true;
-  document.getElementById('acctStatus').style.display='inline';
-  document.getElementById('acctStatus').style.color='var(--amber)';
-  document.getElementById('acctStatus').textContent = 'Unlocking...';
-  fetch('/api/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({private_key:pk})})
-  .then(r=>r.json()).then(d=>{
-    if(d.status==='ok'){
-      window._accountId = d.profile_id || '';
-      window._profileKey = d.profile_id || '';
-      document.getElementById('acctStatus').style.color='var(--green)';
-      document.getElementById('acctStatus').textContent = d.address ? 'OK: '+d.address : 'OK';
-      document.getElementById('pkInput').style.display='none';
-      if(okBtn) okBtn.style.display='none';
-      // Populate chains dropdown from DB
-      var sel = document.getElementById('chainSelect');
-      sel.innerHTML = '';
-      if(d.chains && d.chains.length > 0){
-        for(var i=0; i<d.chains.length; i++){
-          var c = d.chains[i];
-          var opt = document.createElement('option');
-          opt.value = c.name; opt.textContent = c.name;
-          if(i===0) opt.selected = true;
-          sel.appendChild(opt);
+  fetch('/api/balance?private_key=' + encodeURIComponent(pk))
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP status ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      if (data) {
+        // Update top-right corner timestamp tag from JSON response
+        var timeTag = document.getElementById('lastUpdatedTimeTag');
+        if (timeTag && data.last_updated_time) {
+          timeTag.textContent = 'Updated: ' + data.last_updated_time;
         }
-        userChains = d.chains;
-      } else {
-        // No chains — show empty dropdown with only +Add option
-        var emptyOpt = document.createElement('option');
-        emptyOpt.value = ''; emptyOpt.textContent = '(no chains)';
-        emptyOpt.disabled = true; emptyOpt.selected = true;
-        sel.appendChild(emptyOpt);
-      }
-      // Always show + Add New Chain option at bottom
-      var addOpt = document.createElement('option');
-      addOpt.value = '__add__'; addOpt.textContent = '+ Add New Chain';
-      addOpt.style.color = 'var(--accent)'; addOpt.style.fontWeight = 'bold';
-      sel.appendChild(addOpt);
-      // Populate tokens from DB (assetsData keyed by chain)
-      if(d.tokens && d.tokens.length > 0){
-        assetsData = [];
-        for(var i=0; i<d.tokens.length; i++){
-          var t = d.tokens[i];
-          assetsData.push({ticker:t.ticker, amount:0, usd_price:0, usd_value:0,
-            bsc_addr:t.address, chain_id:'', chain_name:t.chain_name});
-        }
-        refreshAssetPanel();
-        var panel = document.getElementById('chainPanel');
-        if(panel && !panel.classList.contains('open')) panel.classList.add('open');
-      }
-      // Fetch real balance for USD amounts
-      return fetch('/api/balance');
-    } else { throw new Error(d.error||'Unlock failed'); }
-  }).then(r=>r.json()).then(bd=>{
-    if(bd && bd.assets && bd.assets.length > 0){
-      // Merge real USD amounts into our DB-sourced assetsData
-      for(var i=0; i<bd.assets.length; i++){
-        var ba = bd.assets[i];
-        for(var j=0; j<assetsData.length; j++){
-          if(assetsData[j].ticker === ba.ticker && assetsData[j].chain_name === ba.chain_name){
-            assetsData[j].amount = ba.amount||0;
-            assetsData[j].usd_price = ba.usd_price||0;
-            assetsData[j].usd_value = ba.usd_value||0;
-            break;
-          }
-        }
-      }
-      totalUSD = bd.total_usd||0;
-      totalBTC = bd.total_btc||0;
-      btcPrice = bd.btc_price||0;
-      document.getElementById('btcPrice').textContent = format9Decimal(btcPrice);
-      refreshAssetPanel();
-    }
-  }).catch(function(e){alert('Unlock failed: '+(e.message||e));});
-}
 
-// ── BTC live price (via server API — no CORS issues) ──
-function fetchBTCPrice(){
-  fetch('/api/balance').then(r=>r.json()).then(d=>{
-    if(d && d.btc_price && d.btc_price > 0){
-      btcPrice = d.btc_price;
-      document.getElementById('btcPrice').textContent = format9Decimal(btcPrice);
-      updateDropdownOptionLabels();
-    }
-  }).catch(function(){});
-}
-fetchBTCPrice();
-setInterval(fetchBTCPrice, 30000);
+        if (data.chains) {
+          var parsed = [];
+          totalUSD = data.total_usd || 0;
+          totalBTC = data.total_btc || 0;
+          btcPrice = data.live_btc_price || 0;
 
-// ── Live balance refresh (USD amounts only — never add new tokens) ──
-function fetchLiveBalance(){
-  if(!window._accountId) return;
-  if(editMode || addTokenMode) return;
-  if(_changesPending > 0 && Date.now() < _changesPending) return;
-  fetch('/api/balance').then(r=>r.json()).then(bd=>{
-    if(bd && bd.assets && bd.assets.length > 0){
-      for(var i=0; i<bd.assets.length; i++){
-        var ba = bd.assets[i];
-        for(var j=0; j<assetsData.length; j++){
-          if(assetsData[j].ticker === ba.ticker && assetsData[j].chain_name === ba.chain_name){
-            assetsData[j].amount = ba.amount||0;
-            assetsData[j].usd_price = ba.usd_price||0;
-            assetsData[j].usd_value = ba.usd_value||0;
-            break;
-          }
-        }
-      }
-      totalUSD = bd.total_usd||0;
-      totalBTC = bd.total_btc||0;
-      if(bd.btc_price && bd.btc_price > 0) btcPrice = bd.btc_price;
-      refreshAssetPanel();
-    }
-  }).catch(function(){});
-  // Sync new tokens from DB that aren't in assetsData
-  if(window._profileKey){
-    fetch('/api/tokens/list?account_id=' + encodeURIComponent(window._profileKey) + '&chain=' + encodeURIComponent(document.getElementById('chainSelect').value))
-    .then(r=>r.json()).then(d=>{
-      if(d && d.tokens){
-        for(var i=0; i<d.tokens.length; i++){
-          var t = d.tokens[i];
-          var found = false;
-          for(var j=0; j<assetsData.length; j++){
-            if(assetsData[j].ticker === t.ticker && assetsData[j].chain_name === t.chain_name){
-              found = true; break;
+          var btcElem = document.getElementById('btcPrice');
+          if (btcElem) btcElem.textContent = format9Decimal(btcPrice);
+
+          var sel = document.getElementById('chainSelect');
+          var currentSel = sel ? sel.value : '';
+          if (sel) sel.innerHTML = '';
+
+          for (var c = 0; c < data.chains.length; c++) {
+            var ch = data.chains[c];
+            if (sel) {
+              var opt = document.createElement('option');
+              opt.value = ch.name;
+              opt.textContent = ch.name;
+              if (c === 0 && !currentSel) opt.selected = true;
+              else if (ch.name === currentSel) opt.selected = true;
+              sel.appendChild(opt);
+            }
+
+            if (ch.tokens) {
+              for (var t = 0; t < ch.tokens.length; t++) {
+                var tok = ch.tokens[t];
+                parsed.push({
+                  ticker: tok.ticker,
+                  amount: tok.qty,
+                  usd_value: tok.usd,
+                  usd_price: tok.qty > 0 ? (tok.usd / tok.qty) : 0,
+                  chain_name: ch.name
+                });
+              }
             }
           }
-          if(!found){
-            assetsData.push({ticker:t.ticker, amount:0, usd_price:0, usd_value:0,
-              bsc_addr:t.address, chain_id:'', chain_name:t.chain_name});
-            refreshAssetPanel();
+
+          if (sel) {
+            var addOpt = document.createElement('option');
+            addOpt.value = '__add__';
+            addOpt.textContent = '+ Add New Chain';
+            addOpt.style.color = 'var(--accent)';
+            addOpt.style.fontWeight = 'bold';
+            sel.appendChild(addOpt);
           }
+
+          assetsData = parsed;
         }
+      } else {
+        assetsData = [];
       }
-    }).catch(function(){});
+      renderAssetRows();
+    })
+    .catch(function(err) {
+      console.warn('Balance service API unreachable:', err);
+      assetsData = [];
+      totalUSD = 0;
+      totalBTC = 0;
+      renderAssetRows();
+    });
+}
+
+function unlockWallet() {
+  var acctStatus = document.getElementById('acctStatus');
+  if (acctStatus) {
+    acctStatus.style.display = 'inline';
+    acctStatus.style.color = 'var(--amber)';
+    acctStatus.textContent = 'Fetching balance...';
+  }
+  fetchBalanceFromService();
+  if (acctStatus) {
+    acctStatus.style.color = 'var(--green)';
+    acctStatus.textContent = 'Connected';
   }
 }
-setInterval(fetchLiveBalance, 5000);
 
-// ── DB dropdown dedup ──
-var _dbTablesLoaded = false;
-function populateDBTables(){
-  var sel=document.getElementById("dbTableSelect");
-  if(!sel)return;
-  if(_dbTablesLoaded)return;
-  fetch("/api/database_tables").then(r=>r.json()).then(d=>{
-    if(!d.tables)return;
-    sel.innerHTML = '<option value=\"\">-- SELECT TABLE --</option>';
-    d.tables.forEach(function(t){
-      var o=document.createElement("option");o.value=t;o.textContent=t;sel.appendChild(o);
-    });
-    _dbTablesLoaded = true;
-  }).catch(function(e){console.log("populateDBTables fetch failed:",e);});
-}
-if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',populateDBTables);}else{populateDBTables();}
-setTimeout(function(){if(!_dbTablesLoaded)populateDBTables();}, 500);
+function refreshAssetPanel() { renderAssetRows(); }
+function toggleBalancePrivacy() { showAllNumbers = !showAllNumbers; renderAssetRows(); }
 
-// ── Old back-compat stubs ──
+setInterval(fetchBalanceFromService, 10000);
+
 function openTokenEditor(){ toggleEditMode(); }
 function closeTokenEditor(){ cancelEditMode(); }
 function openChainEditor(){ document.getElementById('chainAddRow').classList.add('visible'); }
 function closeChainEditor(){ cancelChainAdd(); }
 </script>
-`, string(assetJSON), 0.0, 0.0, 0.0, 0.0)
+`, string(assetJSON))
 
   now := time.Now()
   type portfolioAsset struct {

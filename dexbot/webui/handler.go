@@ -126,23 +126,6 @@ type Server struct {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : NewServer
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func NewServer(registry *governance.Registry, port int) *Server {
 	return &Server{
 		renderer: NewRenderer(registry),
@@ -259,20 +242,6 @@ func (s *Server) ListenAndServe() error {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : apiDaemonsHandler
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (s *Server) apiDaemonsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	names := s.registry.List()

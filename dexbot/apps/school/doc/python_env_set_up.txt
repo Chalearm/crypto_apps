@@ -1,0 +1,4 @@
+python3 -m venv venv
+source venv/bin/activate
+#pip install numpy pandas tensorflow
+#./venv/bin/python ga_lstm_optimizer.py

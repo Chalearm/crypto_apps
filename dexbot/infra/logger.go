@@ -1,14 +1,15 @@
 /******************************************************************************
- * File Name       : logger.go
- * File Path       : infra/logger.go
- * Author          : deepseek-4.0-pro
- * Owner           : Chalearm Saelim
- * Reviewer        : Chalearm Saelim
- * Version         : 1.0.0
- * Status          : Development
- * Created Date    : 2026-07-01 19:25:30 (UTC+7)
- * Modified Date   : 2026-07-01 19:25:30 (UTC+7)
- * Description     : Centralized logging subsystem for Dexbot.
+ * File Name        : logger.go
+ * File Path        : infra/logger.go
+ * Author           : Chalearm Saelim & Gemini
+ * Owner            : Chalearm Saelim
+ * Reviewer         : Chalearm Saelim
+ * Version          : 1.1.0
+ * Status           : Development
+ * Created Date     : 2026-07-01 19:25:30 (UTC+7)
+ * Modified Date    : 2026-08-02 16:00:00 (UTC+7)
+ * Description      : Centralized logging subsystem for Dexbot with DEBUG level
+ *                    and conditional function parameter diagnostic printing.
  ******************************************************************************/
 package infra
 
@@ -142,7 +143,7 @@ var activeWriter LogWriter = &TextWriter{}
  ******************************************************************************/
 func InitLogger() {
 	ReloadLoggerConfig()
-	fmt.Println("[LOGGER][INFO] Logger initialized.")
+	fmt.Println("[LOGGER][INFO] Logger initialized with DEBUG level support.")
 }
 
 /******************************************************************************
@@ -226,6 +227,10 @@ func ReloadLoggerConfig() {
 	switch strings.ToUpper(level) {
 	case "":
 		currentLevel = "INFO"
+	case "TRACE":
+		currentLevel = "TRACE"
+	case "DEBUG":
+		currentLevel = "DEBUG"
 	case "INFO":
 		currentLevel = "INFO"
 	case "WARN":
@@ -357,18 +362,36 @@ func shouldLog(level string) bool {
 
 	levels := map[string]int{
 		"TRACE": 0,
-		"INFO":  1,
-		"WARN":  2,
-		"ERROR": 3,
+		"DEBUG": 1,
+		"INFO":  2,
+		"WARN":  3,
+		"ERROR": 4,
 	}
 
-	return levels[level] >= levels[currentLevel]
+	reqLevel, exists := levels[level]
+	if !exists {
+		return false
+	}
+
+	return reqLevel >= levels[currentLevel]
 }
 
 /******************************************************************************
- * Function Name : Info / Warn / Error
- * Purpose       : Log severity wrappers.
+ * Function Name : Debug / Info / Warn / Error
+ * Purpose       : Severity wrappers for standard logging.
  ******************************************************************************/
+func Debug(msg string) { writeLog("DEBUG", msg) }
 func Info(msg string)  { writeLog("INFO", msg) }
 func Warn(msg string)  { writeLog("WARN", msg) }
 func Error(msg string) { writeLog("ERROR", msg) }
+
+/******************************************************************************
+ * Function Name : LogConditional
+ * Purpose       : Executes a DEBUG log print only when the caller function explicitly
+ *                 enables debug via boolean parameter (debug=true).
+ ******************************************************************************/
+func LogConditional(enableDebug bool, msg string) {
+	if enableDebug {
+		writeLog("DEBUG", msg)
+	}
+}

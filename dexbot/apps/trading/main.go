@@ -1,112 +1,94 @@
 /******************************************************************************
- * File Name       : main.go
- * File Path       : apps/trading/main.go
- * Author          : Chalearm Saelim
- * Owner           : Chalearm Saelim
- * Reviewer        : Chalearm Saelim
- * Version         : 1.0.0
- * Status          : Development
- * Created Date    : 2026-07-26 08:00:00 (UTC+7)
- * Modified Date   : 2026-07-26 08:00:00 (UTC+7)
- * Description     : Trading daemon entry point.
- * Responsibilities: Execute trades based on H-MAB + Thompson Sampling.
- * Usage : Directory apps/trading/ | Build go build | Run ./trading
- * Dependencies : dexbot/infra
- * Updated Parts : None
- * New Parts : [Function] main()
- * Change History : 1.0.0 | 2026-07-26 | Initial
- * TODO : Add monitoring
- * Notes : Per regulator coding standard.
- /******************************************************************************
- * File Name       : main.go
- * File Path       : apps/trading/main.go
- * Author          : Chalearm Saelim
- * Owner           : Chalearm Saelim
- * Version         : 1.0.0
- * Status          : Development
- * Created Date    : 2026-07-26 08:00:00 (UTC+7)
- * Description     : Trading daemon entry point.
- * Notes : Per regulator coding standard.
- ******************************************************************************/
-
-  *
-  * Function Name : sendPortfolioResults
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-/******************************************************************************
- * File Name       : main.go
-  *
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
- * File Path       : apps/trading/main.go
+ * File Name        : main.go
+ * File Path        : apps/trading/main.go
+ * Author           : Chalearm Saelim & Gemini
+ * Owner            : Chalearm Saelim
+ * Reviewer         : Chalearm Saelim
+ * Version          : 2.0.0
+ * Status           : Development
+ * Created Date     : 2026-07-26 08:00:00 (UTC+7)
+ * Modified Date    : 2026-07-29 01:00:00 (UTC+7)
  *
- * Author          : deepseek-4.0-pro
- * Owner           : Chalearm Saelim
- * Reviewer        : Chalearm Saelim
+ * Description      :
+ *    Trading daemon entry point for the Dexbot platform. Manages worker task pools,
+ *    listens for graduate model updates from School via UDP, executes trade state
+ *    persistence, manages paper/live trading gates, and drives the Hierarchical 
+ *    Multi-Armed Bandit (H-MAB) agent allocation engine.
  *
- * Version         : 1.0.0
- * Status          : Development
- * Created Date    : 2026-07-01 19:25:36 (UTC+7)
- * Modified Date   : 2026-07-01 19:25:36 (UTC+7)
+ * DEPENDENCY TREE & STRUCTURAL MAP:
+ * ───────────────────────────────────────────────────────────────────────────
+ * [apps/trading/main.go] (Trading Daemon Entry Point)
+ *     │
+ *     ├── Imports Internal Modules ──> [dexbot/config] (Runtime Settings)
+ *     │                           ├──> [dexbot/governance] (Model Registry & Heartbeat)
+ *     │                           ├──> [dexbot/infra] (Logger, Checkpoint, Account Manager)
+ *     │                           └──> [dexbot/trading] (AgentPool & HierarchicalMAB)
+ *     │
+ *     ├── State & Checkpointing ──> [tasks_state.json] (Task Manager State)
+ *     │                          └──> [checkpoints/trading.json] (Daemon Checkpoint)
+ *     │
+ *     ├── Inter-Daemon Communication:
+ *     │     ├── Listens UDP (Port 8083) <── Graduate models from School / Commands from Governance
+ *     │     └── Sends UDP (Port 8081)   ──> Heartbeats & Portfolio results to Governance
+ *     │
+ *     └── Autonomous Engine Loop:
+ *           ├── MAB Agent/Model Selection pass
+ *           ├── Paper Trading Gate evaluation
+ *           └── Worker Task Execution & Portfolio Prediction
  *
- * Description     :
- *   Trading Daemon — executes trades via portfolio agents managed by Hierarchical MAB. Receives graduate models from School daemon via UDP (§17), manages portfolio agents with Thompson Sampling for model/
+ * FUNCTION DEPENDENCY MATRIX (Internal Methods):
+ * ───────────────────────────────────────────────────────────────────────────
+ * main()
+ *  ├── infra.InitLogger()
+ *  ├── loadEnvSmart()
+ *  ├── restoreTradingCheckpoint() ──> infra.RestoreCheckpoint()
+ *  ├── initUDP() ──────────────────> net.DialUDP()
+ *  ├── validateBalanceHoldings() ──> infra.NewAccountManager() & GetBalanceSummary()
+ *  ├── go startUdpListener()
+ *  │    ├── receiveGraduates() ────> trading.NewHierarchicalMAB()
+ *  │    └── handleTradingCommand()
+ *  ├── go runTradingDaemon()
+ *  │    ├── NewTaskManager() ──────> TaskManager.Load()
+ *  │    ├── createTask() ──────────> calculateConfidence() & calculateSpread()
+ *  │    ├── runWorkers() ──────────> processTask() ──> ExecuteTrade()
+ *  │    ├── evaluatePortfolio() ───> predictEnsemble()
+ *  │    ├── runMABCycle()
+ *  │    │    ├── manageAgentLifecycle() ──> tryGraduatePaperAgents()
+ *  │    │    ├── hmab.SelectModel()
+ *  │    │    ├── agentPool.RebalanceCapital()
+ *  │    │    ├── simulateAgentTrade() ───> modelReg.RecordPerformance()
+ *  │    │    └── evaluatePaperGate()
+ *  │    ├── sendHeartbeat() ────────> collectResourceMetrics() & governance.FormatHeartbeat()
+ *  │    └── updateMABFromPerformance() ─> hmab.UpdateAgentEvidence() & UpdateModelEvidence()
+ *  └── saveTradingCheckpoint() ────> infra.SaveCheckpoint()
  *
- * Responsibilities:
- *   - - Implement core functionality for apps package.
+ * Responsibilities :
+ *    - Receives graduate model registrations from School over UDP socket connection.
+ *    - Orchestrates multi-agent capital rebalancing using Hierarchical Multi-Armed Bandit algorithm.
+ *    - Evaluates paper trading metrics against configured criteria before allowing live capital trading.
+ *    - Periodically sends resource usage heartbeats to Governance daemon.
  *
  * Usage :
- *   Directory : apps/trading/
- *
- *   Build :
- *     go build ./apps/trading
- *
- *   Run :
- *     go run .  (from dexbot root)
- *
- *   Test :
- *     go test ./apps/trading
+ *    Directory : apps/trading/
+ *    Build     : go build -o trading main.go
+ *    Run       : ./trading
  *
  * Dependencies :
- *   Internal :
- *     - dexbot/apps
- *
- *   External :
- *     - (stdlib only)
- *
- * Configuration :
- *   - config.env
- *
- * Updated Parts :
- *   None (initial version)
- *
- * New Parts :
- *   [Functions] All exported functions in this file
+ *    Internal  : dexbot/config, dexbot/governance, dexbot/infra, dexbot/trading
+ *    External  : stdlib (net, os, sync, math, encoding/json)
  *
  * Change History :
- *   -------------------------------------------------------------------------
- *   Version | Date Time (UTC+7)      | Author          | Description
- *   -------------------------------------------------------------------------
- *   1.0.0   | 2026-07-01 19:25:36 (UTC+7)   | deepseek-4.0-pro | Header validation — rule1.txt compliant
- *   -------------------------------------------------------------------------
- *
- * TODO :
- *   - Add unit tests
+ *    -------------------------------------------------------------------------
+ *    Version | Date Time (UTC+7)         | Author          | Description
+ *    -------------------------------------------------------------------------
+ *    1.0.0   | 2026-07-26 08:00:00 (UTC+7) | Chalearm Saelim | Initial release
+ *    2.0.0   | 2026-07-29 01:00:00 (UTC+7) | Gemini          | Integrated H-MAB & Paper Gate Matrix
+ *    -------------------------------------------------------------------------
  *
  * Notes :
- *   - Per rule1.txt coding standard.
+ *    - Per regulator coding standard rules.
  ******************************************************************************/
+
 package main
 
 import (
@@ -179,59 +161,19 @@ type TaskManager struct {
 	mu    sync.Mutex
 	Tasks map[string]*TradeTask
 }
+
 /******************************************************************************
  * Function Name : NewTaskManager
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
+ * Purpose       : Initializes and returns a new TaskManager instance.
  ******************************************************************************/
-
-
 func NewTaskManager() *TaskManager {
 	return &TaskManager{Tasks: make(map[string]*TradeTask)}
 }
+
 /******************************************************************************
  * Function Name : Save
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
+ * Purpose       : Persists task manager state to disk.
  ******************************************************************************/
-
-
 func (tm *TaskManager) Save() {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
@@ -239,31 +181,11 @@ func (tm *TaskManager) Save() {
 	_ = os.WriteFile(STATE_FILE, data, 0644)
 	infra.Info("trading state saved to disk")
 }
+
 /******************************************************************************
  * Function Name : Load
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
+ * Purpose       : Restores task manager state from disk.
  ******************************************************************************/
-
-
 func (tm *TaskManager) Load() {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
@@ -281,12 +203,12 @@ func (tm *TaskManager) Load() {
 // ==============================
 
 var (
-	udpConn            *net.UDPConn
-	governanceAddr     *net.UDPAddr
-	governanceAddrStr  string  // §66: configurable governance address
-	tradingListenAddr  string  // §66: configurable trading listen address
-	strategy           Strategy = &MockStrategy{}
-	startTime          = time.Now()
+	udpConn           *net.UDPConn
+	governanceAddr    *net.UDPAddr
+	governanceAddrStr string // §66: configurable governance address
+	tradingListenAddr string // §66: configurable trading listen address
+	strategy          Strategy = &MockStrategy{}
+	startTime         = time.Now()
 
 	// Phase 13: H-MAB + AgentPool
 	runtimeCfg  config.RuntimeConfig
@@ -308,10 +230,10 @@ var (
 // paperTradingStats tracks progress toward real-capital eligibility (§49).
 type paperTradingStats struct {
 	TotalTrades       int       // Total paper trades executed
-	AgentsEligible   int       // Agents meeting performance threshold
-	ModelsEligible   int       // Models meeting confidence threshold
-	RealCapitalActive bool     // True if paper gate has been passed
-	GatePassedAt     time.Time // When the gate was passed
+	AgentsEligible    int       // Agents meeting performance threshold
+	ModelsEligible    int       // Models meeting confidence threshold
+	RealCapitalActive bool      // True if paper gate has been passed
+	GatePassedAt      time.Time // When the gate was passed
 }
 
 // §82: Paper trade fallback mode — triggered when reloaded balance exceeds holdings.
@@ -323,30 +245,6 @@ var (
 // ==============================
 // INIT
 // ==============================
-/******************************************************************************
- * Function Name : init
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func init() {
 	infra.InitLogger()
@@ -369,30 +267,6 @@ func init() {
 // ==============================
 // MAIN
 // ==============================
-/******************************************************************************
- * Function Name : main
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func main() {
 	infra.FnTrace("entering")
@@ -455,67 +329,24 @@ func main() {
 	}
 }
 
-/*
-Struct: tradingCheckpoint
-Description:
-  Serializable trading state for checkpoint/restore.
-
-Lines: ~5
-*/
 type tradingCheckpoint struct {
-	Version     string  `json:"version"`
-	AgentCount  int     `json:"agent_count"`
-	ActiveCount int     `json:"active_count"`
+	Version      string  `json:"version"`
+	AgentCount   int     `json:"agent_count"`
+	ActiveCount  int     `json:"active_count"`
 	TotalCapital float64 `json:"total_capital"`
-	ModelCount  int     `json:"model_count"`
-	Ports       [2]int  `json:"ports"`
+	ModelCount   int     `json:"model_count"`
+	Ports        [2]int  `json:"ports"`
 }
+
 /******************************************************************************
  * Function Name : saveTradingCheckpoint
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
+ * Purpose       : Saves trading state for checkpointing.
  ******************************************************************************/
-
-
-  *
-  * Function Name : saveTradingCheckpoint
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func saveTradingCheckpoint() {
 	state := tradingCheckpoint{
-		Version:     "v2.0",
+		Version:      "v2.0",
 		TotalCapital: runtimeCfg.TotalCapital,
-		Ports:       [2]int{governancePort, tradingPort},
+		Ports:        [2]int{governancePort, tradingPort},
 	}
 	if agentPool != nil {
 		state.AgentCount = agentPool.Count()
@@ -531,31 +362,11 @@ func saveTradingCheckpoint() {
 		infra.Info("Trading: checkpoint saved")
 	}
 }
+
 /******************************************************************************
  * Function Name : restoreTradingCheckpoint
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
+ * Purpose       : Restores trading state from checkpoint if available.
  ******************************************************************************/
-
-
 func restoreTradingCheckpoint() {
 	var state tradingCheckpoint
 	if err := infra.RestoreCheckpoint("trading", &state); err != nil {
@@ -571,31 +382,11 @@ func restoreTradingCheckpoint() {
 		tradingPort = state.Ports[1]
 	}
 }
+
 /******************************************************************************
  * Function Name : initUDP
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
+ * Purpose       : Resolves and dials Governance UDP endpoint.
  ******************************************************************************/
-
-
 func initUDP() {
 	var err error
 	govAddr := governanceAddrStr
@@ -614,31 +405,11 @@ func initUDP() {
 	}
 	infra.Info(fmt.Sprintf("Trading UDP sender initialized, sending to %s:%d", govAddr, governancePort))
 }
+
 /******************************************************************************
  * Function Name : loadEnvSmart
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
+ * Purpose       : Searches and loads configuration env file from path hierarchy.
  ******************************************************************************/
-
-
 func loadEnvSmart() {
 	paths := []string{"config.env", "../config.env", "../../config.env", "../../../config.env"}
 	for _, p := range paths {
@@ -653,43 +424,7 @@ func loadEnvSmart() {
 
 /******************************************************************************
  * Function Name : validateBalanceHoldings
- *
- * Purpose :
- *   Validates that tracked portfolio positions do not exceed the actual
- *   account balance on reload. Per myreq4.txt §82: if any asset has more
- *   value than the wallet holds, all portfolios transition to paper-trade
- *   mode. This prevents trading with fake/desynced balances.
- *
- * Inputs :
- *   None (reads globals: runtimeCfg, agentPool)
- *
- * Outputs :
- *   Sets paperTradeMode and paperTradeReason globals.
- *
- * Return :
- *   None
- *
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  *
- * Error Cases :
- *   - AccountManager returns empty key → skip validation
- *   - Balance summary not available → skip validation
- *
- * Dependencies :
- *   - infra.NewAccountManager
- *   - infra.GetBalanceSummary
- *
- * Complexity :
- *   Time  : O(n) where n = number of agents
- *   Space : O(1)
- *
- * Number Of Lines : 30
- *
- * Notes :
- *   - Mock BSC balances are generous by default, so paper mode is usually off.
- *   - Real mainnet will trigger paper mode if balances drop between restarts.
+ * Purpose       : Validates portfolio positions against actual wallet balance.
  ******************************************************************************/
 func validateBalanceHoldings() {
 	am := infra.NewAccountManager()
@@ -705,11 +440,9 @@ func validateBalanceHoldings() {
 		return
 	}
 
-	// Check if any agent holds capital exceeding the total balance
 	totalBalance := balance.TotalUSD
 	currentPaperCount := 0
 	for _, a := range agentPool.ActiveAgents() {
-		// If any agent's capital exceeds the wallet balance, paper-trade fallback
 		if a.Capital > totalBalance*1.1 { // 10% buffer for rounding
 			if !paperTradeMode {
 				paperTradeMode = true
@@ -721,7 +454,6 @@ func validateBalanceHoldings() {
 		}
 	}
 
-	// Also check if total allocated capital exceeds balance
 	allocated := agentPool.TotalAllocated()
 	if allocated > totalBalance*1.1 && !paperTradeMode {
 		paperTradeMode = true
@@ -732,7 +464,6 @@ func validateBalanceHoldings() {
 	if paperTradeMode {
 		infra.Warn(fmt.Sprintf("Trading: paper trade fallback activated — %s (paper agents: %d)",
 			paperTradeReason, currentPaperCount))
-		// Mark all existing agents as paper
 		for _, a := range agentPool.ActiveAgents() {
 			paperAgents[a.ID] = true
 		}
@@ -743,32 +474,8 @@ func validateBalanceHoldings() {
 }
 
 // ==============================
-// UDP LISTENER (with graduate model reception §17)
+// UDP LISTENER
 // ==============================
-/******************************************************************************
- * Function Name : startUdpListener
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func startUdpListener(ctx context.Context) {
 	infra.FnTrace("entering")
@@ -783,7 +490,6 @@ func startUdpListener(ctx context.Context) {
 	}
 	addr := net.UDPAddr{Port: tradingPort, IP: net.ParseIP(listenAddr)}
 
-	// Retry with backoff — port may be held by defunct process
 	var conn *net.UDPConn
 	var err error
 	for retry := 0; retry < 5; retry++ {
@@ -818,13 +524,11 @@ func startUdpListener(ctx context.Context) {
 			message := string(buffer[:n])
 			infra.Info("Trading: Received UDP message: " + message)
 
-			// Graduate model reception from School (§17)
 			if strings.HasPrefix(message, "school:graduate:") {
 				receiveGraduates(message)
 				continue
 			}
 
-			// Governance commands
 			if strings.HasPrefix(message, "governance:command:") {
 				handleTradingCommand(message, conn, remoteAddr)
 				continue
@@ -848,46 +552,6 @@ func startUdpListener(ctx context.Context) {
 // GRADUATE RECEPTION (§17, §23)
 // ==============================
 
-/******************************************************************************
- * Function Name : receiveGraduates
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
-  *
-  * Function Name : receiveGraduates
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func receiveGraduates(msg string) {
 	infra.FnTrace("entering")
 	defer infra.FnTrace("done")
@@ -909,8 +573,6 @@ func receiveGraduates(msg string) {
 	modelNamesMu.Unlock()
 
 	if nModels > 0 {
-		// Rebuild H-MAB with fresh arms for the new model count
-		// Total agents = paper + real (Phase 20 split)
 		nAgents := runtimeCfg.Trading.MaxPaperAgents + runtimeCfg.Trading.MaxRealAgents
 		if nAgents < 5 {
 			nAgents = 5
@@ -921,30 +583,6 @@ func receiveGraduates(msg string) {
 		infra.Warn("Received empty graduate list from School")
 	}
 }
-
-/******************************************************************************
- * Function Name : sendPortfolioResults
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
 
 func sendPortfolioResults() {
 	infra.FnTrace("entering")
@@ -961,7 +599,6 @@ func sendPortfolioResults() {
 		if i >= len(probs) {
 			break
 		}
-		// Aggregate agent performance for this model
 		var totalSharpe, totalProfit, totalDrawdown float64
 		count := 0
 		for _, a := range agentPool.ActiveAgents() {
@@ -990,30 +627,6 @@ func sendPortfolioResults() {
 // ==============================
 // COMMAND HANDLERS
 // ==============================
-/******************************************************************************
- * Function Name : handleTradingCommand
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func handleTradingCommand(msg string, conn *net.UDPConn, remoteAddr *net.UDPAddr) {
 	switch {
@@ -1035,76 +648,12 @@ func handleTradingCommand(msg string, conn *net.UDPConn, remoteAddr *net.UDPAddr
 // ==============================
 // HEARTBEAT
 // ==============================
-/******************************************************************************
- * Function Name : collectResourceMetrics
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
-  *
-  * Function Name : runMABCycle
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func collectResourceMetrics() (float64, float64, float64) {
 	return 8.0 + float64(time.Now().UnixNano()%400)/100.0,
 		256.0 + float64(time.Now().UnixNano()%256),
 		2048.0
 }
-/******************************************************************************
- * Function Name : sendHeartbeat
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func sendHeartbeat() {
 	if udpConn == nil {
@@ -1123,30 +672,6 @@ func sendHeartbeat() {
 	}
 	udpConn.Write([]byte(governance.FormatHeartbeat(info)))
 }
-/******************************************************************************
- * Function Name : sendStatusToGovernance
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func sendStatusToGovernance(daemonType, status, message string) {
 	if udpConn == nil {
@@ -1158,30 +683,6 @@ func sendStatusToGovernance(daemonType, status, message string) {
 // ==============================
 // DAEMON LOOP (§18-21)
 // ==============================
-
-/******************************************************************************
- * Function Name : runTradingDaemon
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
 
 func runTradingDaemon(ctx context.Context) {
 	infra.FnTrace("entering")
@@ -1205,24 +706,19 @@ func runTradingDaemon(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			cfg := loadConfig()
-			// Basic trade tasks (backward compat)
 			if len(manager.Tasks) < cfg.MaxTasks {
 				createTask(manager)
 			}
 			runWorkers(manager)
 			evaluatePortfolio(manager)
 
-			// Phase 13: MAB-driven portfolio management
 			runMABCycle()
-
 			sendHeartbeat()
 
 		case <-mabUpdateTicker.C:
-			// Periodic MAB evidence update based on recent PnL
 			updateMABFromPerformance()
 
 		case <-agentCreateTicker.C:
-			// Create new agent if under limit
 			manageAgentLifecycle()
 
 		case <-ctx.Done():
@@ -1237,30 +733,6 @@ func runTradingDaemon(ctx context.Context) {
 // MAB CYCLE (§20-21)
 // ==============================
 
-/******************************************************************************
- * Function Name : runMABCycle
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 func runMABCycle() {
 	infra.FnTrace("entering")
 	modelNamesMu.RLock()
@@ -1271,7 +743,6 @@ func runMABCycle() {
 		return
 	}
 
-	// Ensure agent pool has capacity
 	manageAgentLifecycle()
 
 	activeAgents := agentPool.ActiveAgents()
@@ -1279,7 +750,6 @@ func runMABCycle() {
 		return
 	}
 
-	// Level 1: Select best graduate model
 	modelIdx := hmab.SelectModel()
 	modelName := "__unknown__"
 	modelNamesMu.RLock()
@@ -1288,18 +758,15 @@ func runMABCycle() {
 	}
 	modelNamesMu.RUnlock()
 
-	// Level 2: Allocate capital among agents
-	// §49: Paper trading — use virtual capital if gate not passed
 	totalCapital := runtimeCfg.TotalCapital
 	tradingMode := "paper"
 	if !isPaperTrading() {
 		tradingMode = "live"
 	} else if !runtimeCfg.PaperTradingOnly {
-		totalCapital = totalCapital * 0.1 // test with 10% real capital in transition
+		totalCapital = totalCapital * 0.1
 	}
 	agentPool.RebalanceCapital(totalCapital)
 
-	// Execute one trade for the selected model on a random agent
 	agentIdx := hmab.SelectAgent()
 	if agentIdx >= 0 && agentIdx < len(activeAgents) {
 		agent := activeAgents[agentIdx]
@@ -1317,7 +784,6 @@ func runMABCycle() {
 			agent.DNA.ModelAssignments = append(agent.DNA.ModelAssignments, modelName)
 		}
 		simulateAgentTrade(agent)
-		// §49: Track paper trading stats
 		paperStats.TotalTrades++
 		evaluatePaperGate()
 	}
@@ -1329,83 +795,12 @@ func runMABCycle() {
 // PAPER TRADING GATE (§49)
 // ==============================
 
-/*
-  *
-  * Function Name : manageAgentLifecycle
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
-Function: isPaperTrading
-Description:
-  Returns true if the paper trading gate has NOT been passed — all
-  trades must remain virtual. Returns false when:
-  - config.PaperTradingOnly is false (operator override), AND
-  - paperStats.TotalTrades >= config.MinPaperTrades, AND
-  - paperStats.AgentsEligible > 0, AND
-  - paperStats.ModelsEligible > 0
-
-Input:
-  - none
-
-Output:
-  - bool: true = paper trading only, false = real capital allowed
-
-Lines: ~15
-*/
-  *
-  * Function Name : isPaperTrading
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
-/******************************************************************************
- * Function Name : isPaperTrading
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 func isPaperTrading() bool {
 	if runtimeCfg.PaperTradingOnly {
-		return true // operator-forced paper trading
+		return true
 	}
 	if paperStats.RealCapitalActive {
-		return false // gate already passed
+		return false
 	}
 	tc := runtimeCfg.Trading
 	if paperStats.TotalTrades < tc.MinPaperTrades {
@@ -1417,37 +812,12 @@ func isPaperTrading() bool {
 	return false
 }
 
-/******************************************************************************
- * Function Name : evaluatePaperGate
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 func evaluatePaperGate() {
 	if !runtimeCfg.PaperTradingOnly && paperStats.RealCapitalActive {
-		return // already active
+		return
 	}
 	tc := runtimeCfg.Trading
 
-	// Count eligible agents
 	paperStats.AgentsEligible = 0
 	for _, a := range agentPool.ActiveAgents() {
 		if a.Performance != nil && a.Performance.Sharpe >= tc.AgentPerformanceThreshold {
@@ -1455,7 +825,6 @@ func evaluatePaperGate() {
 		}
 	}
 
-	// Count eligible models
 	paperStats.ModelsEligible = 0
 	probs := hmab.ModelProbabilities()
 	modelNamesMu.RLock()
@@ -1466,7 +835,6 @@ func evaluatePaperGate() {
 	}
 	modelNamesMu.RUnlock()
 
-	// Check if gate can be passed
 	if !isPaperTrading() && !paperStats.RealCapitalActive {
 		paperStats.RealCapitalActive = true
 		paperStats.GatePassedAt = time.Now()
@@ -1474,59 +842,17 @@ func evaluatePaperGate() {
 			paperStats.TotalTrades, paperStats.AgentsEligible, paperStats.ModelsEligible))
 	}
 
-	// Log progress every 50 trades
 	if paperStats.TotalTrades%50 == 0 && paperStats.RealCapitalActive {
 		infra.Info(fmt.Sprintf("PaperGate: %d trades, %d agents eligible, %d models eligible, real=active",
 			paperStats.TotalTrades, paperStats.AgentsEligible, paperStats.ModelsEligible))
 	}
 }
 
-/******************************************************************************
- * Function Name : simulateAgentTrade
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
-  *
-  * Function Name : simulateAgentTrade
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func simulateAgentTrade(agent *trading.PortfolioAgent) {
 	infra.FnTrace(fmt.Sprintf("agent=%s capital=%.2f", agent.ID, agent.Capital))
 	if agent.Performance == nil {
 		agent.Performance = &trading.AgentPerformance{}
 	}
-	// Simulate PnL from ±5%
 	pnl := agent.Capital * (rng.Float64()*0.10 - 0.02)
 	agent.Performance.PnL += pnl
 	agent.Performance.Trades++
@@ -1537,10 +863,8 @@ func simulateAgentTrade(agent *trading.PortfolioAgent) {
 	agent.Performance.Sharpe = math.Max(0, agent.Performance.PnL/math.Max(1, agent.Capital)*10)
 	agent.Performance.Drawdown = math.Min(agent.Performance.Drawdown, pnl)
 
-	// §33: Record deployment + performance in ModelRegistry
 	if agent.DNA != nil && len(agent.DNA.ModelAssignments) > 0 {
 		for _, modelName := range agent.DNA.ModelAssignments {
-			// Record deployment if not already recorded for this agent
 			mr := modelReg.Get(modelName)
 			if mr == nil {
 				mr = &governance.ModelRecord{
@@ -1561,46 +885,6 @@ func simulateAgentTrade(agent *trading.PortfolioAgent) {
 	}
 }
 
-/******************************************************************************
- * Function Name : updateMABFromPerformance
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
-  *
-  * Function Name : updateMABFromPerformance
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func updateMABFromPerformance() {
 	infra.FnTrace("entering")
 	defer infra.FnTrace("done")
@@ -1613,7 +897,6 @@ func updateMABFromPerformance() {
 		if agent.Performance == nil || agent.DNA == nil {
 			continue
 		}
-		// Reward = normalized performance score
 		reward := 0.5
 		if agent.Performance.Sharpe > 1.0 {
 			reward = 0.7
@@ -1624,15 +907,12 @@ func updateMABFromPerformance() {
 			reward += 0.1
 		}
 
-		// Update agent evidence (Level 2)
 		for i := 0; i < hmab.AgentArmCount(); i++ {
-			// Find agent index by matching ID
 			if agent.ID == fmt.Sprintf("agent_%d", i+1) {
 				hmab.UpdateAgentEvidence(i, reward)
 			}
 		}
 
-		// Update model evidence (Level 1) for each assigned model
 		for _, modelName := range agent.DNA.ModelAssignments {
 			modelNamesMu.RLock()
 			for i, m := range modelNames {
@@ -1645,30 +925,6 @@ func updateMABFromPerformance() {
 	}
 }
 
-/******************************************************************************
- * Function Name : manageAgentLifecycle
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 func manageAgentLifecycle() {
 	infra.FnTrace("entering")
 
@@ -1679,7 +935,6 @@ func manageAgentLifecycle() {
 	realCount := countRealAgents()
 	paperCount := active - realCount
 
-	// 1. Retire worst performers
 	if active > 0 {
 		var worst *trading.PortfolioAgent
 		worstScore := 999.0
@@ -1703,7 +958,6 @@ func manageAgentLifecycle() {
 		}
 	}
 
-	// 2. Try to graduate paper agents to real capital
 	if !paperOnly && realCount < tc.MaxRealAgents {
 		graduated := tryGraduatePaperAgents(tc)
 		if graduated > 0 {
@@ -1712,7 +966,6 @@ func manageAgentLifecycle() {
 		}
 	}
 
-	// 3. Create new paper agents up to MaxPaperAgents
 	maxPaper := tc.MaxPaperAgents
 	categories := []string{trading.CapitalSmall, trading.CapitalMedium, trading.CapitalLarge}
 	strategies := []string{trading.StrategyTrend, trading.StrategyHedging, trading.StrategyDiversified,
@@ -1724,7 +977,7 @@ func manageAgentLifecycle() {
 			strategies[paperCount%len(strategies)],
 			trading.AllHorizons()[paperCount%len(trading.AllHorizons())],
 		)
-		paperAgents[agent.ID] = true // paper mode
+		paperAgents[agent.ID] = true
 		if agent.DNA == nil {
 			agent.DNA = &trading.AgentDNA{
 				RiskPreference:     0.3 + rng.Float64()*0.5,
@@ -1735,12 +988,10 @@ func manageAgentLifecycle() {
 		paperCount++
 	}
 
-	// 4. Update paper trading stats
 	paperStats.TotalTrades = countTotalPaperTrades()
 	paperStats.AgentsEligible = countEligibleAgents(tc)
 	paperStats.ModelsEligible = countEligibleModels(tc)
 
-	// 5. If gate not passed yet and thresholds met, mark gate
 	if !paperStats.RealCapitalActive && !paperOnly &&
 		paperStats.AgentsEligible > 0 && paperStats.ModelsEligible > 0 {
 		paperStats.RealCapitalActive = true
@@ -1749,49 +1000,8 @@ func manageAgentLifecycle() {
 			paperStats.AgentsEligible, paperStats.ModelsEligible, paperStats.TotalTrades))
 	}
 
-	// Send portfolio results back to School
 	sendPortfolioResults()
 }
-  *
-  * Function Name : tryGraduatePaperAgents
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
-
-/******************************************************************************
- * Function Name : tryGraduatePaperAgents
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
 
 func tryGraduatePaperAgents(tc config.TradingConfig) int {
 	infra.FnTrace("entering")
@@ -1808,11 +1018,9 @@ func tryGraduatePaperAgents(tc config.TradingConfig) int {
 		if a.Performance == nil {
 			continue
 		}
-		// Check thresholds
 		if a.Performance.Trades < tc.MinPaperTrades {
 			continue
 		}
-		// Performance score = normalized Sharpe (0.5 baseline + 0.5*sharpe/maxSharpe)
 		perfScore := 0.5 + a.Performance.Sharpe*0.2
 		if perfScore > 1.0 {
 			perfScore = 1.0
@@ -1820,12 +1028,10 @@ func tryGraduatePaperAgents(tc config.TradingConfig) int {
 		if perfScore < tc.AgentPerformanceThreshold {
 			continue
 		}
-		// Model confidence from assigned models
 		modelConf := getAgentModelConfidence(a)
 		if modelConf < tc.ModelConfidenceThreshold {
 			continue
 		}
-		// Graduate!
 		paperAgents[a.ID] = false
 		graduated++
 		infra.Info(fmt.Sprintf("Agent %s graduated paper→real (trades=%d sharpe=%.3f conf=%.3f)",
@@ -1834,62 +1040,12 @@ func tryGraduatePaperAgents(tc config.TradingConfig) int {
 	return graduated
 }
 
-// Helpers for paper/real tracking
-/******************************************************************************
- * Function Name : isPaperAgent
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
-
 func isPaperAgent(id string) bool {
 	if mode, ok := paperAgents[id]; ok {
 		return mode
 	}
-	return true // default: paper mode
+	return true
 }
-/******************************************************************************
- * Function Name : agentMode
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func agentMode(id string) string {
 	if isPaperAgent(id) {
@@ -1897,30 +1053,6 @@ func agentMode(id string) string {
 	}
 	return "real"
 }
-/******************************************************************************
- * Function Name : countRealAgents
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func countRealAgents() int {
 	n := 0
@@ -1931,30 +1063,6 @@ func countRealAgents() int {
 	}
 	return n
 }
-/******************************************************************************
- * Function Name : countTotalPaperTrades
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func countTotalPaperTrades() int {
 	n := 0
@@ -1965,30 +1073,6 @@ func countTotalPaperTrades() int {
 	}
 	return n
 }
-/******************************************************************************
- * Function Name : countEligibleAgents
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func countEligibleAgents(tc config.TradingConfig) int {
 	n := 0
@@ -2001,30 +1085,6 @@ func countEligibleAgents(tc config.TradingConfig) int {
 	}
 	return n
 }
-/******************************************************************************
- * Function Name : countEligibleModels
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func countEligibleModels(tc config.TradingConfig) int {
 	modelNamesMu.RLock()
@@ -2038,30 +1098,6 @@ func countEligibleModels(tc config.TradingConfig) int {
 	}
 	return n
 }
-/******************************************************************************
- * Function Name : getAgentModelConfidence
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func getAgentModelConfidence(a *trading.PortfolioAgent) float64 {
 	if a.DNA == nil || len(a.DNA.ModelAssignments) == 0 {
@@ -2073,30 +1109,6 @@ func getAgentModelConfidence(a *trading.PortfolioAgent) float64 {
 	}
 	return sum / float64(len(a.DNA.ModelAssignments))
 }
-/******************************************************************************
- * Function Name : getModelConfidence
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func getModelConfidence(name string) float64 {
 	modelNamesMu.RLock()
@@ -2107,32 +1119,8 @@ func getModelConfidence(name string) float64 {
 			return probs[i]
 		}
 	}
-	return 0.5 // default neutral
+	return 0.5
 }
-/******************************************************************************
- * Function Name : loadConfig
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func loadConfig() GlobalConfig {
 	var cfg GlobalConfig
@@ -2145,30 +1133,6 @@ func loadConfig() GlobalConfig {
 	_ = json.Unmarshal(data, &cfg)
 	return cfg
 }
-/******************************************************************************
- * Function Name : writeConfig
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func writeConfig(cfg GlobalConfig) {
 	data, _ := json.MarshalIndent(cfg, "", "  ")
@@ -2176,32 +1140,8 @@ func writeConfig(cfg GlobalConfig) {
 }
 
 // ==============================
-// TASK FLOW (backward compat)
+// TASK FLOW
 // ==============================
-/******************************************************************************
- * Function Name : createTask
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func createTask(tm *TaskManager) {
 	id := fmt.Sprintf("task_%d", time.Now().UnixNano())
@@ -2217,30 +1157,6 @@ func createTask(tm *TaskManager) {
 	tm.Save()
 	infra.Info(fmt.Sprintf("trading: task created: %s (conf=%.4f spread=%.6f)", id, conf, spread))
 }
-/******************************************************************************
- * Function Name : runWorkers
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func runWorkers(tm *TaskManager) {
 	var wg sync.WaitGroup
@@ -2269,109 +1185,14 @@ type Strategy interface {
 }
 
 type MockStrategy struct{}
-/******************************************************************************
- * Function Name : ShouldBuy
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
 
-
-func (ms *MockStrategy) ShouldBuy() bool  { return true }
-/******************************************************************************
- * Function Name : ShouldSell
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
+func (ms *MockStrategy) ShouldBuy() bool { return true }
 
 func (ms *MockStrategy) ShouldSell(task *TradeTask, currentPrice float64) bool {
 	return currentPrice > task.BuyPrice*1.01
 }
-/******************************************************************************
- * Function Name : GetLatestPrice
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func GetLatestPrice(token string) float64 { return simulatePrice() }
-/******************************************************************************
- * Function Name : ExecuteTrade
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func ExecuteTrade(task *TradeTask, cfg Config, currentPrice float64) {
 	if task.Status == StatusCreated {
@@ -2384,30 +1205,6 @@ func ExecuteTrade(task *TradeTask, cfg Config, currentPrice float64) {
 		infra.Info(fmt.Sprintf("SELL %s @ %.6f PnL=%.6f", task.ID, currentPrice, task.SellPrice-task.BuyPrice))
 	}
 }
-/******************************************************************************
- * Function Name : processTask
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func processTask(task *TradeTask, tm *TaskManager) {
 	cfg := Config{FakeTrading: true, EnableOptions: false, GasPerTrade: 0.0005}
@@ -2426,32 +1223,8 @@ func processTask(task *TradeTask, tm *TaskManager) {
 }
 
 // ==============================
-// PORTFOLIO OPTIMIZATION (legacy)
+// PORTFOLIO OPTIMIZATION
 // ==============================
-/******************************************************************************
- * Function Name : evaluatePortfolio
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func evaluatePortfolio(tm *TaskManager) {
 	tm.mu.Lock()
@@ -2459,30 +1232,6 @@ func evaluatePortfolio(tm *TaskManager) {
 	prediction := predictEnsemble(tm)
 	infra.Info(fmt.Sprintf("Portfolio: ensemble=%s", prediction))
 }
-/******************************************************************************
- * Function Name : predictEnsemble
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func predictEnsemble(tm *TaskManager) string {
 	trend := math.Sin(float64(time.Now().Unix()%3600) * math.Pi / 1800)
@@ -2497,86 +1246,14 @@ func predictEnsemble(tm *TaskManager) string {
 		return fmt.Sprintf("NEUTRAL (%.3f)", score)
 	}
 }
-/******************************************************************************
- * Function Name : calculateSpread
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func calculateSpread(token string) float64 {
 	return 0.0005 + float64(time.Now().UnixNano()%50)/100000.0
 }
-/******************************************************************************
- * Function Name : calculateConfidence
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func calculateConfidence(token string) float64 {
 	return math.Min(0.65+float64(time.Now().UnixNano()%30)/100.0, 1.0)
 }
-/******************************************************************************
- * Function Name : evaluateHedging
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func evaluateHedging(task *TradeTask) string {
 	risk := (1.0-task.Confidence)*task.Spread*100 + task.Confidence
@@ -2591,58 +1268,10 @@ func evaluateHedging(task *TradeTask) string {
 		return "HOLD"
 	}
 }
-/******************************************************************************
- * Function Name : simulatePrice
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func simulatePrice() float64 {
 	return 1.0 + float64(time.Now().UnixNano()%100)/10000
 }
-/******************************************************************************
- * Function Name : floatToBigInt
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 
 func floatToBigInt(val float64, decimals int64) *big.Int {
 	if val <= 0 {

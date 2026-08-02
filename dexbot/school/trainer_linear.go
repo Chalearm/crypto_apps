@@ -115,22 +115,6 @@ type LinearTrainer struct {
  * Complexity : Time O(1), Space O(1)
  * Number Of Lines : 17
  ******************************************************************************/
-  *
-  * Function Name : NewLinearTrainer
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func NewLinearTrainer(modelType string) *LinearTrainer {
 	lt := &LinearTrainer{modelType: modelType}
 	switch modelType {

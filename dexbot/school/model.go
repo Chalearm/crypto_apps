@@ -174,23 +174,6 @@ type ModelMetadata struct {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : ValidateEnsembleWeights
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (m *ModelMetadata) ValidateEnsembleWeights() bool {
 	if len(m.EnsembleComposition) == 0 {
 		return false
@@ -285,23 +268,6 @@ type ModelPopulation struct {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : NewModelPopulation
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func NewModelPopulation() *ModelPopulation {
 	infra.FnTrace("entering")
 	return &ModelPopulation{
@@ -401,23 +367,6 @@ func (p *ModelPopulation) Graduate(name string) bool {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : Retire
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (p *ModelPopulation) Retire(name string) bool {
 	infra.FnTrace("entering")
 	p.mu.Lock()
@@ -514,20 +463,6 @@ func (p *ModelPopulation) Count() int {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : ActiveCount
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (p *ModelPopulation) ActiveCount() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -599,20 +534,6 @@ func (p *ModelPopulation) GraduateCount() int {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : Graduates
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (p *ModelPopulation) Graduates() []*ModelMetadata {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -689,20 +610,6 @@ func (p *ModelPopulation) ListByCategory(category string) []*ModelMetadata {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : Remove
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (p *ModelPopulation) Remove(name string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -730,19 +637,6 @@ func (p *ModelPopulation) Remove(name string) {
  *   - None
  * Number Of Lines : 22
  ******************************************************************************/
-  *
-  * Function Name : RankBySharpe
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (p *ModelPopulation) RankBySharpe(category string, limit int) []*ModelMetadata {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

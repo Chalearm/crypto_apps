@@ -97,7 +97,7 @@ import time
 import socket
 import logging
 import numpy as np
-
+import rust_lstm_engine  # Native Rust C-Extension Module!
 # 1. Force CPU-only mode (stops CUDA cuInit attempts entirely)
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -125,80 +125,6 @@ from utils import resolve_target_directories
 # ==============================================================================
 # HELPER SUB-ROUTINES FOR TRAINING & METRICS EVALUATION
 # ==============================================================================
-
-# ##############################################################################
-# Function Name : _build_and_compile_lstm
-#
-# Purpose :
-#    Constructs and compiles a Sequential Keras LSTM network using depth, node,
-#    learning rate, and dropout parameters defined in the chromosome dictionary,
-#    supporting direct sequence-to-sequence output horizon matrix shapes.
-#
-# Inputs :
-#    chromosome
-#        Type        : dict
-#        Description : Hyperparameter dictionary containing architecture genes.
-#    input_shape
-#        Type        : tuple
-#        Description : Shape tuple (lookback_timesteps, num_features).
-#    num_targets
-#        Type        : int
-#        Description : Number of target features being forecasted.
-#    forecast_horizon
-#        Type        : int
-#        Description : Number of future steps in forecast target window.
-#
-# Return :
-#    Type        : tensorflow.keras.Model
-#    Description : Compiled Keras LSTM model ready for fold training.
-#
-# Complexity :
-#    Time  : O(L) where L is the number of LSTM layers.
-#    Space : O(W) where W is network weight parameter count.
-#
-# Error Cases :
-#    - Invalid network architecture parameters fallback to default node size.
-#
-# Number Of Lines :
-#    35
-# ##############################################################################
-def _build_and_compile_lstm(chromosome: dict, input_shape: tuple, num_targets: int, forecast_horizon: int) -> tf.keras.Model:
-    units = int(chromosome.get('nodes_per_layer', [64])[0] if isinstance(chromosome.get('nodes_per_layer'), list) else chromosome.get('lstm_units', 64))
-    dropout_rate = float(chromosome.get('dropout_rate', 0.2))
-    num_layers = int(chromosome.get('lstm_layers', chromosome.get('num_layers', 2)))
-
-    model = Sequential()
-    
-    # Keras 3 Compliant Input Layer
-    model.add(Input(shape=input_shape))
-    
-    # 1. First LSTM Layer
-    model.add(LSTM(
-        units=units, 
-        return_sequences=(num_layers > 1)
-    ))
-    model.add(Dropout(dropout_rate))
-    
-    # 2. Hidden LSTM Layers
-    for i in range(1, num_layers):
-        model.add(LSTM(
-            units=units, 
-            return_sequences=(i < num_layers - 1)
-        ))
-        model.add(Dropout(dropout_rate))
-        
-    # 3. Direct Multi-Target Output Header
-    # Total dense units = forecast_horizon * active_target_features
-    model.add(Dense(forecast_horizon * num_targets))
-    model.add(Reshape((forecast_horizon, num_targets)))
-    
-    # 4. Optimizer
-    lr = min(float(chromosome.get('learning_rate', 0.001)), 0.001)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=lr, clipvalue=0.5)
-    model.compile(optimizer=optimizer, loss='mse')
-    
-    return model
-
 
 # ##############################################################################
 # Function Name : _evaluate_directional_accuracy
@@ -459,31 +385,33 @@ def _log_fold_audit_metrics(fold_logger, chrom_id, fold_idx, num_folds, asset_sk
 # Function Name : execute_fold_training
 #
 # Purpose :
-#    Primary worker entry point called by tasks.run_fold_training_task.
-#    Loads cached array tensors from disk, constructs and fits the Keras LSTM model,
-#    evaluates accuracy/risk metrics, logs lifecycle data, and returns a JSON payload.
+#    Executes cross-validation fold training using the native Rust PyO3 C-extension
+#    (rust_lstm_engine). Completely replaces TensorFlow to reduce RAM usage down
+#    to ~40 MB and eliminate Keras graph overhead while preserving all logging,
+#    directional accuracy evaluation, and backtest telemetry output.
 #
 # Inputs :
 #    payload
 #        Type        : dict
-#        Description : Dictionary containing cache_file, train_slice, val_slice,
-#                      horizon, chromosome hyperparameters, and target_cols.
+#        Description : Celery task payload containing model hyperparameters,
+#                      data slice indices, run_id, and disk cache path.
 #
 # Return :
 #    Type        : dict
-#    Description : JSON-serializable status dictionary with fold performance metrics.
-#
-# Complexity :
-#    Time  : O(E * B) where E is epochs and B is batch count per epoch.
-#    Space : O(S * F) where S is sample count and F is feature dimension.
-#
-# Error Cases :
-#    - Catches exceptions during disk loading, training, or evaluation,
-#      logging error details and returning status="error".
-#
-# Number Of Lines :
-#    115
+#    Description : JSON-serializable evaluation metrics vector returned to master.
 # ##############################################################################
+import os
+import gc
+import time
+import socket
+import logging
+import numpy as np
+from utils import resolve_target_directories
+
+# Native Rust PyO3 C-Extension (Replaces TensorFlow)
+import rust_lstm_engine
+
+
 def execute_fold_training(payload: dict) -> dict:
     start_time = time.perf_counter()
     worker_hostname = socket.gethostname()
@@ -539,7 +467,7 @@ def execute_fold_training(payload: dict) -> dict:
 
         # Detailed worker telemetry output
         print("\n" + "=" * 70)
-        print(f"🏋️ [WORKER FOLD EXECUTION] Model: {chrom_id} | Fold: {fold_idx}/{num_folds} | Node: {node_info}")
+        print(f"🏋️ [WORKER FOLD EXECUTION (RUST ENGINE)] Model: {chrom_id} | Fold: {fold_idx}/{num_folds} | Node: {node_info}")
         print(f"   ├── Training Slices   : {train_start} -> {train_end} (Samples: {len(X_train)})")
         print(f"   ├── Validation Slices : {val_start} -> {val_end} (Samples: {len(X_val)})")
         print(f"   ├── Input Tensor      : X_train shape = {X_train.shape}")
@@ -547,40 +475,37 @@ def execute_fold_training(payload: dict) -> dict:
         print(f"   └── Output Target Spec: Horizon = {forecast_horizon} days, Active Targets = {num_targets}")
         print("=" * 70)
 
-        # 5. BUILD & TRAIN MODEL
-        model = _build_and_compile_lstm(
-            chromosome=chromosome, 
-            input_shape=(num_timesteps, num_features), 
-            num_targets=num_targets, 
-            forecast_horizon=forecast_horizon
-        )
+        # Extract LSTM units safely from chromosome gene dictionary
+        nodes_gene = chromosome.get('nodes_per_layer', [64])
+        lstm_units = int(nodes_gene[0]) if isinstance(nodes_gene, list) and len(nodes_gene) > 0 else int(chromosome.get('lstm_units', 64))
+        learning_rate = float(chromosome.get('learning_rate', 0.001))
+        batch_size = int(chromosome.get('batch_size', 32))
 
-        early_stop = tf.keras.callbacks.EarlyStopping(
-            monitor='loss',
-            patience=5,
-            restore_best_weights=True
-        )
-
-        history = model.fit(
-            X_train, y_train,
-            epochs=40,
-            batch_size=chromosome.get('batch_size', 32),
-            verbose=0,
-            callbacks=[early_stop]
+        # 5. TRAIN & PREDICT IN NATIVE RUST (Replaces TensorFlow model.fit + predict)
+        # Returns predicted array directly in 3D shape matching y_val
+        predictions = rust_lstm_engine.train_and_predict(
+            x_train_py=X_train.astype(np.float32),
+            y_train_py=y_train.astype(np.float32),
+            x_val_py=X_val.astype(np.float32),
+            lstm_units=lstm_units,
+            learning_rate=learning_rate,
+            epochs=30,
+            _batch_size=batch_size
         )
 
         duration = time.perf_counter() - start_time
-        final_loss = float(history.history['loss'][-1])
 
-        # 6. INFERENCE & EVALUATION
-        predictions = model.predict(X_val, verbose=0)
-        rmse = float(root_mean_squared_error(y_val.reshape(-1, num_targets), predictions.reshape(-1, num_targets)))
+        # 6. INFERENCE & EVALUATION METRICS (Calculated in Python over predictions)
+        rmse_val = float(np.sqrt(np.mean((y_val.reshape(-1, num_targets) - predictions.reshape(-1, num_targets)) ** 2)))
 
         # Directional Accuracy & Skill DA
         asset_skills, avg_skill = _evaluate_directional_accuracy(y_val, predictions, target_cols)
 
         # Portfolio Backtest Metrics
         p_metrics = _backtest_portfolio_strategy(y_val, predictions, target_cols, forecast_horizon)
+
+        # Estimate final MSE loss for reporting
+        final_loss = float(rmse_val ** 2)
 
         # 7. LOG AUDIT METRICS TO DISK
         _log_fold_audit_metrics(
@@ -590,7 +515,7 @@ def execute_fold_training(payload: dict) -> dict:
             num_folds=num_folds, 
             asset_skills=asset_skills, 
             p_metrics=p_metrics, 
-            rmse=rmse, 
+            rmse=rmse_val, 
             node_info=node_info,
             execution_duration=duration
         )
@@ -609,7 +534,7 @@ def execute_fold_training(payload: dict) -> dict:
             "skill_da": avg_skill,
             "sharpe": p_metrics['sharpe'],
             "max_dd": p_metrics['max_dd'],
-            "rmse": rmse,
+            "rmse": rmse_val,
             "cagr": p_metrics['cagr'],
             "profit_factor": p_metrics['profit_factor'],
             "calmar": p_metrics['calmar'],
@@ -640,9 +565,5 @@ def execute_fold_training(payload: dict) -> dict:
         }
 
     finally:
-        # Guarantee Keras session clearance & OS memory reclaim on every execution
-        try:
-            tf.keras.backend.clear_session()
-        except Exception:
-            pass
+        # Guarantee Garbage Collection & memory release
         gc.collect()

@@ -154,23 +154,6 @@ type TrainingResult struct {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : NewRemoteClient
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func NewRemoteClient(addrs []string, timeoutSec, studentsPerNode int) *RemoteClient {
 	infra.FnTrace(fmt.Sprintf("entering addrs=%v timeout=%ds perNode=%d", addrs, timeoutSec, studentsPerNode))
 	defer infra.FnTrace("OK")
@@ -260,20 +243,6 @@ func (rc *RemoteClient) NodeCount() int {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : DistributeTraining
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (rc *RemoteClient) DistributeTraining(models []*ModelMetadata) ([]TrainingResult, []*ModelMetadata) {
 	infra.FnTrace(fmt.Sprintf("entering nModels=%d nRemote=%d", len(models), len(rc.addrs)))
 	if !rc.IsEnabled() {
@@ -354,22 +323,6 @@ func (rc *RemoteClient) DistributeTraining(models []*ModelMetadata) ([]TrainingR
  *   10
  ******************************************************************************/
 
-  *
-  * Function Name : sendToRemote
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (rc *RemoteClient) sendToRemote(addr string, models []*ModelMetadata) []TrainingResult {
 	infra.FnTrace(fmt.Sprintf("sending %d models to %s", len(models), addr))
 	var results []TrainingResult

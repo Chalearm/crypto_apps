@@ -115,22 +115,6 @@ type TrainingConfig struct {
  * Complexity : Time O(1), Space O(1)
  * Number Of Lines : 13
  ******************************************************************************/
-  *
-  * Function Name : NewTrainingConfig
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func NewTrainingConfig() *TrainingConfig {
 	return &TrainingConfig{
 		WindowSize:      30,

@@ -120,22 +120,6 @@ type Orchestrator struct {
  *   10
  ******************************************************************************/
 
-  *
-  * Function Name : NewOrchestrator
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func NewOrchestrator(ga *GAEngine, remote *RemoteClient, pop *ModelPopulation) *Orchestrator {
 	infra.FnTrace("entering")
 	defer infra.FnTrace("OK")
@@ -173,22 +157,6 @@ func NewOrchestrator(ga *GAEngine, remote *RemoteClient, pop *ModelPopulation) *
  *   10
  ******************************************************************************/
 
-  *
-  * Function Name : SetTierManager
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (o *Orchestrator) SetTierManager(stm *SchoolTierManager) {
 	o.tierMgr = stm
 }
@@ -299,19 +267,6 @@ func (o *Orchestrator) RunCycle(weights FitnessWeights) string {
  *   10
  ******************************************************************************/
 
-  *
-  * Function Name : collectTrainable
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func (o *Orchestrator) collectTrainable() []*ModelMetadata {
 	infra.FnTrace("entering")
 	categories := []string{

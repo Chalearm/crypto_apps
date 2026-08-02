@@ -125,43 +125,6 @@ type FitnessWeights struct {
  *   10
  ******************************************************************************/
 
-  *
-  * Function Name : DefaultFitnessWeights
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
-/******************************************************************************
- * Function Name : DefaultFitnessWeights
- *
- * Purpose :
- *   Performs its designated operation.
- *
- * Inputs :
- *   None (see function signature)
- *
- * Return :
- *   Type        : varies
- *   Description : Result of computation.
- *
- * Complexity :
- *   Time  : O(1)
- *   Space : O(1)
- *
- * Error Cases :
- *   - None
- *
- * Number Of Lines :
- *   10
- ******************************************************************************/
-
 func DefaultFitnessWeights() FitnessWeights {
 	return FitnessWeights{
 		SharpeWeight:      0.25,
@@ -232,23 +195,6 @@ func ValidateWeights(w FitnessWeights) bool {
  * Number Of Lines :
  *   10
  ******************************************************************************/
-
-  *
-  * Function Name : CompositeFitness
-  * Purpose :
-  *   Performs its designated operation.
-  * Inputs :
-  *   None (see function signature)
-  * Return :
-  *   Type        : varies
-  *   Description : Result of computation.
-  * Complexity :
-  *   Time  : O(1)
-  *   Space : O(1)
-  * Error Cases :
-  *   - None
-  * Number Of Lines :
-  *   10
 func CompositeFitness(fh *FitnessHistory, weights FitnessWeights) (float64, bool) {
 	if fh == nil {
 		return 0, false
