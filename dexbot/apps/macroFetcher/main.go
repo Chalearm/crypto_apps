@@ -74,18 +74,12 @@ type MacroConfig struct {
 	TransformVolume bool
 	CyclicalTime    bool
 	WeekendFill     bool
+	HVWindow        int // New Parameter: Historical Volatility Window
 }
 
 type BinanceKline []interface{}
 
-type BinanceBookTicker struct {
-	Symbol   string `json:"symbol"`
-	BidPrice string `json:"bidPrice"`
-	BidQty   string `json:"bidQty"`
-	AskPrice string `json:"askPrice"`
-	AskQty   string `json:"askQty"`
-}
-
+ 
 type YahooResponse struct {
 	Chart struct {
 		Result []struct {
@@ -111,6 +105,8 @@ type DataRow struct {
 	PriceLogRet  float64 // ln(Close_t / Close_t-1)
 	VolLogRet    float64
 	IntradayBody float64 // New Feature: ln(Close_t / Open_t) (Crypto Only)
+	HistVol      float64 // 14-period Price Historical Volatility
+	VolHistVol   float64 // 14-period Volume Historical Volatility
 	HourSin, HourCos, MinSin, MinCos float64
 	DayWkSin, DayWkCos, DayYrSin, DayYrCos float64
 }
@@ -184,7 +180,10 @@ func main() {
 	} else {
 		processedRows = rawRows
 	}
-
+	// =========================================================================
+	// MATHEMATICAL TRANSFORMATION ENGINE
+	// =========================================================================
+	windowSize := config.HVWindow
 	// Core Mathematical Features & Multi-Timeframe Cyclical Engineering
 	// Processes ALL paginated rows inside processedRows seamlessly
 	for i := 0; i < len(processedRows); i++ {
@@ -208,6 +207,31 @@ func main() {
 			if isHighFreq && processedRows[i].Open > 0 && processedRows[i].Close > 0 {
 				processedRows[i].IntradayBody = math.Log(processedRows[i].Close / processedRows[i].Open)
 			}
+		}
+		// 3. HISTORICAL VOLATILITY (HV) CALCULATION
+		// Calculates sample standard deviation of PriceLogRet over the rolling N-day window
+		if i >= windowSize {
+			var sumP, meanP, varP float64
+			var sumV, meanV, varV float64
+			for j := 0; j < windowSize; j++ {
+				sumP += processedRows[i-j].PriceLogRet
+				sumV += processedRows[i-j].VolLogRet
+			}
+			meanP = sumP / float64(windowSize)
+			meanV = sumV / float64(windowSize)
+
+			for j := 0; j < windowSize; j++ {
+				diffP := processedRows[i-j].PriceLogRet - meanP
+				varP += diffP * diffP
+				
+				diffV := processedRows[i-j].VolLogRet - meanV
+				varV += diffV * diffV
+			}
+			processedRows[i].HistVol = math.Sqrt(varP / float64(windowSize-1))
+			processedRows[i].VolHistVol = math.Sqrt(varV / float64(windowSize-1))
+		} else {
+			processedRows[i].HistVol = 0.0 // Pad initial rows before the sliding window is full
+			processedRows[i].VolHistVol = 0.0
 		}
 
 		// MULTI-SCALE CYCLICAL TIME ENGINE
@@ -233,7 +257,11 @@ func main() {
 			processedRows[i].DayYrCos = math.Cos(2 * math.Pi * yearday / 365.25)
 		}
 	}
-
+	fmt.Printf("🔍 [DEBUG] Math Engine Complete. Latest Date: %s | LogRet: %.6f | %d-Period HV: %.6f\n", 
+		processedRows[len(processedRows)-1].Date, 
+		processedRows[len(processedRows)-1].PriceLogRet, 
+		windowSize,
+		processedRows[len(processedRows)-1].HistVol)
 	// String format target destination outputs matching your requested setup
 	rawFilename := fmt.Sprintf("%s_%s_%s_%s.csv", config.Asset, config.StartDate, config.EndDate, config.Interval)
 	returnFilename := fmt.Sprintf("%s_%s_%s_%s_transformed.csv", config.Asset, config.StartDate, config.EndDate, config.Interval)
@@ -276,6 +304,7 @@ func parseFlags() (MacroConfig, bool) {
 	transVol := flag.Bool("transformVolume", false, "Convert raw volumes to stationary Log Change features")
 	cycTime := flag.Bool("cyclicalTime", false, "Append engineered calendar sin/cos coordinates")
 	weekend := flag.Bool("weekend", false, "Forward-fill weekend matrix data blocks using the previous Friday close")
+	hvWindow := flag.Int("hv-window", 14, "Rolling window size for Historical Volatility calculation")
 	help := flag.Bool("help", false, "Renders the complete operational lookup menu context manual")
 
 	flag.Parse()
@@ -293,6 +322,7 @@ func parseFlags() (MacroConfig, bool) {
 		TransformVolume: *transVol,
 		CyclicalTime:    *cycTime,
 		WeekendFill:     *weekend,
+		HVWindow:        *hvWindow,
 	}, *help
 }
 /******************************************************************************
@@ -629,9 +659,9 @@ func writeTransformedCSV(filename string, rows []DataRow, incVol, incTime, isHig
 	defer w.Flush()
 
 	// Streamlined ML Header: spread_log_change is removed
-	headers := []string{"timestamp", "price_log_return"}
+	headers := []string{"timestamp", "price_log_return", "price_historical_volatility"}
 	if incVol { 
-		headers = append(headers, "volume_log_change") 
+		headers = append(headers, "volume_log_change", "volume_historical_volatility")
 	}
 	if incTime {
 		// In headers setup:
@@ -644,9 +674,16 @@ func writeTransformedCSV(filename string, rows []DataRow, incVol, incTime, isHig
 	w.Write(headers)
 
 	for i := 1; i < len(rows); i++ {
-		record := []string{rows[i].Date, strconv.FormatFloat(rows[i].PriceLogRet, 'f', 12, 64)}
+		record := []string{
+			rows[i].Date, 
+			strconv.FormatFloat(rows[i].PriceLogRet, 'f', 12, 64),
+			strconv.FormatFloat(rows[i].HistVol, 'f', 12, 64), // Append HV here
+		}
 		if incVol { 
-			record = append(record, strconv.FormatFloat(rows[i].VolLogRet, 'f', 12, 64)) 
+			record = append(record, 
+				strconv.FormatFloat(rows[i].VolLogRet, 'f', 12, 64),
+				strconv.FormatFloat(rows[i].VolHistVol, 'f', 12, 64),
+			) 
 		}
 		if incTime {
 			if isHighFreq {
@@ -717,6 +754,7 @@ func showHelpMenu() {
 	fmt.Println("  -weekend          bool    Forward-fill weekend matrix data blocks using the")
 	fmt.Println("                            previous Friday close parameters. Only applies to")
 	fmt.Println("                            macro asset '1d' steps. (default: false)")
+	fmt.Println("  -hv-window        int     Rolling window size for Historical Volatility (default: 14)")
 	fmt.Println("  -help             bool    Renders this operational lookup menu context directly")
 
 	fmt.Println("\n--------------------------------------------------------------------------------")

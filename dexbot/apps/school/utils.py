@@ -80,33 +80,21 @@ import os
 # ##############################################################################
 # Function Name : resolve_target_directories
 #
+# Path          : apps/school/utils.py
+# Author        : Chalearm Saelim
+#
 # Purpose :
-#    Resolves target log, model deployment, and plot graph directory paths.
-#    If a run_id hex string is provided, routes to isolated sub-directories
-#    (logs/<run_id>, deployed_models/<run_id>, prediction_result/<run_id>).
-#    If run_id is None, falls back to legacy root directories. Ensures target
-#    folders exist on disk before returning.
+#    Resolves base directories for logging, deployed model artifacts, and plot
+#    outputs. Maintains strict backward compatibility by returning EXACTLY 3 values.
 #
 # Inputs :
-#    run_id
-#       Type        : str or None
-#       Description : Unique 8-character hexadecimal run identifier string.
+#    run_id   : str  (Optional) Execution Run Identifier (e.g. '45097E20')
+#    gen_idx  : int  (Optional) Generation Index (e.g. 1 -> 'prediction_result/45097E20/G1')
 #
 # Return :
-#    Type        : tuple (str, str, str)
-#    Description : (log_dir, export_dir, plot_dir) absolute or relative paths.
-#
-# Complexity :
-#    Time  : O(1)
-#    Space : O(1)
-#
-# Error Cases :
-#    - Handles PermissionError if filesystem write access is restricted.
-#
-# Number Of Lines :
-#    18
+#    tuple : (log_dir, export_dir, plot_dir) -> EXACTLY 3 VALUES
 # ##############################################################################
-def resolve_target_directories(run_id: str = None):
+def resolve_target_directories(run_id: str = None, gen_idx: int = None):
     if run_id:
         log_dir = os.path.join("logs", run_id)
         export_dir = os.path.join("deployed_models", run_id)
@@ -116,10 +104,50 @@ def resolve_target_directories(run_id: str = None):
         export_dir = "deployed_models"
         plot_dir = "prediction_result"
 
+    # Route plot_dir into generation subdirectory if gen_idx is supplied
+    if gen_idx is not None:
+        plot_dir = os.path.join(plot_dir, f"G{gen_idx}")
+
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(export_dir, exist_ok=True)
     os.makedirs(plot_dir, exist_ok=True)
 
     return log_dir, export_dir, plot_dir
 
-    
+    # ##############################################################################
+# Function Name : resolve_model_plot_directories
+#
+# Path          : apps/school/utils.py
+# Author        : Chalearm Saelim
+#
+# Purpose :
+#    Creates nested model prediction directories for price overlays ('prc')
+#    and volume overlays ('vol'):
+#    `prediction_result/{run_id}/G{gen_idx}/{short_model}/[prc|vol]`
+#
+# Inputs :
+#    run_id   : str  Active Run ID (e.g., '45097E20')
+#    gen_idx  : int  Generation index (e.g., 1)
+#    model_id : str  Model name (e.g., 'G1-M0' or 'M0')
+#
+# Return :
+#    tuple : (gen_plot_dir, prc_dir, vol_dir)
+# ##############################################################################
+def resolve_model_plot_directories(run_id: str, gen_idx: int, model_id: str):
+    _, _, gen_plot_dir = resolve_target_directories(run_id=run_id, gen_idx=gen_idx)
+
+    # Shorten model name (e.g., 'G1-M0' -> 'M0')
+    short_model = model_id.split("-")[-1] if "-" in model_id else model_id
+
+    prc_dir = os.path.join(gen_plot_dir, short_model, "prc")
+    vol_dir = os.path.join(gen_plot_dir, short_model, "vol")
+
+    os.makedirs(prc_dir, exist_ok=True)
+    os.makedirs(vol_dir, exist_ok=True)
+
+    print(f"📂 [MODEL PLOT DIRS RESOLVED] Model: {model_id}")
+    print(f"   ├── Gen Directory   : {gen_plot_dir}")
+    print(f"   ├── Price Plot Dir  : {prc_dir}")
+    print(f"   └── Volume Plot Dir : {vol_dir}")
+
+    return gen_plot_dir, prc_dir, vol_dir

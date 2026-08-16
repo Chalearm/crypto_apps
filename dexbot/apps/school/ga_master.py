@@ -96,52 +96,80 @@ import pandas as pd
 from log_rotator import start_log_rotation_daemon
 from sklearn.preprocessing import MinMaxScaler
 from utils import resolve_target_directories
+from logging.handlers import TimedRotatingFileHandler
 
 # Suppress harmless Celery control inspection warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
-# Shared Log Formatter
 log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
-# Default Engine Logger for STDOUT
-logger = logging.getLogger("GA-LSTM-Master")
-logger.setLevel(logging.INFO)
-logger.propagate = False
-
-if not logger.handlers:
+def _init_single_logger(logger_name: str) -> logging.Logger:
+    lg = logging.getLogger(logger_name)
+    lg.setLevel(logging.INFO)
+    lg.propagate = False
+    
+    # 🛡️ Clear pre-existing handlers
+    lg.handlers.clear()
+    
+    # 1. Console Handler (for docker logs & terminal stdout)
     c_handler = logging.StreamHandler(sys.stdout)
+    c_handler.setLevel(logging.INFO)
     c_handler.setFormatter(log_formatter)
-    logger.addHandler(c_handler)
+    lg.addHandler(c_handler)
+    
+    # 2. Time-Based File Rotation Handler (Rotates every 110 minutes, keeps 5 backups)
+    log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, f"{logger_name.lower()}_rotated.log")
+    
+    f_handler = TimedRotatingFileHandler(log_file, when='M', interval=110, backupCount=5)
+    f_handler.setLevel(logging.INFO)
+    f_handler.setFormatter(log_formatter)
+    lg.addHandler(f_handler)
+    
+    return lg
 
-summary_logger = logging.getLogger("ChromosomeSummary")
-summary_logger.setLevel(logging.INFO)
-summary_logger.propagate = False
+# Instantiate clean, non-duplicating, auto-rotating loggers
+logger = _init_single_logger("GAMaster")
+summary_logger = _init_single_logger("ChromosomeSummary")
+fold_logger = _init_single_logger("FoldLifecycle")
 
-fold_logger = logging.getLogger("FoldLifecycle")
-fold_logger.setLevel(logging.INFO)
-fold_logger.propagate = False
 
 # Global Hyperparameter Constraints
-RAW_DATA_DIR = "../../data_set/daily/2022_07_01_2026_06_30"
-TRANSFORMED_DATA_DIR = "../../data_set/daily/2022_07_01_2026_06_30"
-VAL_RAW_DATA_DIR = "../../data_set/daily/2026_07_01_2026_07_21"
-VAL_TRANSFORMED_DATA_DIR = "../../data_set/daily/2026_07_01_2026_07_21"
+RAW_DATA_DIR = "../../data_set/daily/2022_01_01_2026_06_30"
+TRANSFORMED_DATA_DIR = "../../data_set/daily/2022_01_01_2026_06_30"
+VAL_RAW_DATA_DIR = "../../data_set/daily/2026_07_01_2026_07_27"
+VAL_TRANSFORMED_DATA_DIR = "../../data_set/daily/2026_07_01_2026_07_27"
 
-POPULATION_SIZE = 4
-GENERATIONS = 8
-MUTATION_RATE = 0.25
+POPULATION_SIZE = 43
+GENERATIONS = 47
+MUTATION_RATE = 0.14563
 TOP_N_EXPORTS = 5
-NUM_FOLDS = 4
+NUM_FOLDS = 5
 
-MIN_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS = 80, 160
-MIN_FORECAST_DAYS, MAX_FORECAST_DAYS = 30, 60
+# Add to global constraints section near MIN_LR / MAX_LR
+MIN_EPOCHS, MAX_EPOCHS = 15, 150
+
+#MIN_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS = 12, 44
+#MIN_FORECAST_DAYS, MAX_FORECAST_DAYS = 5, 15
+
+
+MIN_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS = 80, 170
+MIN_FORECAST_DAYS, MAX_FORECAST_DAYS = 33, 60
+
+#MIN_HIDDEN_LAYERS, MAX_HIDDEN_LAYERS = 1, 2
+#MIN_NODES_PER_LAYER, MAX_NODES_PER_LAYER = 15, 45
+
+
 MIN_HIDDEN_LAYERS, MAX_HIDDEN_LAYERS = 1, 8
-MIN_NODES_PER_LAYER, MAX_NODES_PER_LAYER = 32, 512
+MIN_NODES_PER_LAYER, MAX_NODES_PER_LAYER = 32, 432
 
-MIN_LR, MAX_LR = 0.0001, 0.01
-MIN_DROPOUT, MAX_DROPOUT = 0.0, 0.6
-BATCH_SIZE_CHOICES = [16, 32, 64, 128, 168]
-USER_EXCLUDE_FEATURES = ['volume_log_change_fed']
+
+MIN_LR, MAX_LR = 0.0001, 0.0025
+MIN_DROPOUT, MAX_DROPOUT = 0.0, 0.5
+#BATCH_SIZE_CHOICES = [12,17]
+BATCH_SIZE_CHOICES = [16, 32, 64, 128, 168, 216,268]
+USER_EXCLUDE_FEATURES = ['volume_log_change_fed', 'volume_raw_fed','volume_historical_volatility_fed']
 
 CONFIG_FILE = "server_config.json"
 PID_FILE = "ga_master.pid"
@@ -261,29 +289,9 @@ class LSTMOptimizerEngine:
     # Purpose :
     #    Master execution supervisor for the distributed GA-LSTM evolutionary sequence.
     #    Ingests multi-asset data matrices, fits feature scaling transformers,
-    #    restores checkpoint state or seeds Generation 1 (with optional warm start),
-    #    dispatches asynchronous multi-fold training tasks to Redis, and persists
-    #    final state artifacts upon evolution completion.
-    #
-    # Inputs :
-    #    max_generations
-    #        Type        : int (Default: 50)
-    #        Description : Target maximum generation limit for the evolutionary loop.
-    #    target_buffer_limit
-    #        Type        : int (Default: 25)
-    #        Description : Maximum lookahead task buffer size maintained in Redis.
-    #
-    # Return :
-    #    Type        : None
-    #    Description : Supervises pipeline lifecycle to completion.
-    #
-    # Complexity :
-    #    Time  : O(G * P * F) where G is generations, P is population size,
-    #            and F is CV fold evaluation time.
-    #    Space : O(D + P) for dataset matrices and chromosome population structures.
-    #
-    # Error Cases :
-    #    - Early returns if dataset ingestion (_ingest_data_layers) fails or returns empty.
+    #    restores checkpoint state or seeds Generation 1, runs the startup audit
+    #    to render any missing completed generation plots immediately upon resume, 
+    #    and dispatches asynchronous multi-fold training tasks to Redis.
     # ##########################################################################
     def execute_pipeline(self, max_generations=50, target_buffer_limit=25):
         print("\n" + "🚀" * 40)
@@ -324,24 +332,36 @@ class LSTMOptimizerEngine:
         else:
             print(f"♻️ [PIPELINE STEP 3/4] Checkpoint restored cleanly. Resuming Run ID: {self.run_id} at Generation {self.current_generation + 1}/{max_generations}")
 
+            # ------------------------------------------------------------------
+            # CRITICAL FIX: EXPLICIT STARTUP AUDIT INVOCATION ON CHECKPOINT RESTORE
+            # ------------------------------------------------------------------
+            print("🔍 [STARTUP AUDIT] Scanning restored population for completed generations missing graph plots...")
+            evaluated_pool_restored = [c for c in self.chromosome_population if c.get("fitness_evaluated", False)]
+            if evaluated_pool_restored:
+                gen1_models = [c for c in self.chromosome_population if str(c.get("id", "")).startswith("G1-")]
+                restored_pop_per_gen = len(gen1_models) if len(gen1_models) > 0 else POPULATION_SIZE
+                print(f"   ├── Restored Evaluated Pool Size : {len(evaluated_pool_restored)}")
+                print(f"   └── Computed Pop Size Per Gen    : {restored_pop_per_gen}")
+                self._audit_and_trigger_missing_plots(evaluated_pool_restored, custom_pop_size=restored_pop_per_gen)
+            else:
+                print("   └── ℹ️ No evaluated models found in restored checkpoint pool yet.")
+
         # Ensure max_generations is explicitly registered on active instance
         self.max_generations = max_generations
 
         # ----------------------------------------------------------------------
         # STEP 4: LAUNCH ASYNCHRONOUS REDIS PIPELINE LOOP
         # ----------------------------------------------------------------------
-        print("\n🔥 [PIPELINE STEP 4/4] Launching Pipelined Multi-Fold Redis Execution Engine...")
-        logger.info(f"🔥 [PIPELINE] Launching pipelined evaluation for {len(self.chromosome_population)} models...")
+        print("\n🔥 [PIPELINE STEP 4/4] Launching Synchronous Generational Barrier Engine...")
+        logger.info(f"🔥 [PIPELINE] Launching generational evaluation for {len(self.chromosome_population)} models...")
 
         start_time = time.time()
-        self._evaluate_population_pipelined(
+        self._evaluate_population_sync(
             self.chromosome_population, 
-            max_generations=max_generations, 
-            target_buffer_limit=target_buffer_limit
+            max_generations=max_generations
         )
         duration = time.time() - start_time
 
-        # Final checkpoint flush upon completion
         self._save_checkpoint()
 
         print("\n" + "🏁" * 40)
@@ -352,12 +372,137 @@ class LSTMOptimizerEngine:
         print("🏁" * 40 + "\n")
 
         logger.info(f"🏁 [PIPELINE] Evolution pipeline finished all generational runs in {duration:.2f}s.")
+    # ##########################################################################
+    # Function Name : _get_chrom_generation
+    #
+    # Path          : apps/school/ga_master.py
+    # Author        : Chalearm Saelim & Gemini
+    #
+    # Purpose :
+    #    Safely resolves the integer generation index for any chromosome dictionary
+    #    by checking explicit 'generation' or 'gen' keys first, and falling back
+    #    to string ID parsing (e.g., 'G3-M2' -> Gen 3).
+    # ##########################################################################
+    def _get_chrom_generation(self, chrom: dict) -> int:
+        logger.debug(f"=== state 1.1 === Entering _get_chrom_generation() | chrom_type: {type(chrom)}")
+        if not isinstance(chrom, dict):
+            logger.debug("=== state 1.1.1 === chrom is not dict, returning default gen 1")
+            return 1
+
+        if "generation" in chrom:
+            try:
+                g = int(chrom["generation"])
+                logger.debug(f"=== state 1.1.2 === Found explicit 'generation' key: {g}")
+                return g
+            except (ValueError, TypeError):
+                pass
+
+        if "gen" in chrom:
+            try:
+                g = int(chrom["gen"])
+                logger.debug(f"=== state 1.1.3 === Found explicit 'gen' key: {g}")
+                return g
+            except (ValueError, TypeError):
+                pass
+
+        c_id = str(chrom.get("id", ""))
+        logger.debug(f"=== state 1.1.4 === Parsing generation from ID string: '{c_id}'")
+        if c_id.startswith("G") and "-" in c_id:
+            try:
+                g = int(c_id.split("-")[0].replace("G", ""))
+                logger.debug(f"=== state 1.1.4.1 === Successfully parsed Gen {g} from ID")
+                return g
+            except (ValueError, TypeError):
+                pass
+
+        logger.debug("=== state 1.1.5 === Fallback default gen 1")
+        return 1
 
     # ##########################################################################
+    # Function Name : _trigger_immediate_gen_plot
+    #
+    # Path          : apps/school/ga_master.py
+    # Author        : Chalearm Saelim & Gemini
+    #
+    # Purpose :
+    #    Renders Pareto and price prediction plots locally on Master disk and
+    #    dispatches an async task to Celery's export_queue, featuring
+    #    full step-by-step diagnostic print debugging.
+    # ##########################################################################
+    # ##########################################################################
+    # Function Name : _trigger_immediate_gen_plot
+    # Purpose       : Renders Pareto and price prediction plots locally on Master 
+    #                 disk and dispatches an async task to Celery's export_queue, 
+    #                 using pack_and_dispatch_visualization_task to preserve val_df.
+    # ##########################################################################
+    def _trigger_immediate_gen_plot(self, gen_idx: int, evaluated_models: list) -> bool:
+        logger.debug(f"=== state 3.1 === Entering _trigger_immediate_gen_plot() for Gen {gen_idx} | evaluated_pool={len(evaluated_models)}")
+        
+        gen_specific = [
+            c for c in evaluated_models 
+            if c.get("fitness_evaluated", False) and self._get_chrom_generation(c) == gen_idx
+        ]
+        logger.debug(f"=== state 3.2 === Filtered gen_specific models count: {len(gen_specific)}")
+
+        if not gen_specific:
+            logger.debug(f"=== state 3.2.1 === No models found for Gen {gen_idx}. Aborting plot trigger.")
+            return False
+
+        top_k = sorted(gen_specific, key=self._apply_priority_tie_breaker)[:TOP_N_EXPORTS]
+        dedup_key = f"GEN_PLOT_G{gen_idx}_{self.run_id}"
+        logger.debug(f"=== state 3.3 === Dedup key generated: {dedup_key} | Top candidates count: {len(top_k)}")
+
+        direct_success = False
+        try:
+            logger.debug("=== state 3.4.1 === Attempting direct local synchronous render...")
+            from visualization_worker import _render_standalone_pareto_plot
+            _render_standalone_pareto_plot(
+                top_chromosomes=top_k,
+                run_id=self.run_id,
+                gen_idx=gen_idx
+            )
+            logger.debug("=== state 3.4.2 === Direct local render successful.")
+            direct_success = True
+        except Exception as local_err:
+            logger.warning(f"=== state 3.4.3 === Direct local render warning: {local_err}")
+
+        celery_success = False
+        try:
+            logger.debug("=== state 3.5.1 === Attempting async Celery task dispatch using pack_and_dispatch_visualization_task...")
+            
+            # 🛡️ FIX: Pack payload using helper to preserve val_df columns
+            payload = pack_and_dispatch_visualization_task(
+                run_id=self.run_id,
+                gen_idx=gen_idx,
+                top_chromosomes=top_k,
+                master_df=self.master_data_raw,
+                val_df=self.val_master_data_raw
+            )
+            payload["task_type"] = "GEN_PLOT"
+
+            async_task = export_and_plot_task.apply_async(
+                args=[payload],
+                queue='export_queue',
+                priority=9
+            )
+            logger.debug(f"=== state 3.5.2 === Celery plot task dispatched successfully | Task ID: {async_task.id}")
+            celery_success = True
+        except Exception as e:
+            logger.warning(f"=== state 3.5.3 === Celery dispatch notice: {e}")
+
+        logger.debug(f"=== state 3.6 === _trigger_immediate_gen_plot returning success={direct_success or celery_success}")
+        return direct_success or celery_success
+    # ##########################################################################
     # Function Name : _load_directory_to_df
-    # Purpose       : Reads transformed CSV datasets and aligns raw price closing data.
+    # Purpose       : Reads transformed CSV datasets and exactly matches the raw 
+    #                 price file by stripping the '_transformed' suffix, preventing 
+    #                 date-range mismatch bugs.
     # ##########################################################################
     def _load_directory_to_df(self, transform_dir, raw_dir):
+        import glob
+        import os
+        import pandas as pd
+        
         all_files = glob.glob(os.path.join(transform_dir, "*_transformed.csv"))
         if not all_files:
             return None
@@ -368,19 +513,24 @@ class LSTMOptimizerEngine:
         for f in all_files:
             try:
                 df = pd.read_csv(f)
+                if 'timestamp' not in df.columns:
+                    continue
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
                 df.set_index('timestamp', inplace=True)
 
                 if global_time_df is None:
-                    time_cols = [c for c in df.columns if any(x in c for x in ['day_', 'hour_', 'min_'])]
+                    time_cols = [c for c in df.columns if any(x in c for x in ['day_', 'hour_', 'min_', 'fourier_'])]
                     global_time_df = df[time_cols]
 
                 filename = os.path.basename(f)
                 asset_name = filename.split('_')[0].lower()
                 
-                raw_files = glob.glob(os.path.join(raw_dir, f"{asset_name}*.csv"))
-                if raw_files:
-                    orig_df = pd.read_csv(raw_files[0])
+                # 🛡️ THE FIX: Exact 1:1 filename translation. No more random globbing!
+                expected_raw_name = filename.replace("_transformed", "")
+                raw_filepath = os.path.join(raw_dir, expected_raw_name)
+                
+                if os.path.exists(raw_filepath):
+                    orig_df = pd.read_csv(raw_filepath)
                     orig_df['timestamp'] = pd.to_datetime(orig_df['timestamp'])
                     orig_df.set_index('timestamp', inplace=True)
                     
@@ -388,8 +538,11 @@ class LSTMOptimizerEngine:
                         df['close'] = orig_df['close']
                     if 'volume' in orig_df.columns:
                         df['volume_raw'] = orig_df['volume']
+                    print(f"      [INGEST DEBUG] 🟢 SUCCESS: Aligned raw data for {asset_name.upper()} from {expected_raw_name}")
+                else:
+                    print(f"      [INGEST DEBUG] 🔴 FAILED: Missing exact raw file {expected_raw_name} in {raw_dir}")
 
-                df = df.drop(columns=[c for c in df.columns if any(x in c for x in ['day_', 'hour_', 'min_'])])
+                df = df.drop(columns=[c for c in df.columns if any(x in c for x in ['day_', 'hour_', 'min_', 'fourier_'])])
                 df = df[~df.index.duplicated(keep='first')]
                 df = df.add_suffix(f'_{asset_name}')
 
@@ -399,40 +552,78 @@ class LSTMOptimizerEngine:
                     master_df = master_df.join(df, how='outer')
 
             except Exception as e:
-                logger.error(f"❌ [INGEST] Failed to parse file {f}: {e}")
+                self.logger.error(f"❌ [INGEST] Failed to parse file {f}: {e}")
 
         if master_df is not None:
             final_df = pd.concat([master_df, global_time_df], axis=1)
-            price_cols = [c for c in final_df.columns if c.startswith('close_')]
-            if price_cols:
-                final_df[price_cols] = final_df[price_cols].ffill().bfill()
+            
+            # Forward/Back fill absolute raw prices to cover weekend gaps
+            raw_cols = [c for c in final_df.columns if c.startswith('close_') or c.startswith('volume_raw_')]
+            if raw_cols:
+                final_df[raw_cols] = final_df[raw_cols].ffill().bfill()
             
             final_df = final_df.interpolate(method='linear').bfill().ffill().fillna(0)
-            return final_df.dropna()
+            return final_df.dropna(axis=1, how='all')
         
         return None
 
-    # ##########################################################################
+    # ##############################################################################
     # Function Name : _ingest_data_layers
-    # Purpose       : Loads training and validation datasets, performing feature audits.
-    # ##########################################################################
+    #
+    # Path          : apps/school/ga_master.py
+    # Author        : Chalearm Saelim & Gemini
+    #
+    # Purpose :
+    #    Loads transformed CSV datasets and raw price data from disk for both training 
+    #    and validation directories. Integrates an automatic fallback split mechanism: 
+    #    if no explicit validation dataset is found on disk, it automatically slices 
+    #    the tail end of the master training dataset (85% Train / 15% Val) to ensure 
+    #    val_master_data is always populated for validation plotting and evaluation.
+    #
+    # Inputs :
+    #    None (Reads TRANSFORMED_DATA_DIR, RAW_DATA_DIR, VAL_TRANSFORMED_DATA_DIR, 
+    #          and VAL_RAW_DATA_DIR global paths).
+    #
+    # Return :
+    #    bool : Returns True if master training data is ingested successfully, False otherwise.
+    # ##############################################################################
     def _ingest_data_layers(self) -> bool:
         logger.info("=" * 75)
         logger.info("🔍 [DATASET INGESTION & FEATURE AUDIT]")
         logger.info("=" * 75)
 
+        # 1. Ingest Master Training Dataset
         train_transform_files = glob.glob(os.path.join(TRANSFORMED_DATA_DIR, "*_transformed.csv"))
         logger.info(f"📂 [TRAIN SET] Found {len(train_transform_files)} transformed CSV files in '{TRANSFORMED_DATA_DIR}'")
         self.master_data = self._load_directory_to_df(TRANSFORMED_DATA_DIR, RAW_DATA_DIR)
 
+        if self.master_data is None or self.master_data.empty:
+            logger.error("❌ [INGEST CRITICAL] Master training dataset is empty or failed to parse!")
+            return False
+
+        # 2. Ingest Explicit Validation Dataset
         val_transform_files = glob.glob(os.path.join(VAL_TRANSFORMED_DATA_DIR, "*_transformed.csv"))
         logger.info(f"📂 [VAL SET]   Found {len(val_transform_files)} transformed CSV files in '{VAL_TRANSFORMED_DATA_DIR}'")
         self.val_master_data = self._load_directory_to_df(VAL_TRANSFORMED_DATA_DIR, VAL_RAW_DATA_DIR)
 
-        if self.master_data is None or self.master_data.empty:
-            logger.error("❌ [INGEST] Master training dataset is empty or failed to parse!")
-            return False
+        # 🛡️ 3. AUTOMATIC SPLIT FALLBACK GUARD
+        # If no validation CSVs exist on disk, slice the final 15% of master_data as validation ground truth
+        if self.val_master_data is None or self.val_master_data.empty:
+            logger.warning("⚠️ [VAL SET WARN] No validation files loaded from disk. Initiating automatic 85/15 chronological split...")
+            
+            split_idx = int(len(self.master_data) * 0.85)
+            self.val_master_data = self.master_data.iloc[split_idx:].copy()
+            self.master_data = self.master_data.iloc[:split_idx].copy()
+            
+            logger.info(f"✅ [VAL AUTO-SPLIT] Sliced master dataset into:")
+            logger.info(f"   ├── Master Train Matrix: {len(self.master_data)} rows ({self.master_data.index.min().strftime('%Y-%m-%d')} ➔ {self.master_data.index.max().strftime('%Y-%m-%d')})")
+            logger.info(f"   └── Val Ground Truth   : {len(self.val_master_data)} rows ({self.val_master_data.index.min().strftime('%Y-%m-%d')} ➔ {self.val_master_data.index.max().strftime('%Y-%m-%d')})")
 
+        # Store raw unscaled copies for visualization payload packing
+        self.master_data_raw = self.master_data.copy()
+        self.val_master_data_raw = self.val_master_data.copy()
+
+        # 4. Feature Auditing & Matrix Telemetry
         time_cols, asset_cols = self._split_features(self.master_data)
         banned_lower = [banned.lower() for banned in USER_EXCLUDE_FEATURES]
         excluded_cols = [c for c in self.master_data.columns if c.lower() in banned_lower]
@@ -448,21 +639,18 @@ class LSTMOptimizerEngine:
         logger.info(f"   ├── Excluded Features : {len(excluded_cols)} channels {excluded_cols if excluded_cols else ['None']}")
         logger.info(f"   └── Active GA Pool    : {len(asset_cols)} channels")
 
-        if self.val_master_data is not None and not self.val_master_data.empty:
-            val_start = self.val_master_data.index.min().strftime('%Y-%m-%d')
-            val_end   = self.val_master_data.index.max().strftime('%Y-%m-%d')
-            val_time_cols, val_asset_cols = self._split_features(self.val_master_data)
+        val_start = self.val_master_data.index.min().strftime('%Y-%m-%d')
+        val_end   = self.val_master_data.index.max().strftime('%Y-%m-%d')
+        val_time_cols, val_asset_cols = self._split_features(self.val_master_data)
 
-            logger.info("-" * 75)
-            logger.info("📊 [VALIDATION DATASET MATRIX SUMMARY]")
-            logger.info(f"   ├── Total Row Samples : {self.val_master_data.shape[0]} days ({val_start} ➔ {val_end})")
-            logger.info(f"   ├── Raw Features Count: {self.val_master_data.shape[1]} columns")
-            logger.info(f"   ├── Global Time Feats : {len(val_time_cols)} channels")
-            logger.info(f"   └── Active GA Pool    : {len(val_asset_cols)} channels")
-        else:
-            logger.warning("⚠️ [VAL SET] No validation dataset detected!")
-
+        logger.info("-" * 75)
+        logger.info("📊 [VALIDATION DATASET MATRIX SUMMARY]")
+        logger.info(f"   ├── Total Row Samples : {self.val_master_data.shape[0]} days ({val_start} ➔ {val_end})")
+        logger.info(f"   ├── Raw Features Count: {self.val_master_data.shape[1]} columns")
+        logger.info(f"   ├── Global Time Feats : {len(val_time_cols)} channels")
+        logger.info(f"   └── Active GA Pool    : {len(val_asset_cols)} channels")
         logger.info("=" * 75 + "\n")
+
         return True
 
     # ##########################################################################
@@ -696,13 +884,13 @@ class LSTMOptimizerEngine:
 
         log_dir, export_dir, plot_dir = resolve_target_directories(self.run_id)
 
-        print("\n" + "🎲" * 40)
-        print(f"🎲 [NEW RUN INITIALIZATION] Hex Run ID: {self.run_id}")
-        print(f"   ├── Log Directory   : {log_dir}")
-        print(f"   ├── Model Exports   : {export_dir}")
-        print(f"   ├── Plot Directory  : {plot_dir}")
-        print(f"   └── Warm Start Flag : {use_warm_start}")
-        print("🎲" * 40)
+        logger.info("\n" + "🎲" * 40)
+        logger.info(f"🎲 [NEW RUN INITIALIZATION] Hex Run ID: {self.run_id}")
+        logger.info(f"   ├── Log Directory   : {log_dir}")
+        logger.info(f"   ├── Model Exports   : {export_dir}")
+        logger.info(f"   ├── Plot Directory  : {plot_dir}")
+        logger.info(f"   └── Warm Start Flag : {use_warm_start}")
+        logger.info("🎲" * 40)
 
         logger.info(f"🎲 [NEW RUN] Generated Random Hex Run ID: {self.run_id}")
         logger.info(f"📂 [PATHS] Logs: {log_dir} | Models: {export_dir} | Plots: {plot_dir}")
@@ -714,26 +902,26 @@ class LSTMOptimizerEngine:
         # 1. WARM-START SEEDING STEP
         # ----------------------------------------------------------------------
         if use_warm_start:
-            print("\n🔥 [WARM-START] Attempting candidate seed ingestion from prior run checkpoints...")
+            logger.info("\n🔥 [WARM-START] Attempting candidate seed ingestion from prior run checkpoints...")
             self.chromosome_population = self._seed_warm_start_candidates()
 
         existing_count = len(self.chromosome_population)
         needed_count = max(0, POPULATION_SIZE - existing_count)
 
         if existing_count > 0:
-            print(f"🌱 [POPULATION SEEDING] Ingested {existing_count} warm-start candidate(s). Generating {needed_count} randomized model(s)...")
+            logger.info(f"🌱 [POPULATION SEEDING] Ingested {existing_count} warm-start candidate(s). Generating {needed_count} randomized model(s)...")
             logger.info(f"🌱 [INIT] Ingested {existing_count} warm-start seeds. Seeding {needed_count} random models...")
         else:
-            print(f"🌱 [POPULATION SEEDING] Seeding {POPULATION_SIZE} randomized hyperparameter matrices for Generation 1...")
+            logger.info(f"🌱 [POPULATION SEEDING] Seeding {POPULATION_SIZE} randomized hyperparameter matrices for Generation 1...")
             logger.info(f"🌱 [INIT] Seeding randomized hyperparameter matrices for Generation 1...")
 
         max_rows = len(self.master_data)
         actual_max_lookback = max(MIN_LOOKBACK_DAYS + 1, min(MAX_LOOKBACK_DAYS, int(max_rows * 0.7)))
         actual_max_horizon = max(MIN_FORECAST_DAYS + 1, min(MAX_FORECAST_DAYS, int(max_rows * 0.7)))
 
-        print(f"📐 [FEATURE & CONSTRAINTS MATRIX] Data Rows: {max_rows} | Asset Features: {len(asset_cols)}")
-        print(f"   ├── Lookback Range : {MIN_LOOKBACK_DAYS} -> {actual_max_lookback} days")
-        print(f"   └── Horizon Range  : {MIN_FORECAST_DAYS} -> {actual_max_horizon} days\n")
+        logger.info(f"📐 [FEATURE & CONSTRAINTS MATRIX] Data Rows: {max_rows} | Asset Features: {len(asset_cols)}")
+        logger.info(f"   ├── Lookback Range : {MIN_LOOKBACK_DAYS} -> {actual_max_lookback} days")
+        logger.info(f"   └── Horizon Range  : {MIN_FORECAST_DAYS} -> {actual_max_horizon} days\n")
 
         # ----------------------------------------------------------------------
         # 2. RANDOM CHROMOSOME GENERATION STEP
@@ -744,7 +932,6 @@ class LSTMOptimizerEngine:
             horizon = random.randint(MIN_FORECAST_DAYS, actual_max_horizon)
             num_layers = self._get_normal_random(MIN_HIDDEN_LAYERS, MAX_HIDDEN_LAYERS)
             num_features_to_select = random.randint(5, len(asset_cols))
-
             mask = [1] * num_features_to_select + [0] * (len(asset_cols) - num_features_to_select)
             random.shuffle(mask)
 
@@ -752,6 +939,8 @@ class LSTMOptimizerEngine:
             lr_val = round(random.uniform(MIN_LR, MAX_LR), 5)
             dropout_val = round(random.uniform(MIN_DROPOUT, MAX_DROPOUT), 2)
             batch_val = random.choice(BATCH_SIZE_CHOICES)
+            # Inside the randomized chromosome generation loop:
+            epochs_val = random.randint(MIN_EPOCHS, MAX_EPOCHS)
 
             chromosome = {
                 "id": f"G1-M{idx}",
@@ -762,17 +951,19 @@ class LSTMOptimizerEngine:
                 "learning_rate": lr_val,
                 "dropout_rate": dropout_val,
                 "batch_size": batch_val,
+                "epochs": epochs_val,  # 🟢 ADDED EPOCHS GENE
                 "feature_mask": mask,
                 "fitness_evaluated": False,
                 "perf_vector": [0.0, -5.0, 1.0, 999.0, 1.0, 99.0]
             }
             self.chromosome_population.append(chromosome)
 
-            print(f"   ├── 🧬 [MODEL CREATED] ID: G1-M{idx:<2} | Layers: {num_layers} {nodes_list} | Lookback: {lookback}d | Horizon: {horizon}d | LR: {lr_val} | Dropout: {dropout_val} | Batch: {batch_val} | Active Features: {sum(mask)}/{len(asset_cols)}")
+            # 🟢 Added 'Epochs' telemetry tag to match your desired format log output
+            logger.info(f"   ├── 🧬 [MODEL CREATED] ID: G1-M{idx:<2} | Layers: {num_layers} {nodes_list} | Lookback: {lookback}d | Horizon: {horizon}d | LR: {lr_val} | Dropout: {dropout_val} | Epochs: {epochs_val} | Batch: {batch_val} | Active Features: {sum(mask)}/{len(asset_cols)}")
 
-        print("\n" + "✅" * 40)
-        print(f"✅ [INIT COMPLETE] Generation 1 seeding complete ({len(self.chromosome_population)} models total). Flushing checkpoint to disk...")
-        print("✅" * 40 + "\n")
+        logger.info("\n" + "✅" * 40)
+        logger.info(f"✅ [INIT COMPLETE] Generation 1 seeding complete ({len(self.chromosome_population)} models total). Flushing checkpoint to disk...")
+        logger.info("✅" * 40 + "\n")
 
         logger.info(f"✅ [INIT] Population seeding complete. {len(self.chromosome_population)} models created for Run {self.run_id}.")
         self._save_checkpoint()
@@ -882,25 +1073,52 @@ class LSTMOptimizerEngine:
     # ##########################################################################
     def _generate_speculative_child(self, evaluated_pool, next_gen_idx, child_idx):
         if len(evaluated_pool) >= 2:
+            # 1. Sort the pool from Best to Worst
             evaluated_pool.sort(key=self._apply_priority_tie_breaker)
-            parent_a = random.choice(evaluated_pool[:5])
-            parent_b = random.choice(evaluated_pool[:5])
             
+            # 2. RANK-BASED SELECTION (Natural Selection)
+            # The #1 model gets the most "raffle tickets", the worst model gets 1 ticket.
+            # This ensures the best models breed the most, but weaker models still pass on diverse genes.
+            pool_size = len(evaluated_pool)
+            weights = [pool_size - i for i in range(pool_size)] 
+            
+            # Draw 2 parents from the lottery
+            parents = random.choices(evaluated_pool, weights=weights, k=2)
+            parent_a = parents[0]
+            parent_b = parents[1]
+
+            # 3. UNIFORM CROSSOVER (True Biological Inheritance)
+            # For every single trait, flip a 50/50 coin to decide if it comes from Parent A or Parent B
             child = {
                 "id": f"G{next_gen_idx}-M{child_idx}",
-                "lstm_layers": parent_a['lstm_layers'],
-                "nodes_per_layer": list(parent_a['nodes_per_layer']),
-                "lookback_window": parent_a['lookback_window'],
-                "forecast_horizon": parent_a['forecast_horizon'],
-                "learning_rate": parent_a['learning_rate'],
-                "dropout_rate": parent_a['dropout_rate'],
-                "batch_size": parent_a['batch_size'],
-                "feature_mask": list(parent_b['feature_mask']),
+                
+                # Architecture Genes
+                "lstm_layers": parent_a['lstm_layers'] if random.random() < 0.5 else parent_b['lstm_layers'],
+                "nodes_per_layer": list(parent_a['nodes_per_layer']) if random.random() < 0.5 else list(parent_b['nodes_per_layer']),
+                
+                # Time-Series Genes
+                "lookback_window": parent_a['lookback_window'] if random.random() < 0.5 else parent_b['lookback_window'],
+                "forecast_horizon": parent_a['forecast_horizon'] if random.random() < 0.5 else parent_b['forecast_horizon'],
+                
+                # Optimization Genes
+                "learning_rate": parent_a['learning_rate'] if random.random() < 0.5 else parent_b['learning_rate'],
+                "dropout_rate": parent_a['dropout_rate'] if random.random() < 0.5 else parent_b['dropout_rate'],
+                "batch_size": parent_a['batch_size'] if random.random() < 0.5 else parent_b['batch_size'],
+                "epochs": parent_a.get('epochs', 25) if random.random() < 0.5 else parent_b.get('epochs', 25),
+                
+                # Data Feature Gene
+                "feature_mask": list(parent_a['feature_mask']) if random.random() < 0.5 else list(parent_b['feature_mask']),
+                
+                # State trackers
                 "fitness_evaluated": False,
                 "perf_vector": [0.0, -5.0, 1.0, 999.0, 1.0, 99.0]
             }
+            # 4. MUTATION
+            # Pass the child to the mutation function to randomly alter a few genes
             child = self._mutate(child)
         else:
+
+           # FALLBACK: If we don't have enough parents yet, generate a random "Adam/Eve" model
             _, asset_cols = self._split_features(self.master_data)
             max_rows = len(self.master_data)
             num_layers = self._get_normal_random(MIN_HIDDEN_LAYERS, MAX_HIDDEN_LAYERS)
@@ -917,6 +1135,7 @@ class LSTMOptimizerEngine:
                 "learning_rate": round(random.uniform(MIN_LR, MAX_LR), 5),
                 "dropout_rate": round(random.uniform(MIN_DROPOUT, MAX_DROPOUT), 2),
                 "batch_size": random.choice(BATCH_SIZE_CHOICES),
+                "epochs": random.randint(MIN_EPOCHS, MAX_EPOCHS),  
                 "feature_mask": mask,
                 "fitness_evaluated": False,
                 "perf_vector": [0.0, -5.0, 1.0, 999.0, 1.0, 99.0]
@@ -925,311 +1144,569 @@ class LSTMOptimizerEngine:
         child['fitness_evaluated'] = False
         child['perf_vector'] = [0.0, -5.0, 1.0, 999.0, 1.0, 99.0]
         return child
+    # ##############################################################################
+    # Function Name : _format_active_task_telemetry
+    #
+    # Path          : apps/school/ga_master.py
+    # Author        : Chalearm Saelim & Gemini
+    #
+    # Purpose :
+    #    Parses Celery active task payload dictionaries and formats model ID, generation
+    #    index, cross-validation fold indices, and candidate model details for worker
+    #    telemetry status reports.
+    #
+    # Inputs :
+    #    task_dict : dict Raw active task dictionary inspected from Celery broker.
+    #
+    # Return :
+    #    str : Formatted human-readable target string for cluster status display.
+    # ##############################################################################
+    def _format_active_task_telemetry(task_dict: dict) -> str:
+        task_name = task_dict.get("name", "")
+        args = task_dict.get("args", [])
+        
+        payload = args[0] if len(args) > 0 and isinstance(args[0], (dict, str)) else {}
+        if isinstance(payload, str):
+            try:
+                import json
+                payload = json.loads(payload)
+            except Exception:
+                payload = {}
 
+        # 1. Format export_and_plot_task (GEN_PLOT or POST_GA_OOS)
+        if "export_and_plot_task" in task_name:
+            gen_idx = payload.get("gen_idx", "?")
+            chroms = payload.get("top_chromosomes", [])
+            task_type = payload.get("task_type", "GEN_PLOT")
+            
+            if task_type == "POST_GA_OOS":
+                return f"Target: Gen {gen_idx} Out-Of-Sample Verification"
+
+            if chroms and isinstance(chroms, list):
+                first_cand_id = chroms[0].get("id", f"G{gen_idx}-M0")
+                num_cands = len(chroms)
+                return f"Target: Gen {gen_idx} ({first_cand_id} + {num_cands - 1} top models)"
+            else:
+                return f"Target: Gen {gen_idx} Pareto Plot"
+
+        # 2. Format run_fold_training_task (CV_FOLD)
+        elif "run_fold_training_task" in task_name:
+            model_id = payload.get("chrom_id", payload.get("chromosome_id", payload.get("model_id", "Model")))
+            fold_idx = payload.get("fold_idx", "?")
+            num_folds = payload.get("num_folds", payload.get("total_folds", 4))
+            return f"Target: {model_id:<8} (Fold {fold_idx}/{num_folds})"
+
+        # 3. Default Fallback
+        return f"Target: {payload.get('chrom_id', 'Model')}"
     # ##########################################################################
-    # Function Name : _evaluate_population_pipelined
-    # Purpose       : Asynchronous execution pipeline filling target Redis task
-    #                 buffers and tracking live speculative generation expansion.
+    # Function Name : _breed_new_generation
+    # Path          : apps/school/ga_master.py
     # ##########################################################################
-    def _evaluate_population_pipelined(self, initial_population, max_generations=37, target_buffer_limit=25):
+    def _breed_new_generation(self, parent_pool: list, target_gen: int, pop_size: int) -> list:
+        logger.debug(f"=== state 5.1 === Entering _breed_new_generation() for Gen {target_gen} | parents={len(parent_pool)} | pop_size={pop_size}")
+        
+        # Fallback to existing engine mutation/crossover logic if available
+        if hasattr(self, "_generate_next_generation"):
+            return self._generate_next_generation(parent_pool, target_gen)
+        
+        # If the engine uses speculatively generated children per index:
+        new_gen_chroms = []
+        for i in range(pop_size):
+            child = self._generate_speculative_child(parent_pool, target_gen, i)
+            child['generation'] = target_gen
+            new_gen_chroms.append(child)
+            
+        logger.debug(f"=== state 5.2 === Successfully bred {len(new_gen_chroms)} models for Generation {target_gen}")
+        return new_gen_chroms
+    # ##############################################################################
+    # Function Name : _print_on_demand_status
+    # Purpose       : Generates a rich diagnostic report comparing evaluated models 
+    #                 in RAM vs Disk, and prints fold-level details for all active 
+    #                 and recently completed models.
+    # ##############################################################################
+    # ##############################################################################
+    # Function Name : _print_on_demand_status
+    # Purpose       : Generates a rich diagnostic report comparing evaluated models 
+    #                 in RAM vs Disk, and prints the current Lazy Pruning Threshold.
+    # ##############################################################################
+    def _print_on_demand_status(self, completed_fold_results, expected_folds, unevaluated_in_gen, current_gen, lazy_prune_rank):
+        logger.info("\n" + "📊" * 60)
+        logger.info("📊 [ON-DEMAND STATUS REPORT] RAM vs Disk State & Fold Details")
+        logger.info("📊" * 60)
+
+        evaluated_unsaved = [c for c in self.chromosome_population if c.get("fitness_evaluated", False) and not c.get("_is_saved", False)]
+        evaluated_saved = [c for c in self.chromosome_population if c.get("fitness_evaluated", False) and c.get("_is_saved", False)]
+        
+        valid_das = sorted([c.get('perf_vector', [0.0])[0] for c in self.chromosome_population if c.get("fitness_evaluated", False) and c.get('generation', 0) == current_gen], reverse=True)
+        
+        if len(valid_das) < lazy_prune_rank:
+            threshold_str = f"FREE PASS (Needs {lazy_prune_rank - len(valid_das)} more completed models to set baseline)"
+        else:
+            threshold_str = f"{valid_das[lazy_prune_rank - 1] * 100:+.2f}%"
+
+        logger.info(f"   ├── 🧠 Total Population in RAM : {len(self.chromosome_population)}")
+        logger.info(f"   ├── 💾 Evaluated & Saved Disk  : {len(evaluated_saved)}")
+        logger.info(f"   ├── ⏳ Evaluated & UNSAVED     : {len(evaluated_unsaved)} (Waiting for checkpoint trigger)")
+        logger.info(f"   └── 📉 Current Lazy Threshold  : {threshold_str} (Targeting Rank {lazy_prune_rank})")
+        
+        if evaluated_unsaved:
+            logger.info("\n   [RECENTLY EVALUATED MODELS (UNSAVED IN RAM)]")
+            for chrom in evaluated_unsaved:
+                c_id = chrom['id']
+                perf = chrom.get('perf_vector', [])
+                rmse = perf[3] if len(perf) > 3 else 999.0
+                da = perf[0] if len(perf) > 0 else 0.0
+                logger.info(f"   ✅ {c_id} | Mean RMSE: {rmse:.4f} | Mean Skill DA: {da*100:+.2f}%")
+
+        logger.info("\n   [PENDING MODELS IN CURRENT GENERATION - FOLD DETAILS]")
+        pending_count = 0
+        for chrom in self.chromosome_population:
+            c_id = chrom['id']
+            if c_id in unevaluated_in_gen:
+                pending_count += 1
+                completed_folds = completed_fold_results.get(c_id, [])
+                expected = expected_folds.get(c_id, 5)
+                logger.info(f"   ⏳ {c_id} (Completed {len(completed_folds)}/{expected} folds)")
+                for f in completed_folds:
+                    f_idx = f.get('fold_idx', '?')
+                    f_rmse = f.get('metrics', {}).get('rmse', 999.0)
+                    f_da = f.get('metrics', {}).get('skill_da', 0.0)
+                    logger.info(f"        └── Fold {f_idx} ✅: RMSE={f_rmse:.4f} | Skill DA={f_da*100:+.2f}%")
+
+        if pending_count == 0: logger.info("   👉 (None. All models in this generation are fully evaluated.)")
+        logger.info("📊" * 60 + "\n")
+    # ##############################################################################
+    # Function Name : _evaluate_population_sync
+    # Purpose       : Synchronous generational barrier engine with fixed local 
+    #                 save_pct calculations, File-Flag Manual Saving, and strict 
+    #                 zombie task tracking.
+    # ##############################################################################
+    def _evaluate_population_sync(self, initial_population, max_generations=50):
+        logger.info("═" * 80)
+        logger.info("🚀 [PIPELINE START] Entering Synchronous Generational Barrier Evolution Engine")
+        logger.info("═" * 80)
+        
+        import os
+        import time
         import redis
         import json
-        from celery_tasks import run_fold_training_task, export_and_plot_task, app as celery_app
+        from celery_tasks import run_fold_training_task, export_and_plot_task
 
         redis_target = os.getenv("REDIS_URL") or os.getenv("CELERY_BROKER_URL") or "redis://redis:6379/0"
-        
         try:
             redis_client = redis.Redis.from_url(redis_target)
             redis_client.ping()
-            print(f"🔌 [REDIS CONNECTED] Successfully connected to Broker at {redis_target}")
-        except Exception as e:
-            print(f"⚠️ [REDIS WARNING] Failed connecting to primary target {redis_target}: {e}")
-            try:
-                redis_client = redis.Redis(host="redis", port=6379, db=0)
-                redis_client.ping()
-                print("🔌 [REDIS CONNECTED] Fallback connected to 'redis:6379'")
-            except Exception:
-                redis_client = redis.Redis(host="127.0.0.1", port=6379, db=0)
+        except Exception:
+            redis_client = redis.Redis(host="redis", port=6379, db=0)
 
-        active_redis_tasks = {}
-        completed_results = {}
-        expected_folds_count = {}
-        evaluated_pool = []
-        task_queue = []
+        gen1_models = [c for c in initial_population if str(c.get("id", "")).startswith("G1-")]
+        actual_pop_per_gen = len(gen1_models) if len(gen1_models) > 0 else POPULATION_SIZE
 
-        speculative_gen_counter = 1
-
-        print("\n" + "🚀" * 40)
-        print(f"🚀 [INIT POPULATION] Seeding Gen 1 into master array...")
         self.chromosome_population = list(initial_population)
-        print(f"   ├── Population Size: {len(self.chromosome_population)}")
-        print("🚀" * 40 + "\n")
+        
+        # Mark all loaded models as safely saved to disk
+        for c in self.chromosome_population:
+            if c.get("fitness_evaluated", False):
+                c['_is_saved'] = True
 
-        def enqueue_generation_suite(chromosomes, gen_idx):
-            req_eval_target = len(evaluated_pool) + len(chromosomes)
-            print(f"📥 [ENQUEUE SUITE] Adding Gen {gen_idx} ({len(chromosomes)} models) to task_queue...")
+        evaluated_pool = [c for c in initial_population if c.get("fitness_evaluated", False)]
+        current_gen = 1
+
+        save_pct_threshold = getattr(self, 'save_pct', 12.5)
+        save_min_threshold = getattr(self, 'save_interval_min', 35.0)
+        EARLY_STOP_RMSE_THRESHOLD = 5.0 
+
+        # 🟢 DYNAMIC LAZY PRUNE RANK: Protects Genetic Diversity
+        required_parents = max(2, actual_pop_per_gen // 2)
+        try:
+            lazy_prune_rank = max(TOP_N_EXPORTS, required_parents)
+        except NameError:
+            lazy_prune_rank = max(5, required_parents)
             
-            for chromosome in chromosomes:
-                c_id = chromosome['id']
-                payloads = self._build_fold_payloads(chromosome)
-                expected_folds_count[c_id] = len(payloads)
-                completed_results[c_id] = []
+        # Flag Files
+        FORCE_SAVE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "force_save.flag")
+        PRINT_STATUS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "print_status.flag")
+
+        while current_gen <= max_generations and self.running:
+            logger.info("\n" + "█" * 80)
+            logger.info(f"🧬 [GENERATION BARRIER] Starting Evaluation Cycle for Generation {current_gen} / {max_generations}")
+            logger.info("█" * 80)
+
+            gen_chromosomes = [c for c in self.chromosome_population if self._get_chrom_generation(c) == current_gen]
+
+            if not gen_chromosomes and current_gen > 1:
+                logger.info(f"🌱 [BREEDING] Generation {current_gen} is empty. Breeding via Crossover & Mutation from top parents...")
+                parent_pool = sorted(evaluated_pool, key=self._apply_priority_tie_breaker)[:max(2, actual_pop_per_gen // 2)]
+                gen_chromosomes = self._breed_new_generation(parent_pool, current_gen, actual_pop_per_gen)
+                self.chromosome_population.extend(gen_chromosomes)
+
+            task_mapping = {}
+            expected_folds = {}
+            completed_fold_results = {}
+
+            # Count models that still need evaluation
+            unevaluated_in_gen = {c['id'] for c in gen_chromosomes if not c.get("fitness_evaluated", False)}
+            total_unevaluated = len(unevaluated_in_gen)
+
+            # 🟢 FIX: Calculate exactly how many models equal the requested save_pct
+            evals_needed_for_save = max(1, int((save_pct_threshold / 100.0) * len(gen_chromosomes)))
+            
+            logger.info(f"📋 [GEN TARGETS] {total_unevaluated} models left to evaluate. Triggering checkpoint every {evals_needed_for_save} models ({save_pct_threshold}%).")
+
+            for chrom in gen_chromosomes:
+                c_id = chrom['id']
+                chrom['generation'] = current_gen
+                if chrom.get("fitness_evaluated", False):
+                    continue
+
+                payloads = self._build_fold_payloads(chrom)
+                expected_folds[c_id] = len(payloads)
+                completed_fold_results[c_id] = []
+
                 for p in payloads:
-                    task_queue.append(("CV_FOLD", p, {'chrom_id': c_id, 'chrom_ref': chromosome, 'gen_idx': gen_idx}, None))
-                    print(f"   ├── Enqueued FOLD task for model {c_id}")
+                    try:
+                        async_task = run_fold_training_task.apply_async(args=[p], queue='training_queue', priority=3)
+                        task_mapping[async_task.id] = (chrom, p['fold_idx'], c_id)
+                        logger.info(f"  ├── 📤 [DISPATCH] {c_id} (Fold {p['fold_idx']}/{len(payloads)}) ➔ Task ID: {async_task.id}")
+                    except Exception as e:
+                        logger.error(f"  └── ❌ [DISPATCH ERROR] Failed to dispatch fold task for {c_id}: {e}")
 
-            plot_payload = {"run_id": self.run_id, "gen_idx": gen_idx, "requires_eval_count": req_eval_target}
-            gate_cond = {"min_evaluated_models": req_eval_target, "gen_idx": gen_idx}
-            task_queue.append(("GEN_PLOT", plot_payload, {'gen_idx': gen_idx}, gate_cond))
-            print(f"   └── Enqueued GEN_PLOT task for Gen {gen_idx} (Gated: awaits {req_eval_target} eval models)")
-
-        def enqueue_final_post_ga_oos():
-            total_expected = POPULATION_SIZE * max_generations
-            oos_payload = {"run_id": self.run_id, "gen_idx": max_generations, "requires_eval_count": total_expected}
-            gate_cond = {"min_evaluated_models": total_expected, "gen_idx": max_generations}
-            task_queue.append(("POST_GA_OOS", oos_payload, {'gen_idx': max_generations}, gate_cond))
-            print(f"📊 [ENQUEUE POST-GA OOS] Gated: awaits all {total_expected} models.")
-
-        enqueue_generation_suite(initial_population, speculative_gen_counter)
-        self._save_checkpoint(partial=True)
-
-        def refill_redis_pipeline():
-            nonlocal speculative_gen_counter
+            last_save_time = time.time()
+            models_evaluated_since_save = 0
             
-            queued_fold_tasks = [t for t in task_queue if t[0] == "CV_FOLD"]
+            while unevaluated_in_gen and self.running:
+                finished_task_ids = []
+                model_completed_this_loop = False  
 
-            while len(queued_fold_tasks) == 0 and speculative_gen_counter < max_generations:
-                speculative_gen_counter += 1
-                print(f"\n🔮 [SPECULATIVE GENERATION {speculative_gen_counter}] Unlocking Gen {speculative_gen_counter}...")
+                # 🟢 MANUAL SAVE OVERRIDE
+                if os.path.exists(FORCE_SAVE_FILE):
+                    logger.info("🚨 [MANUAL OVERRIDE] 'force_save.flag' detected! Flushing JSON checkpoint to disk...")
+                    self._save_checkpoint(partial=True)
+                    for c in self.chromosome_population:
+                        if c.get("fitness_evaluated", False): c['_is_saved'] = True
+                    try:
+                        os.remove(FORCE_SAVE_FILE)
+                    except OSError: pass
+                    last_save_time = time.time()
+                    models_evaluated_since_save = 0
 
-                speculative_chroms = [
-                    self._generate_speculative_child(evaluated_pool, speculative_gen_counter, i)
-                    for i in range(POPULATION_SIZE)
-                ]
-                
-                self.chromosome_population.extend(speculative_chroms)
-                self._save_checkpoint(partial=True)
+                # 🟢 ON-DEMAND STATUS REPORT
+                if os.path.exists(PRINT_STATUS_FILE):
+                    self._print_on_demand_status(completed_fold_results, expected_folds, unevaluated_in_gen, current_gen)
+                    try:
+                        os.remove(PRINT_STATUS_FILE)
+                    except OSError: pass
 
-                enqueue_generation_suite(speculative_chroms, speculative_gen_counter)
-
-                if speculative_gen_counter == max_generations:
-                    enqueue_final_post_ga_oos()
-
-                queued_fold_tasks = [t for t in task_queue if t[0] == "CV_FOLD"]
-
-            while len(active_redis_tasks) < target_buffer_limit and len(task_queue) > 0:
-                dispatched_any = False
-                for idx in range(len(task_queue)):
-                    task_type, payload, meta, gate = task_queue[idx]
-
-                    if gate is not None and len(evaluated_pool) < gate["min_evaluated_models"]:
+                for t_id, (chrom, f_idx, c_id) in list(task_mapping.items()):
+                    if c_id not in unevaluated_in_gen:
                         continue
 
-                    task_type, payload, meta, gate = task_queue.pop(idx)
-                    dispatched_any = True
-
-                    if task_type == "CV_FOLD":
-                        async_task = run_fold_training_task.delay(payload)
-                        task_key = f"{meta['chrom_id']}_fold_{payload['fold_idx']}_{uuid.uuid4().hex[:4]}"
-                        active_redis_tasks[task_key] = ("CV_FOLD", async_task, meta, payload)
-                        print(f"🚀 [DISPATCH FOLD] Sent {meta['chrom_id']} to Redis | Celery ID: {async_task.id}")
-
-                    elif task_type in ["GEN_PLOT", "POST_GA_OOS"]:
-                        payload["top_chromosomes"] = sorted(evaluated_pool, key=self._apply_priority_tie_breaker)[:5]
-                        payload["master_data"] = self.master_data_raw.to_json()
-                        payload["val_data"] = self.val_master_data_raw.to_json() if self.val_master_data_raw is not None else None
-
-                        async_task = export_and_plot_task.delay(payload)
-                        task_key = f"{task_type}_gen_{meta['gen_idx']}_{uuid.uuid4().hex[:4]}"
-                        active_redis_tasks[task_key] = (task_type, async_task, meta, payload)
-                        print(f"🎨 [DISPATCH PLOT/OOS] Sent {task_type} Gen {meta['gen_idx']} to Redis | Celery ID: {async_task.id}")
-
-                    break
-
-                if not dispatched_any:
-                    break
-
-        refill_redis_pipeline()
-
-        last_heartbeat = time.time()
-        last_state_hash = ""
-
-        while len(active_redis_tasks) > 0 or len(task_queue) > 0:
-            if not self.running:
-                print("🛑 [HALT] GA Engine stop signal received.")
-                break
-
-            current_active_keys = sorted(list(active_redis_tasks.keys()))
-            current_state_hash = f"active:{len(active_redis_tasks)}_queue:{len(task_queue)}_keys:{','.join(current_active_keys)}"
-
-            if current_state_hash != last_state_hash or (time.time() - last_heartbeat > 60.0):
-                print(f"\n💓 [PIPELINE STATE] Active Celery Tasks: {len(active_redis_tasks)} | Queue: {len(task_queue)}")
-                for k, v in list(active_redis_tasks.items()):
-                    t_name = k.split('_')[0]
-                    c_id = v[2].get('chrom_id', t_name)
-                    print(f"   -> {k:<28} | Task Type: {v[0]:<12} | Target/Model: {c_id:<7} | Celery ID: {v[1].id}")
-                last_state_hash = current_state_hash
-                last_heartbeat = time.time()
-
-            finished_keys = []
-
-            for task_key, (t_type, async_task, meta, payload) in list(active_redis_tasks.items()):
-                c_id = meta.get('chrom_id', 'UNKNOWN')
-                task_id = async_task.id
-                
-                is_ready = False
-                is_success = False
-                res_payload = None
-
-                if async_task.ready():
-                    is_ready = True
-                    if async_task.successful():
-                        is_success = True
-                        res_payload = async_task.result
-                else:
                     try:
-                        redis_key = f"celery-task-meta-{task_id}"
-                        raw_meta = redis_client.get(redis_key)
-                        if raw_meta:
-                            parsed = json.loads(raw_meta.decode('utf-8'))
-                            r_status = parsed.get("status")
-                            if r_status == "SUCCESS":
-                                is_ready = True
-                                is_success = True
-                                res_payload = parsed.get("result")
-                            elif r_status in ["FAILURE", "REVOKED"]:
-                                is_ready = True
-                                is_success = False
+                        res = redis_client.get(f"celery-task-meta-{t_id}")
+                        if res:
+                            parsed = json.loads(res.decode('utf-8'))
+                            task_status = str(parsed.get("status", "")).upper()
+                            
+                            if task_status == "SUCCESS":
+                                fold_result = parsed.get("result", {})
+                                fold_rmse = fold_result.get('metrics', {}).get('rmse', 999.0)
+                                
+                                if fold_rmse > EARLY_STOP_RMSE_THRESHOLD:
+                                    logger.warning(f"⚠️ [EARLY STOP] {c_id} (Fold {f_idx}) returned exploding RMSE ({fold_rmse:.4f}). Aborting model!")
+                                    finished_task_ids.append(t_id)
+                                    chrom['perf_vector'] = [0.0, -5.0, 1.0, 999.0, 0.0, 0.0]
+                                    chrom['fitness_evaluated'] = True
+                                    if chrom not in evaluated_pool: evaluated_pool.append(chrom)
+                                    unevaluated_in_gen.remove(c_id)
+                                    model_completed_this_loop = True
+                                    
+                                    pending_tasks = [k for k, v in task_mapping.items() if v[2] == c_id and k != t_id]
+                                    for p_tid in pending_tasks:
+                                        try:
+                                            run_fold_training_task.app.control.revoke(p_tid, terminate=True, signal='SIGTERM')
+                                            finished_task_ids.append(p_tid)
+                                        except: pass
+                                    continue 
+                                
+                                finished_task_ids.append(t_id)
+                                completed_fold_results[c_id].append(fold_result)
+                                logger.info(f"  ├── ✅ [FOLD SUCCESS] {c_id} (Fold {f_idx}) completed with RMSE: {fold_rmse:.4f}")
+                                completed_count = len(completed_fold_results[c_id])
+                                expected_count = expected_folds.get(c_id, NUM_FOLDS)
+
+                                # --- 2. LAZY FOLD PROCESSING (Branch & Bound) ---
+                                if 0 < completed_count < expected_count:
+                                    current_da_sum = sum(f.get('metrics', {}).get('skill_da', 0.0) for f in completed_fold_results[c_id])
+                                    remaining_folds = expected_count - completed_count
+                                    
+                                    # Assume all remaining folds achieve a perfect 100% (1.0) Skill DA
+                                    max_theoretical_da = (current_da_sum + (remaining_folds * 1.0)) / expected_count
+                                    
+                                    # 🟢 STRICT CURRENT GEN CHECK
+                                    valid_das = sorted(
+                                        [c.get('perf_vector', [0.0])[0] for c in evaluated_pool 
+                                         if len(c.get('perf_vector', [])) > 0 and c.get('generation', 0) == current_gen], 
+                                        reverse=True
+                                    )
+
+                                    # 🟢 FREE PASS LOGIC: Do not prune if we lack a local baseline
+                                    if len(valid_das) < lazy_prune_rank:
+                                        survival_threshold = -999.0 # Guaranteed survival
+                                    else:
+                                        survival_threshold = valid_das[lazy_prune_rank - 1]
+
+                                    if max_theoretical_da < survival_threshold:
+                                        logger.warning(f"  ├── 📉 [LAZY PRUNE] {c_id} max theoretical DA ({max_theoretical_da*100:.2f}%) cannot beat Top-{lazy_prune_rank} threshold ({survival_threshold*100:.2f}%). Aborting remaining {remaining_folds} folds!")
+                                        
+                                        chrom['perf_vector'] = [0.0, -5.0, 1.0, 999.0, 0.0, 0.0] # Penalize
+                                        chrom['fitness_evaluated'] = True
+                                        chrom['_is_saved'] = False
+                                        if chrom not in evaluated_pool: evaluated_pool.append(chrom)
+                                        unevaluated_in_gen.remove(c_id)
+                                        model_completed_this_loop = True
+                                        
+                                        pending_tasks = [k for k, v in task_mapping.items() if v[2] == c_id and k not in finished_task_ids]
+                                        for p_tid in pending_tasks:
+                                            try:
+                                                run_fold_training_task.app.control.revoke(p_tid, terminate=True, signal='SIGTERM')
+                                                finished_task_ids.append(p_tid)
+                                                logger.info(f"  │   └── 🔪 Revoked pending lazy fold task.")
+                                            except: pass
+                                        continue
+
+                                # --- 3. MODEL FULLY COMPLETED ---
+                                if completed_count >= expected_count:
+                                    objectives = self._summarize_chromosome_evaluation(chrom, completed_fold_results[c_id], gen=current_gen)
+                                    chrom['perf_vector'] = objectives
+                                    chrom['fitness_evaluated'] = True
+                                    chrom['_is_saved'] = False
+                                    if chrom not in evaluated_pool: evaluated_pool.append(chrom)
+                                    unevaluated_in_gen.remove(c_id)
+                                    model_completed_this_loop = True
+                                    logger.info(f"  └── 🏆 [MODEL COMPLETE] {c_id} finished all folds safely. Remaining in Gen {current_gen}: {len(unevaluated_in_gen)}")
+
+                                    redundant_tasks = [k for k, v in task_mapping.items() if v[2] == c_id and k not in finished_task_ids]
+                                    for r_tid in redundant_tasks:
+                                        try:
+                                            run_fold_training_task.app.control.revoke(r_tid, terminate=True, signal='SIGTERM')
+                                            finished_task_ids.append(r_tid)
+                                        except: pass
+                                            
+                            elif task_status in ["FAILURE", "REVOKED"]:
+                                finished_task_ids.append(t_id)
+                                logger.error(f"❌ [POISON PILL DETECTED] {c_id} (Fold {f_idx}) failed. Penalizing and aborting.")
+                                chrom['perf_vector'] = [0.0, -5.0, 1.0, 999.0, 0.0, 0.0]
+                                chrom['fitness_evaluated'] = True
+                                if chrom not in evaluated_pool: evaluated_pool.append(chrom)
+                                if c_id in unevaluated_in_gen:
+                                    unevaluated_in_gen.remove(c_id)
+                                    model_completed_this_loop = True
+
+                                pending_tasks = [k for k, v in task_mapping.items() if v[2] == c_id and k != t_id]
+                                for p_tid in pending_tasks:
+                                    try:
+                                        run_fold_training_task.app.control.revoke(p_tid, terminate=True, signal='SIGTERM')
+                                        finished_task_ids.append(p_tid)
+                                    except: pass
+
                     except Exception:
-                        pass
+                        pass 
 
-                if is_ready:
-                    finished_keys.append(task_key)
+                for t_id in finished_task_ids:
+                    if t_id in task_mapping: del task_mapping[t_id]
 
-                    if is_success and res_payload:
-                        if t_type == "CV_FOLD":
-                            completed_results[c_id].append(res_payload)
+                # 🟢 ISOLATED CHECKPOINT TRIGGER CHECK
+                if model_completed_this_loop:
+                    models_evaluated_since_save += 1
+                    time_elapsed_min = (time.time() - last_save_time) / 60.0
 
-                            if len(completed_results[c_id]) == expected_folds_count.get(c_id, 1):
-                                target_chrom = meta['chrom_ref']
-                                objectives = self._summarize_chromosome_evaluation(target_chrom, completed_results[c_id], gen=meta['gen_idx'])
-                                target_chrom['perf_vector'] = objectives
-                                target_chrom['fitness_evaluated'] = True
+                    if models_evaluated_since_save >= evals_needed_for_save or time_elapsed_min >= save_min_threshold:
+                        logger.info(f"💾 [REAL-TIME FLUSH] Threshold met ({models_evaluated_since_save} models processed | {time_elapsed_min:.1f}m elapsed). Saving Checkpoint.")
+                        self._save_checkpoint(partial=True)
+                        for c in self.chromosome_population:
+                            if c.get("fitness_evaluated", False): c['_is_saved'] = True
+                        last_save_time = time.time()
+                        models_evaluated_since_save = 0
 
-                                evaluated_pool.append(target_chrom)
+                if unevaluated_in_gen:
+                    time.sleep(2.0)
 
-                                print("\n" + "═"*80)
-                                print(f"🎯 [FITNESS EVALUATED] Model {c_id} completed all folds for Generation {meta['gen_idx']}!")
-                                print(f"   ├── Skill Directional Accuracy : {objectives[0]*100:+.2f}%")
-                                print(f"   ├── Annualized Sharpe Ratio    : {objectives[1]:.2f}")
-                                print(f"   ├── Max Drawdown               : {objectives[2]*100:.2f}%")
-                                print(f"   └── Validation RMSE            : {objectives[3]:.6f}")
-                                print(f"📊 [GENERATION PROGRESS] Evaluated: {len(evaluated_pool)} / {POPULATION_SIZE * meta['gen_idx']} models")
-                                print("═"*80 + "\n")
+            # End of Generation Checkpoint
+            self._save_checkpoint(partial=False)
+            for c in self.chromosome_population:
+                if c.get("fitness_evaluated", False): c['_is_saved'] = True
 
-                                self._save_checkpoint(partial=True)
+            logger.info("═" * 80)
+            logger.info(f"🎉 [GENERATION {current_gen} DONE] 100% Completion Reached! Triggering Visualizations...")
+            
+            gen_specific_evaluated = [c for c in evaluated_pool if self._get_chrom_generation(c) == current_gen]
+            top_k = sorted(gen_specific_evaluated, key=self._apply_priority_tie_breaker)[:TOP_N_EXPORTS]
 
-                        elif t_type in ["GEN_PLOT", "POST_GA_OOS"]:
-                            print("\n" + "🎨"*40)
-                            print(f"🎨 [PARETO STEP] Generation {meta['gen_idx']} plot task complete!")
-                            print(f"   ├── Target Directory : /workspace/crypto_apps/dexbot/apps/school/prediction_result/{self.run_id}")
-                            print(f"   └── Rendered Plots   : Pareto Frontiers & Price Predictions for BTC, UNI, SPY")
-                            print("🎨"*40 + "\n")
+            plot_payload = pack_and_dispatch_visualization_task(
+                run_id=self.run_id,
+                gen_idx=current_gen,
+                top_chromosomes=top_k,
+                master_df=self.master_data_raw,
+                val_df=self.val_master_data_raw
+            )
+            plot_payload["task_type"] = "GEN_PLOT"
+            
+            try:
+                export_and_plot_task.apply_async(args=[plot_payload], queue='export_queue', priority=9)
+            except Exception as plot_err:
+                logger.error(f"  └── ❌ [PLOT ERROR] Failed dispatching visualization task for Gen {current_gen}: {plot_err}")
 
-                    else:
-                        print(f"💥 [TASK CRASH] Task {task_key} failed or was revoked.")
+            current_gen += 1
 
-            for key in finished_keys:
-                del active_redis_tasks[key]
+        logger.info("🛑 [PIPELINE STOP] Synchronous generational evolution loop finished or interrupted.")
+        return evaluated_pool
 
-            refill_redis_pipeline()
-            time.sleep(1.0)
+    # ##############################################################################
+    # Function Name : _audit_and_trigger_missing_plots
+    #
+    # Purpose :
+    #    Audits disk storage for completed generation plot artifacts. Called both
+    #    upon checkpoint restoration during startup AND dynamically inside the main
+    #    pipeline loop whenever a candidate model completes all training folds.
+    #    If a generation has all models evaluated but its Pareto chart is missing
+    #    from `prediction_result/{run_id}/`, dispatches an immediate high-priority
+    #    `GEN_PLOT` task to Celery's `export_queue`.
+    #
+    # Inputs :
+    #    evaluated_pool
+    #        Type        : list
+    #        Description : List of currently evaluated chromosome dictionaries.
+    #    active_redis_tasks
+    #        Type        : dict
+    #        Description : Active task map to prevent duplicate dispatch if a plot
+    #                      task is already in-flight.
+    #
+    # Return :
+    #    Type        : int
+    #    Description : Count of newly dispatched visualization tasks.
+    # ##############################################################################
+    # ##############################################################################
+    # Function Name : _audit_and_trigger_missing_plots
+    # Purpose       : Startup safety mechanism. Scans the restored checkpoint pool 
+    #                 to find fully completed generations. If a generation finished 
+    #                 but its graph plotting task was killed/lost (e.g., worker crash), 
+    #                 this actively re-dispatches the visualization payload.
+    # ##############################################################################
+    def _audit_and_trigger_missing_plots(self, evaluated_pool, custom_pop_size):
+        import os
+        from celery_tasks import export_and_plot_task
 
-    # ##########################################################################
+        if not evaluated_pool:
+            return
+
+        # 1. Tally how many models are evaluated per generation
+        gen_counts = {}
+        for c in evaluated_pool:
+            g = self._get_chrom_generation(c)
+            gen_counts[g] = gen_counts.get(g, 0) + 1
+
+        # 🟢 FIX: Dynamically resolve the app's root directory and prediction_result folder
+        app_root = os.path.dirname(os.path.abspath(__file__))
+        base_plot_dir = os.path.join(app_root, "prediction_result")
+
+        for g_idx, count in gen_counts.items():
+            # If the generation reached 100% completion in the checkpoint
+            if count >= custom_pop_size:
+                target_plot_dir = os.path.join(base_plot_dir, str(self.run_id), f"G{g_idx}")
+                pareto_path = os.path.join(target_plot_dir, "pareto_frontier.png")
+
+                # 2. Check if the plots successfully rendered to disk
+                if not os.path.exists(pareto_path):
+                    logger.info(f"  ├── ⚠️ [AUDIT WARN] Generation {g_idx} is 100% complete but plots are missing! Initiating recovery...")
+                    
+                    gen_specific_evaluated = [c for c in evaluated_pool if self._get_chrom_generation(c) == g_idx]
+                    top_k = sorted(gen_specific_evaluated, key=self._apply_priority_tie_breaker)[:TOP_N_EXPORTS]
+
+                    plot_payload = pack_and_dispatch_visualization_task(
+                        run_id=self.run_id,
+                        gen_idx=g_idx,
+                        top_chromosomes=top_k,
+                        master_df=self.master_data_raw,
+                        val_df=self.val_master_data_raw
+                    )
+                    plot_payload["task_type"] = "GEN_PLOT"
+                    
+                    try:
+                        export_and_plot_task.apply_async(args=[plot_payload], queue='export_queue', priority=9)
+                        logger.info(f"  └── 🚑 [RECOVERY SUCCESS] Dispatched recovery plot task for Gen {g_idx} to Celery workers.")
+                    except Exception as plot_err:
+                        logger.error(f"  └── ❌ [RECOVERY ERROR] Failed dispatching recovery plot task for Gen {g_idx}: {plot_err}")
+                else:
+                    # Plots exist, no action needed
+                    logger.debug(f"  ├── ✅ [AUDIT OK] Generation {g_idx} plots verified on disk.")
+    # ##############################################################################
     # Function Name : _summarize_chromosome_evaluation
-    # Purpose       : Aggregates evaluation results across folds and prints stats.
-    # ##########################################################################
+    # Purpose       : Summarizes cross-validation fold metrics, computes total 
+    #                 processing duration, and outputs single-pass telemetry logs.
+    # ##############################################################################
     def _summarize_chromosome_evaluation(self, chromosome, fold_results, gen):
         fold_results.sort(key=lambda x: x.get('fold_idx', 0))
 
-        fold_skill_da = [res['skill_da'] for res in fold_results if res.get('status') == 'success']
-        fold_sharpe   = [res['sharpe'] for res in fold_results if res.get('status') == 'success']
-        fold_maxdd    = [res['max_dd'] for res in fold_results if res.get('status') == 'success']
-        fold_rmse     = [res['rmse'] for res in fold_results if res.get('status') == 'success']
-        fold_cagr     = [res['cagr'] for res in fold_results if res.get('status') == 'success']
-        fold_calmar   = [res['calmar'] for res in fold_results if res.get('status') == 'success']
-        fold_pf       = [res['profit_factor'] for res in fold_results if res.get('status') == 'success']
+        # 🛡️ Case-insensitive status check ('SUCCESS' or 'success')
+        valid_folds = [
+            res for res in fold_results 
+            if str(res.get('status', '')).upper() == 'SUCCESS'
+        ]
 
-        if not fold_skill_da:
-            return [0.0, -5.0, 1.0, 999.0, 1.0, 99.0]
+        if not valid_folds:
+            logger.warning(f"⚠️ [EVAL WARN] Model {chromosome['id']} has no successful fold results!")
+            chromosome['perf_vector'] = [0.0, -5.0, 1.0, 999.0, 0.0, 0.0]
+            chromosome['fitness_evaluated'] = True
+            return chromosome['perf_vector']
+
+        # Extract fold performance metrics
+        fold_skill_da = [f.get('metrics', {}).get('skill_da', f.get('skill_da', 0.0)) for f in valid_folds]
+        fold_sharpe   = [f.get('metrics', {}).get('sharpe', f.get('sharpe', -5.0)) for f in valid_folds]
+        fold_rmse     = [f.get('metrics', {}).get('rmse', f.get('rmse', 999.0)) for f in valid_folds]
+        fold_cagr     = [f.get('metrics', {}).get('cagr', f.get('cagr', 0.0)) for f in valid_folds]
+        fold_maxdd    = [f.get('metrics', {}).get('max_dd', f.get('max_dd', 0.0)) for f in valid_folds]
+
+        # Calculate processing time duration across valid folds
+        total_exec_sec = sum(float(f.get('execution_time_sec', 0.0)) for f in valid_folds)
+        num_folds = len(valid_folds)
 
         skill_da_mean = float(np.mean(fold_skill_da))
-        skill_da_std  = float(np.std(fold_skill_da))
+        skill_da_std  = float(np.std(fold_skill_da)) if len(fold_skill_da) > 1 else 0.0
         sharpe_mean   = float(np.mean(fold_sharpe))
-        sharpe_std    = float(np.std(fold_sharpe))
-        maxdd_mean    = float(np.mean(fold_maxdd))
+        sharpe_std    = float(np.std(fold_sharpe)) if len(fold_sharpe) > 1 else 0.0
         rmse_mean     = float(np.mean(fold_rmse))
+        cagr_mean     = float(np.mean(fold_cagr))
+        maxdd_mean    = float(np.mean(fold_maxdd))
 
         objectives_vector = [skill_da_mean, sharpe_mean, maxdd_mean, rmse_mean, skill_da_std, sharpe_std]
 
-        asset_history_metrics = {}
-        for res in fold_results:
-            for asset_name, metrics in res.get('asset_skills', {}).items():
-                if asset_name not in asset_history_metrics:
-                    asset_history_metrics[asset_name] = {'baseline': [], 'model': [], 'skill': []}
-                asset_history_metrics[asset_name]['baseline'].append(metrics['baseline'])
-                asset_history_metrics[asset_name]['model'].append(metrics['model'])
-                asset_history_metrics[asset_name]['skill'].append(metrics['skill'])
+        chromosome['metrics'] = {
+            "skill_da": skill_da_mean,
+            "skill_da_std": skill_da_std,
+            "sharpe": sharpe_mean,
+            "sharpe_std": sharpe_std,
+            "rmse": rmse_mean,
+            "cagr": cagr_mean,
+            "max_dd": maxdd_mean,
+            "total_execution_sec": total_exec_sec
+        }
+        chromosome['perf_vector'] = objectives_vector
+        chromosome['fitness_evaluated'] = True
 
         eval_headers = [
             "======================================================================",
-            f"⚡ [EVALUATION COMPLETE] Model: {chromosome['id']} | Generation: {gen}",
-            f"   🎯 Mean Skill DA        : {skill_da_mean * 100:+.2f}%  (std: {skill_da_std * 100:.2f}%)",
-            f"   ⚡ Mean Sharpe Ratio    : {sharpe_mean:.2f}  (std: {sharpe_std:.2f})",
-            f"   📉 Mean Max Drawdown    : {maxdd_mean * 100:.2f}%",
-            f"   📐 Mean RMSE            : {rmse_mean:.4f}",
-            "----------------------------------------------------------------------",
-            "🎯 [SKILL DA MATRICES PROFILE BY ASSET]:"
-        ]
-
-        for line in eval_headers:
-            logger.info(line)
-            summary_logger.info(line)
-
-        all_baselines, all_models, all_skills, asset_summary_lines = [], [], [], []
-        for asset, metrics in asset_history_metrics.items():
-            a_base  = float(np.mean(metrics['baseline']))
-            a_model = float(np.mean(metrics['model']))
-            a_skill = float(np.mean(metrics['skill']))
-
-            all_baselines.append(a_base)
-            all_models.append(a_model)
-            all_skills.append(a_skill)
-            asset_summary_lines.append((asset, a_base, a_model, a_skill))
-
-        asset_summary_lines.sort(key=lambda x: x[3], reverse=True)
-
-        for asset_name, b_val, m_val, s_val in asset_summary_lines:
-            line = f"   {asset_name.ljust(22)} -> Baseline: {b_val*100:.1f}% | Model DA: {m_val*100:.2f}% | Skill DA: {s_val*100:+.2f}%"
-            logger.info(line)
-            summary_logger.info(line)
-
-        stat_lines = [
-            "----------------------------------------------------------------------",
-            "📊 [SKILL SUMMARY STATISTICAL PROFILE]",
-            f"   Best Asset Skill DA  : {max(all_skills) * 100:+.2f}%",
-            f"   Worst Asset Skill DA : {min(all_skills) * 100:+.2f}%",
-            f"   Average Skill DA     : {float(np.mean(all_skills)) * 100:+.2f}%",
-            f"   Median Skill DA      : {float(np.median(all_skills)) * 100:+.2f}%",
-            f"   Skill DA Std         : {skill_da_std * 100:.2f}%",
-            "----------------------------------------------------------------------",
-            "📈 [TRADING & RISK METRICS SUMMARY]",
-            f"   Extended Metrics    -> Mean CAGR: {np.mean(fold_cagr)*100:.2f}% | Profit Factor: {np.mean(fold_pf):.2f} | Calmar: {np.mean(fold_calmar):.2f}",
+            f"⚡ [EVALUATION COMPLETE] Model: {chromosome['id']} | Generation: {gen} | ⏱️ Duration: {total_exec_sec:.2f}s",
+            f"    🎯 Mean Skill DA        : {skill_da_mean * 100:+.2f}%  (std: {skill_da_std * 100:.2f}%)",
+            f"    ⚡ Mean Sharpe Ratio    : {sharpe_mean:.2f}  (std: {sharpe_std:.2f})",
+            f"    📈 Mean CAGR            : {cagr_mean * 100:+.2f}%",
+            f"    📉 Mean Max Drawdown    : {maxdd_mean * 100:.2f}%",
+            f"    📐 Mean RMSE            : {rmse_mean:.4f}",
+            f"    ⏱️ Total Processing Time: {total_exec_sec:.2f}s ({num_folds} fold(s))",
             "======================================================================"
         ]
 
-        for line in stat_lines:
-            logger.info(line)
+        # 🛡️ FIX DUPLICATION: Log exclusively to summary_logger
+        for line in eval_headers:
             summary_logger.info(line)
 
         return objectives_vector
@@ -1273,6 +1750,10 @@ class LSTMOptimizerEngine:
             logger.info(f"🔧 [MUTATE] ID:{chromosome['id']} mutated gene: batch_size ({chromosome['batch_size']}).")
 
         if random.random() < rate:
+            chromosome['epochs'] = random.randint(MIN_EPOCHS, MAX_EPOCHS)
+            logger.info(f"🔧 [MUTATE] ID:{chromosome['id']} mutated gene: epochs ({chromosome['epochs']}).")
+        
+        if random.random() < rate:
             mask = chromosome['feature_mask']
             mutate_idx = random.randint(0, len(mask) - 1)
             mask[mutate_idx] = 1 - mask[mutate_idx]
@@ -1314,38 +1795,71 @@ class LSTMOptimizerEngine:
         v = chromosome['perf_vector']
         return (-v[0], -v[1], v[4], v[5], v[2], v[3])
 
+    
     # ##########################################################################
     # Function Name : _save_checkpoint
     #
+    # Path          : apps/school/ga_master.py
+    # Author        : Chalearm Saelim & Gemini
+    #
     # Purpose :
-    #    Dynamically resolves active and target maximum generations, extracts
-    #    evaluation progress metrics, and atomically serializes state checkpoints
-    #    to JSON disk files across root and deployed model run sub-directories.
+    #    Performs atomic checkpoint persistence to disk. Filters and deduplicates
+    #    the active chromosome population in memory by unique chromosome ID
+    #    (retaining evaluated models over pending duplicates), dynamically resolves
+    #    active generation indices, serializes JSON state payloads, and flushes
+    #    atomic temporary writes across the application root and deployed run paths.
     #
     # Inputs :
-    #    partial
-    #        Type        : bool
-    #        Description : Flag indicating mid-generation or asynchronous save trigger.
+    #    partial : bool (Default: False)
+    #        Flag indicating whether the save was triggered asynchronously mid-generation
+    #        or during an interim checkpoint interval.
     #
     # Return :
-    #    Type        : None
-    #    Description : Saves JSON checkpoint payload files atomically.
+    #    None
     #
     # Complexity :
-    #    Time  : O(N) where N is chromosome population size.
-    #    Space : O(N) for JSON serialization payload buffer.
+    #    Time  : O(N) where N is the total population size across generations.
+    #    Space : O(N) for dictionary deduplication maps and JSON serialization buffers.
     #
     # Error Cases :
-    #    - Catches and logs file system write, directory creation, or sync errors.
+    #    - Safely catches and prints file system creation, permission, write, or fsync errors.
     # ##########################################################################
     def _save_checkpoint(self, partial=False):
         app_root = "/workspace/crypto_apps/dexbot/apps/school"
         run_id = getattr(self, "run_id", None) or getattr(self, "current_run_id", "DEFAULT_RUN")
-        population = getattr(self, "chromosome_population", [])
+        raw_population = getattr(self, "chromosome_population", [])
 
         # ----------------------------------------------------------------------
-        # 1. DYNAMIC GENERATION DERIVATION (UNBOUNDED)
-        # Inspect model IDs (e.g., 'G2334-M3' -> Gen 2334) to resolve current generation
+        # 1. IN-MEMORY POPULATION DEDUPLICATION
+        # Map chromosome IDs to objects, prioritizing evaluated candidates over pending duplicates.
+        # ----------------------------------------------------------------------
+        dedup_map = {}
+        duplicates_removed = 0
+
+        for chrom in raw_population:
+            c_id = chrom.get("id")
+            if not c_id:
+                continue
+
+            if c_id not in dedup_map:
+                dedup_map[c_id] = chrom
+            else:
+                existing_is_eval = dedup_map[c_id].get("fitness_evaluated", False)
+                new_is_eval = chrom.get("fitness_evaluated", False)
+
+                # Overwrite if new candidate is evaluated while existing is pending
+                if new_is_eval and not existing_is_eval:
+                    dedup_map[c_id] = chrom
+
+                duplicates_removed += 1
+
+        # Re-assign clean, unique chromosome population back to instance
+        population = list(dedup_map.values())
+        self.chromosome_population = population
+
+        # ----------------------------------------------------------------------
+        # 2. DYNAMIC GENERATION DERIVATION (UNBOUNDED)
+        # Inspect unique model IDs (e.g., 'G2334-M3' -> Gen 2334) to resolve current generation
         # ----------------------------------------------------------------------
         max_active_gen = 1
         for chrom in population:
@@ -1361,7 +1875,7 @@ class LSTMOptimizerEngine:
         gen = max_active_gen
 
         # ----------------------------------------------------------------------
-        # 2. DYNAMIC MAX GENERATIONS RESOLUTION (NO HARDCODED FALLBACKS)
+        # 3. DYNAMIC MAX GENERATIONS RESOLUTION
         # ----------------------------------------------------------------------
         max_gen = getattr(self, "max_generations", None)
         if max_gen is None or max_gen < gen:
@@ -1371,13 +1885,15 @@ class LSTMOptimizerEngine:
         eval_pct = (eval_count / len(population) * 100.0) if len(population) > 0 else 0.0
 
         # ----------------------------------------------------------------------
-        # 3. VERBOSE CONSOLE DIAGNOSTIC TELEMETRY
+        # 4. VERBOSE CONSOLE DIAGNOSTIC TELEMETRY
         # ----------------------------------------------------------------------
-        print("\n" + "💾" * 40)
-        print(f"💾 [SAVE CHECKPOINT] Run ID: {run_id} | Active Gen: {gen}/{max_gen} | Partial Trigger: {partial}")
-        print(f"   ├── Total Population : {len(population)} models loaded in memory")
-        print(f"   └── Evaluation Ratio : {eval_count} / {len(population)} evaluated ({eval_pct:.1f}%)")
-        print("💾" * 40)
+        logger.info("\n" + "💾" * 40)
+        logger.info(f"💾 [SAVE CHECKPOINT] Run ID: {run_id} | Active Gen: {gen}/{max_gen} | Partial Trigger: {partial}")
+        logger.info(f"   ├── Total Population : {len(population)} unique models loaded in memory")
+        if duplicates_removed > 0:
+            logger.info(f"   ├── Deduplication    : 🧹 Stripped {duplicates_removed} duplicate chromosome entry(ies)")
+        logger.info(f"   └── Evaluation Ratio : {eval_count} / {len(population)} evaluated ({eval_pct:.1f}%)")
+        logger.info("💾" * 40)
 
         root_ckpt_path = os.path.join(app_root, "lstm_ga_checkpoint.json")
         target_paths = {root_ckpt_path}
@@ -1388,13 +1904,13 @@ class LSTMOptimizerEngine:
             target_paths.add(os.path.join(models_dir, "checkpoint.json"))
 
         # ----------------------------------------------------------------------
-        # 4. STRUCTURED CHECKPOINT PAYLOAD SERIALIZATION
+        # 5. STRUCTURED CHECKPOINT PAYLOAD SERIALIZATION
         # ----------------------------------------------------------------------
         checkpoint_data = {
             "run_id": run_id,
             "generation": gen,                  # Dynamic active generation
             "current_generation": gen,          # Dual key for CLI compatibility
-            "max_generations": max_gen,         # Dynamic configurable ceiling
+            "max_generations": max_gen,          # Dynamic configurable ceiling
             "evaluated_count": eval_count,
             "total_population": len(population),
             "chromosome_population": population,
@@ -1403,7 +1919,7 @@ class LSTMOptimizerEngine:
         }
 
         # ----------------------------------------------------------------------
-        # 5. ATOMIC DISK FLUSH (TEMP WRITE -> OS SYNC -> REPLACE)
+        # 6. ATOMIC DISK FLUSH (TEMP WRITE -> OS SYNC -> REPLACE)
         # ----------------------------------------------------------------------
         for path in target_paths:
             try:
@@ -1413,11 +1929,11 @@ class LSTMOptimizerEngine:
                     f.flush()
                     os.fsync(f.fileno())
                 os.replace(tmp_path, path)
-                print(f"✅ [DISK SUCCESS] Written {len(population)} models (Gen {gen}/{max_gen}) ➔ {path}")
+                logger.info(f"✅ [DISK SUCCESS] Written {len(population)} unique models (Gen {gen}/{max_gen}) ➔ {path}")
             except Exception as e:
-                print(f"❌ [DISK ERROR] Failed writing checkpoint payload to {path}: {e}")
-        
-        print("")
+                logger.error(f"❌ [DISK ERROR] Failed writing checkpoint payload to {path}: {e}")
+
+        logger.info("")
 
     # ##########################################################################
     # Function Name : _load_checkpoint
@@ -1452,16 +1968,16 @@ def ensure_redis_server_running():
         import redis
         client = redis.Redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379/0"))
         client.ping()
-        print("✅ [REDIS] Redis Broker started & validated successfully.")
+        logger.info("✅ [REDIS] Redis Broker started & validated successfully.")
 
         try:
             subprocess.run(["redis-cli", "-h", "redis", "CONFIG", "SET", "maxmemory", "4gb"], check=False, stdout=subprocess.DEVNULL)
             subprocess.run(["redis-cli", "-h", "redis", "CONFIG", "SET", "maxmemory-policy", "volatile-lru"], check=False, stdout=subprocess.DEVNULL)
             subprocess.run(["redis-cli", "-h", "redis", "CONFIG", "SET", "maxclients", "10000"], check=False, stdout=subprocess.DEVNULL)
             subprocess.run(["redis-cli", "-h", "redis", "CONFIG", "SET", "timeout", "0"], check=False, stdout=subprocess.DEVNULL)
-            print("🔧 [REDIS] Configured limits: 4GB maxmemory | volatile-lru | 10000 maxclients.")
+            logger.info("🔧 [REDIS] Configured limits: 4GB maxmemory | volatile-lru | 10000 maxclients.")
         except Exception as e:
-            print(f"⚠️ [REDIS] Failed applying advanced configurations: {e}")
+            logger.error(f"⚠️ [REDIS] Failed applying advanced configurations: {e}")
 
     except Exception:
         print("🚀 [REDIS] Auto-starting Redis Broker daemon (0.0.0.0:6379)...")
@@ -1471,44 +1987,64 @@ def ensure_redis_server_running():
 def purge_redis_queues():
     try:
         subprocess.run(["redis-cli", "-h", "127.0.0.1", "flushall"], capture_output=True, text=True)
-        print("🧹 [REDIS] Flushed all stale task queues from broker memory.")
+        logger.info("🧹 [REDIS] Flushed all stale task queues from broker memory.")
     except Exception as e:
-        print(f"⚠️ [REDIS] Could not flush Redis queues: {e}")
+        logger.error(f"⚠️ [REDIS] Could not flush Redis queues: {e}")
 
 def stop_redis_server():
     try:
         subprocess.run(["redis-cli", "-h", "127.0.0.1", "shutdown"], capture_output=True, text=True)
-        print("🧹 [REDIS] Redis server daemon stopped cleanly.")
+        logger.info("🧹 [REDIS] Redis server daemon stopped cleanly.")
     except Exception:
         pass
 
+# ##############################################################################
+# Function Name : get_running_master_pids
+#
+# Path          : apps/school/ga_master.py
+# Author        : Chalearm Saelim & Gemini
+#
+# Purpose :
+#    Inspects /proc command lines to identify active GA Master processes while
+#    filtering out CLI status and utility action invocations.
+# ##############################################################################
 def get_running_master_pids():
     current_pid = os.getpid()
+    parent_pid = os.getppid()
     running_pids = []
+    
     try:
         for pid_str in os.listdir('/proc'):
             if not pid_str.isdigit():
                 continue
+            
             pid = int(pid_str)
-            if pid == current_pid:
+            # Ignore self and parent subshell launcher PID
+            if pid == current_pid or pid == parent_pid:
                 continue
+
             try:
                 cmdline_path = os.path.join('/proc', pid_str, 'cmdline')
                 if os.path.exists(cmdline_path):
                     with open(cmdline_path, 'rb') as f:
-                        cmdline = f.read().decode('utf-8', errors='ignore').replace('\x00', ' ')
-                    if "ga_master.py" in cmdline and not any(x in cmdline for x in ["-action=status", "-action=terminate", "-action=create-work"]):
-                        running_pids.append((pid, cmdline.strip()))
+                        cmdline = f.read().decode('utf-8', errors='ignore').replace('\x00', ' ').strip()
+                    
+                    # Ensure it is running ga_master.py in execution mode (not status/stop)
+                    is_ga_master = "ga_master.py" in cmdline or "school" in cmdline
+                    is_action = any(x in cmdline for x in ["-action=status", "-action=stop", "-action=terminate", "-action=clear-state", "inspect"])
+                    
+                    if is_ga_master and not is_action:
+                        running_pids.append((pid, cmdline))
             except (PermissionError, FileNotFoundError):
                 continue
     except Exception:
         pass
+        
     return running_pids
-
 def write_config_and_pid(save_min, save_pct, rotate_min, rotate_mb):
     existing_pids = get_running_master_pids()
     if existing_pids:
-        print(f"⚠️ [WARNING] Active master process already running (PIDs: {existing_pids}). Refusing to spawn duplicate daemon.")
+        logger.warning(f"⚠️ [WARNING] Active master process already running (PIDs: {existing_pids}). Refusing to spawn duplicate daemon.")
         return False
         
     with open(PID_FILE, "w") as f:
@@ -1527,20 +2063,20 @@ def write_config_and_pid(save_min, save_pct, rotate_min, rotate_mb):
 def stop_master_process():
     pids = get_running_master_pids()
     if not pids:
-        print("ℹ️ [STOP] No running GA Master daemon instance found.")
+        logger.info("ℹ️ [STOP] No running GA Master daemon instance found.")
         return
     for pid, cmd in pids:
-        print(f"🛑 [STOP] Sending SIGINT (Graceful Shutdown) to Master PID {pid}...")
+        logger.info(f"🛑 [STOP] Sending SIGINT (Graceful Shutdown) to Master PID {pid}...")
         try:
             os.kill(pid, signal.SIGINT)
-            print(f"✅ [STOP] Signal sent. Master process {pid} saving checkpoint and exiting.")
+            logger.info(f"✅ [STOP] Signal sent. Master process {pid} saving checkpoint and exiting.")
         except ProcessLookupError:
-            print(f"⚠️ [STOP] Process {pid} not found.")
+            logger.error(f"⚠️ [STOP] Process {pid} not found.")
 
 def terminate_all_cluster_processes():
     pids = get_running_master_pids()
     for pid, cmd in pids:
-        print(f"🔨 [TERMINATE] Sending SIGKILL (-9) to Master PID {pid}...")
+        logger.info(f"🔨 [TERMINATE] Sending SIGKILL (-9) to Master PID {pid}...")
         try:
             os.kill(pid, signal.SIGKILL)
         except ProcessLookupError:
@@ -1560,7 +2096,7 @@ def terminate_all_cluster_processes():
                     with open(cmdline_path, 'rb') as f:
                         cmdline = f.read().decode('utf-8', errors='ignore').replace('\x00', ' ')
                     if "./school" in cmdline or "school -action" in cmdline:
-                        print(f"🔨 [TERMINATE] Killing Go daemon wrapper PID {pid}...")
+                        logger.info(f"🔨 [TERMINATE] Killing Go daemon wrapper PID {pid}...")
                         os.kill(pid, signal.SIGKILL)
             except (PermissionError, FileNotFoundError):
                 continue
@@ -1569,31 +2105,76 @@ def terminate_all_cluster_processes():
 
     purge_redis_queues()
     stop_redis_server()
-    print("✅ [TERMINATE] Cluster sweep complete. All processes and Redis server stopped cleanly.")
+    logger.info("✅ [TERMINATE] Cluster sweep complete. All processes and Redis server stopped cleanly.")
 
 # ##############################################################################
 # Function Name : print_cluster_status
 #
+# Path          : apps/school/ga_master.py
+# Author        : Chalearm Saelim & Gemini
+#
 # Purpose :
-#    Queries local process locks, inspects the active JSON checkpoint state,
-#    and interrogates the Redis Celery broker to render real-time worker pool
-#    telemetry, active fold training assignments, and cluster metrics.
+#    Queries local process locks, inspects active JSON checkpoint state, and
+#    interrogates the Redis Celery broker to render real-time worker pool
+#    telemetry, active fold training assignments, candidate model names, and
+#    cluster performance metrics.
 # ##############################################################################
 def print_cluster_status():
-    print("\n🔍 [CLI ACTION] Interrogating cluster state and worker pool telemetry...")
-    print("=" * 75)
-    print("📊 DISTRIBUTED GA-LSTM CLUSTER TELEMETRY & STATUS REPORT")
-    print("=" * 75)
+    logger.info("🔍 [CLI ACTION] Interrogating cluster state and worker pool telemetry...")
+    logger.info("=" * 75)
+    logger.info("📊 DISTRIBUTED GA-LSTM CLUSTER TELEMETRY & STATUS REPORT")
+    logger.info("=" * 75)
+
+    # --------------------------------------------------------------------------
+    # INTERNAL TELEMETRY FORMATTING HELPER
+    # --------------------------------------------------------------------------
+    def _format_active_task_telemetry(task_dict: dict) -> str:
+        task_name = task_dict.get("name", "")
+        args = task_dict.get("args", [])
+        
+        payload = args[0] if len(args) > 0 and isinstance(args[0], (dict, str)) else {}
+        if isinstance(payload, str):
+            try:
+                import json
+                payload = json.loads(payload)
+            except Exception:
+                payload = {}
+
+        # 1. Format export_and_plot_task (GEN_PLOT or POST_GA_OOS)
+        if "export_and_plot_task" in task_name:
+            gen_idx = payload.get("gen_idx", "?")
+            chroms = payload.get("top_chromosomes", [])
+            task_type = payload.get("task_type", "GEN_PLOT")
+            
+            if task_type == "POST_GA_OOS":
+                return f"Target: Gen {gen_idx} Out-Of-Sample Verification"
+
+            if chroms and isinstance(chroms, list):
+                first_cand_id = chroms[0].get("id", f"G{gen_idx}-M0")
+                num_cands = len(chroms)
+                return f"Target: Gen {gen_idx} ({first_cand_id} + {num_cands - 1} top models)"
+            else:
+                return f"Target: Gen {gen_idx} Pareto Plot"
+
+        # 2. Format run_fold_training_task (CV_FOLD)
+        elif "run_fold_training_task" in task_name:
+            model_id = payload.get("chrom_id", payload.get("chromosome_id", payload.get("model_id", "Model")))
+            fold_idx = payload.get("fold_idx", "?")
+            num_folds = payload.get("num_folds", payload.get("total_folds", 4))
+            return f"Target: {model_id:<8} (Fold {fold_idx}/{num_folds})"
+
+        # 3. Default Fallback
+        return f"Target: {payload.get('chrom_id', 'Model')}"
 
     # 1. Master Process Status
     master_pids = get_running_master_pids()
     if master_pids:
-        print("🧠 [GA MASTER DAEMON]: 🟢 ONLINE / RUNNING")
+        logger.info("🧠 [GA MASTER DAEMON]: 🟢 ONLINE / RUNNING")
         for pid, cmd in master_pids:
-            print(f"   ├── Process PID : {pid}")
-            print(f"   └── Command Line: {cmd[:65]}")
+            logger.info(f"   ├── Process PID : {pid}")
+            logger.info(f"   └── Command Line: {cmd[:65]}")
     else:
-        print("🧠 [GA MASTER DAEMON]: 🔴 OFFLINE / STOPPED")
+        logger.info("🧠 [GA MASTER DAEMON]: 🔴 OFFLINE / STOPPED")
 
     # 2. Checkpoint State
     checkpoint_file = "/workspace/crypto_apps/dexbot/apps/school/lstm_ga_checkpoint.json"
@@ -1630,18 +2211,18 @@ def print_cluster_status():
             ts_raw = ckpt.get("timestamp", time.time())
             ts_str = datetime.datetime.fromtimestamp(ts_raw, datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
 
-            print(f"\n💾 [CHECKPOINT STATE]: 🟢 VALID")
-            print(f"   ├── Active Run ID : {run_id}")
-            print(f"   ├── Current Gen   : Generation {max_active_gen}/{max_gen_target}")
-            print(f"   ├── Chromosomes   : {len(pop)} total ({eval_count} evaluated | {eval_pct:.1f}%)")
-            print(f"   └── Last Saved    : {ts_str} ({ts_raw})")
+            logger.info(f"💾 [CHECKPOINT STATE]: 🟢 VALID")
+            logger.info(f"   ├── Active Run ID : {run_id}")
+            logger.info(f"   ├── Current Gen   : Generation {max_active_gen}/{max_gen_target}")
+            logger.info(f"   ├── Chromosomes   : {len(pop)} total ({eval_count} evaluated | {eval_pct:.1f}%)")
+            logger.info(f"   └── Last Saved    : {ts_str} ({ts_raw})")
         except Exception as e:
-            print(f"\n💾 [CHECKPOINT STATE]: ⚠️ CORRUPTED ({e})")
+            logger.error(f"💾 [CHECKPOINT STATE]: ⚠️ CORRUPTED ({e})")
     else:
-        print("\n💾 [CHECKPOINT STATE]: ⚪ NO CHECKPOINT FILE FOUND")
+        logger.warning("💾 [CHECKPOINT STATE]: ⚪ NO CHECKPOINT FILE FOUND")
 
     # 3. Worker Pool Telemetry & Active Task Inspector
-    print("\n🏋️ [REGISTERED WORKER POOL TELEMETRY]:")
+    logger.info("🏋️ [REGISTERED WORKER POOL TELEMETRY]:")
     try:
         from celery_tasks import app
         inspect = app.control.inspect(timeout=3.0)
@@ -1651,7 +2232,7 @@ def print_cluster_status():
         stats = inspect.stats()
 
         if registered:
-            print(f"   └── Total Connected Worker Nodes: {len(registered)}")
+            logger.info(f"   └── Total Connected Worker Nodes: {len(registered)}")
             for node_name in sorted(registered.keys()):
                 node_stats = stats.get(node_name, {}) if stats else {}
                 broker_transport = node_stats.get('broker', {}).get('transport', 'redis')
@@ -1661,37 +2242,30 @@ def print_cluster_status():
                 active_count = len(active_list)
                 status_icon = "🏋️ BUSY / TRAINING" if active_count > 0 else "🟢 IDLE / READY"
 
-                print(f"\n   🖥️  Node Hostname   : {node_name}")
-                print(f"      ├── Connection  : ONLINE ({status_icon})")
-                print(f"      ├── Broker Type : {broker_transport.upper()}")
-                print(f"      ├── Concurrency : {pool_concurrency} Workers")
-                print(f"      └── Active Tasks: {active_count} executing")
+                logger.info(f"   🖥️  Node Hostname   : {node_name}")
+                logger.info(f"      ├── Connection  : ONLINE ({status_icon})")
+                logger.info(f"      ├── Broker Type : {broker_transport.upper()}")
+                logger.info(f"      ├── Concurrency : {pool_concurrency} Workers")
+                logger.info(f"      └── Active Tasks: {active_count} executing")
 
                 if active_count > 0:
                     for task in active_list:
                         t_name = task.get('name', 'tasks.run_fold_training_task')
-                        args_payload = task.get('args', [{}])
-                        p_data = args_payload[0] if isinstance(args_payload, list) and len(args_payload) > 0 else {}
-                        
-                        c_id = p_data.get('chrom_id', 'Model')
-                        fold_idx = p_data.get('fold_idx', '?')
-                        num_folds = p_data.get('num_folds', 5)
-                        
-                        print(f"         └── ⚡ Executing: {t_name:<28} | Target: {c_id:<7} (Fold {fold_idx}/{num_folds})")
+                        task_desc = _format_active_task_telemetry(task)
+                        logger.info(f"         └── ⚡ Executing: {t_name:<28} | {task_desc}")
         else:
-            print("   ⚠️  No active Celery workers detected listening on Redis broker!")
+            logger.warning("   ⚠️  No active Celery workers detected listening on Redis broker!")
     except Exception as e:
-        print(f"   ❌ Error inspecting Redis worker pool: {e}")
+        logger.error(f"   ❌ Error inspecting Redis worker pool: {e}")
 
     # 4. Historical Runs
     run_folders = glob.glob("logs/*/")
-    print(f"\n📂 [HISTORICAL RUN SUB-DIRECTORIES]: {len(run_folders)} found")
+    logger.info(f"📂 [HISTORICAL RUN SUB-DIRECTORIES]: {len(run_folders)} found")
     for folder in run_folders[:5]:
         r_hex = os.path.basename(os.path.normpath(folder))
-        print(f"   └── Sub-Directory Run ID: {r_hex}")
+        logger.info(f"   └── Sub-Directory Run ID: {r_hex}")
 
-    print("=" * 75 + "\n")
-
+    logger.info("=" * 75 + "\n")
 def load_config():
     global RUNTIME_CONFIG, ACTIVE_OPTIMIZER
     if os.path.exists(CONFIG_FILE):
@@ -1699,19 +2273,95 @@ def load_config():
             with open(CONFIG_FILE, "r") as f:
                 new_cfg = json.load(f)
                 RUNTIME_CONFIG.update(new_cfg)
-                print(f"\n🔄 [GA MASTER] Reloaded Active Configuration: {RUNTIME_CONFIG}\n")
+                logger.info(f"🔄 [GA MASTER] Reloaded Active Configuration: {RUNTIME_CONFIG}\n")
 
                 if ACTIVE_OPTIMIZER is not None:
                     ACTIVE_OPTIMIZER.save_interval_min = RUNTIME_CONFIG.get("save_min", 20)
                     ACTIVE_OPTIMIZER.save_pct = RUNTIME_CONFIG.get("save_pct", 25.0)
-                    print("✅ [GA MASTER] Applied updated save intervals to active pipeline.")
+                    logger.info("✅ [GA MASTER] Applied updated save intervals to active pipeline.")
         except Exception as e:
-            print(f"⚠️ [GA MASTER] Failed to load config: {e}")
+            logger.error(f"⚠️ [GA MASTER] Failed to load config: {e}")
 
 def handle_reload_signal(signum, frame):
-    print("\n📩 [SIGNAL RECEIVED] SIGHUP caught! Applying updated runtime parameters...")
+    logger.info("📩 [SIGNAL RECEIVED] SIGHUP caught! Applying updated runtime parameters...")
     load_config()
+# ##############################################################################
+# Function Name : pack_and_dispatch_visualization_task
+#
+# Path          : apps/school/ga_master.py
+# Author        : Chalearm Saelim & Gemini
+#
+# Purpose :
+#    Producer-side serializer for Celery visualization tasks. Extracts and slices 
+#    the top N Pareto candidate chromosomes from the generation pool, serializes 
+#    master training and validation DataFrames into JSON using `orient='split'` 
+#    with ISO timestamp formatting, and outputs step-by-step diagnostic telemetry.
+#
+# Inputs :
+#    run_id          : str          Active run identifier (e.g., '2D78AA68').
+#    gen_idx         : int          Active generation index.
+#    top_chromosomes : list[dict]   Evaluated candidate chromosomes sorted by fitness.
+#    master_df       : pd.DataFrame Raw unscaled master training DataFrame.
+#    val_df          : pd.DataFrame Raw unscaled validation ground truth DataFrame.
+#
+# Return :
+#    dict : Complete task payload ready for Redis/Celery queue dispatch.
+# ##############################################################################
+def pack_and_dispatch_visualization_task(run_id: str, gen_idx: int, top_chromosomes: list, master_df, val_df):
+    import json
+    import pandas as pd
+    
+    logger.info( "📦" * 40)
+    logger.info(f"📦 [PRODUCER TELEMETRY] Packing Data Payload for Celery Visualization Worker...")
+    logger.info(f"   ├── Target Run ID     : {run_id}")
+    logger.info(f"   ├── Generation Index  : Gen {gen_idx}")
+    logger.info(f"   └── Candidate Models  : {len(top_chromosomes)} Pareto Models Packed (TOP_N_EXPORTS)")
+    
+    # --- PACK MASTER TRAINING DATA ---
+    if master_df is not None and not master_df.empty:
+        m_df_copy = master_df.copy()
+        if isinstance(m_df_copy.index, pd.DatetimeIndex):
+            m_df_copy.reset_index(inplace=True)
+            
+        master_payload = m_df_copy.to_json(orient='split', date_format='iso')
+        m_start = str(m_df_copy['timestamp'].iloc[0]).split()[0] if 'timestamp' in m_df_copy else 'Start'
+        m_end = str(m_df_copy['timestamp'].iloc[-1]).split()[0] if 'timestamp' in m_df_copy else 'End'
+        logger.info(f"   ├── ✅ Master DF Encoded : {len(m_df_copy)} rows x {len(m_df_copy.columns)} cols")
+        logger.info(f"   │    ├── 🕒 Master Dates : {m_start} ➔ {m_end}")
+        logger.info(f"   │    └── 🧬 Master Cols  : {list(m_df_copy.columns)}")
+    else:
+        master_payload = None
+        logger.error(f"   ├── ❌ [PRODUCER CRITICAL] Master DF is EMPTY!")
 
+    # --- PACK VALIDATION GROUND TRUTH DATA ---
+    if val_df is not None and not val_df.empty:
+        v_df_copy = val_df.copy()
+        if isinstance(v_df_copy.index, pd.DatetimeIndex):
+            v_df_copy.reset_index(inplace=True)
+            
+        val_payload = v_df_copy.to_json(orient='split', date_format='iso')
+        v_start = str(v_df_copy['timestamp'].iloc[0]).split()[0] if 'timestamp' in v_df_copy else 'Start'
+        v_end = str(v_df_copy['timestamp'].iloc[-1]).split()[0] if 'timestamp' in v_df_copy else 'End'
+        logger.info(f"   ├── ✅ Val DF Encoded    : {len(v_df_copy)} rows x {len(v_df_copy.columns)} cols")
+        logger.info(f"   │    ├── 🕒 Val Dates    : {v_start} ➔ {v_end}")
+        logger.info(f"   │    └── 🧬 Val Cols     : {list(v_df_copy.columns)}")
+    else:
+        val_payload = None
+        logger.warning(f"   ├── ⚠️ [PRODUCER WARN] Validation DF is None/Empty! Green validation lines will be skipped.")
+
+    cand_ids = [c.get('id', f'M{i}') for i, c in enumerate(top_chromosomes)]
+    logger.info(f"   └── 🎯 Selected Pareto Candidates ({len(cand_ids)}): {cand_ids}")
+
+    payload = {
+        "run_id": run_id,
+        "gen_idx": gen_idx,
+        "top_chromosomes": top_chromosomes,
+        "master_data": master_payload,
+        "val_data": val_payload
+    }
+    
+    print("📦" * 40 + "\n")
+    return payload
 # ==============================================================================
 # MAIN ENTRY POINT & CLI PARSER
 # ==============================================================================
@@ -1767,27 +2417,27 @@ def main():
     # --------------------------------------------------------------------------
     os.environ["REDIS_URL"] = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
 
-    print("\n" + "=" * 80)
-    print(f"🧬 [GA MASTER DAEMON v1.2.0] Action: {args.action.upper()}")
-    print("=" * 80)
-    print(f"   ├── Target Generations : {args.generations} (Configurable / Unbounded)")
-    print(f"   ├── Worker/Pop Count   : {args.num}")
-    print(f"   ├── Redis Task Buffer  : {args.buffer_size} lookahead tasks")
-    print(f"   ├── Warm Start Seeding : {use_warm_start}")
-    print(f"   ├── Checkpoint Rules   : Interval={args.save_min}m | Ratio={args.save_pct}%")
-    print(f"   └── Log Rotation Rules : Interval={args.rotate_min}m | Max Size={args.rotate_mb}MB")
-    print("=" * 80 + "\n")
+    logger.info("\n" + "=" * 80)
+    logger.info(f"🧬 [GA MASTER DAEMON v1.2.0] Action: {args.action.upper()}")
+    logger.info("=" * 80)
+    logger.info(f"   ├── Target Generations : {args.generations} (Configurable / Unbounded)")
+    logger.info(f"   ├── Worker/Pop Count   : {args.num}")
+    logger.info(f"   ├── Redis Task Buffer  : {args.buffer_size} lookahead tasks")
+    logger.info(f"   ├── Warm Start Seeding : {use_warm_start}")
+    logger.info(f"   ├── Checkpoint Rules   : Interval={args.save_min}m | Ratio={args.save_pct}%")
+    logger.info(f"   └── Log Rotation Rules : Interval={args.rotate_min}m | Max Size={args.rotate_mb}MB")
+    logger.info("=" * 80 + "\n")
 
     # --------------------------------------------------------------------------
     # 3. DIRECT SYNCHRONOUS COMMAND DISPATCHING
     # --------------------------------------------------------------------------
     if args.action == "status":
-        print("🔍 [CLI ACTION] Interrogating cluster state and worker pool telemetry...")
+        logger.info("🔍 [CLI ACTION] Interrogating cluster state and worker pool telemetry...")
         print_cluster_status()
         sys.exit(0)
 
     elif args.action == "stop":
-        print("🛑 [CLI ACTION] Initiating graceful shutdown sequence...")
+        logger.info("🛑 [CLI ACTION] Initiating graceful shutdown sequence...")
         stop_master_process()
         if os.path.exists(PID_FILE):
             os.remove(PID_FILE)
@@ -1795,7 +2445,7 @@ def main():
         sys.exit(0)
 
     elif args.action == "terminate":
-        print("🔨 [CLI ACTION] Initiating full cluster sweep and force-termination...")
+        logger.info("🔨 [CLI ACTION] Initiating full cluster sweep and force-termination...")
         terminate_all_cluster_processes()
         if os.path.exists(PID_FILE):
             os.remove(PID_FILE)
@@ -1804,29 +2454,29 @@ def main():
 
     # Initialize log rotation daemon for operational pipeline modes
     if args.action in ["set-up", "create-work", "restart", "plot", "start"]:
-        print(f"🔄 [LOG ROTATOR] Spawning background rotator (Interval: {args.rotate_min}m | Limit: {args.rotate_mb}MB)...")
+        logger.info(f"🔄 [LOG ROTATOR] Spawning background rotator (Interval: {args.rotate_min}m | Limit: {args.rotate_mb}MB)...")
         start_log_rotation_daemon(rotation_minutes=args.rotate_min, max_size_mb=args.rotate_mb)
 
     # Register SIGHUP reload signal handler for live parameter updates
     signal.signal(signal.SIGHUP, handle_reload_signal)
 
     if args.action == "set-up":
-        print("🛠️ [SETUP ACTION] Validating Redis Broker & Network Infrastructure...")
+        logger.info("🛠️ [SETUP ACTION] Validating Redis Broker & Network Infrastructure...")
         ensure_redis_server_running()
         purge_redis_queues()
-        print("✅ [SETUP COMPLETE] Infrastructure validated cleanly.")
+        logger.info("✅ [SETUP COMPLETE] Infrastructure validated cleanly.")
         sys.exit(0)
 
     # --------------------------------------------------------------------------
     # 4. GA MASTER PIPELINE INITIALIZATION & EXECUTION
     # --------------------------------------------------------------------------
     if args.action == "start":
-        print("🔒 [PROCESS LOCK] Validating PID file lock state...")
+        logger.info("🔒 [PROCESS LOCK] Validating PID file lock state...")
         if not write_config_and_pid(args.save_min, args.save_pct, args.rotate_min, args.rotate_mb):
-            print("❌ [PROCESS LOCK ERROR] Active instance detected. Aborting launch.")
+            logger.error("❌ [PROCESS LOCK ERROR] Active instance detected. Aborting launch.")
             sys.exit(1)
 
-        print("🚀 [PIPELINE INITIALIZATION] Instantiating LSTMOptimizerEngine...")
+        logger.info("🚀 [PIPELINE INITIALIZATION] Instantiating LSTMOptimizerEngine...")
         ACTIVE_OPTIMIZER = LSTMOptimizerEngine(
             verbose=args.verbose,
             save_interval_min=args.save_min,
@@ -1840,10 +2490,21 @@ def main():
         # DO NOT CALL _initialize_random_population() HERE!
         # Let execute_pipeline() ingest data layers first, then seed the population cleanly.
 
-        print(f"🏁 [PIPELINE START] Launching evolution loop up to Target Generation {args.generations}...")
+        logger.info(f"🏁 [PIPELINE START] Launching evolution loop up to Target Generation {args.generations}...")
         ACTIVE_OPTIMIZER.execute_pipeline(
             max_generations=args.generations, 
             target_buffer_limit=args.buffer_size
         )
+    elif args.action in ["plot", "force-plot"]:
+        logger.info("🎨 [CLI ACTION] Rendering missing generation plots from checkpoint...")
+        ACTIVE_OPTIMIZER = LSTMOptimizerEngine(
+            verbose=args.verbose,
+            save_interval_min=args.save_min,
+            save_pct=args.save_pct,
+        )
+        ACTIVE_OPTIMIZER._ingest_data_layers()
+        ACTIVE_OPTIMIZER._process_data()
+        ACTIVE_OPTIMIZER.render_checkpoint_plots()
+        sys.exit(0)
 if __name__ == "__main__":
     main()

@@ -1,0 +1,17 @@
+./main -asset=gold -ticker=GC=F -start=2022-01-01 -end=2026-06-30 -interval=daily -weekend -hv-window=21 -cyclicalTime -transformVolume
+
+./main -asset=bitcoin -ticker=BTC-USD -start=2022-01-01 -end=2026-06-30 -interval=daily -weekend -hv-window=21 -cyclicalTime -transformVolume
+
+./main -asset=uniswap -ticker=UNI7083-USD -start=2022-01-01 -end=2026-06-30 -interval=daily -weekend -hv-window=21 -cyclicalTime -transformVolume
+
+./main -asset=solana -ticker=SOL-USD -start=2026-07-01 -end=2026-07-27 -interval=daily -weekend -hv-window=21 -cyclicalTime -transformVolume
+
+./main -asset=binance -ticker=BNB-USD -start=2022-01-01 -end=2026-06-30 -interval=daily -weekend -hv-window=21 -cyclicalTime -transformVolume
+
+./main -asset=ethereum -ticker=ETH-USD -start=2022-01-01 -end=2026-06-30 -interval=daily -weekend -hv-window=21 -cyclicalTime -transformVolume
+
+./main -asset=oil -ticker=BZ=F -start=2026-07-01 -end=2026-07-27 -interval=daily -weekend -hv-window=21 -cyclicalTime -transformVolume
+
+./main -asset=spy -ticker=^SPX -start=2022-01-01 -end=2026-06-30 -interval=daily -weekend -hv-window=21 -cyclicalTime -transformVolume
+
+./main -asset=fed_rate -ticker=^IRX -start=2026-06-01 -end=2026-07-27 -interval=daily -weekend -hv-window=21 -cyclicalTime -transformVolume
