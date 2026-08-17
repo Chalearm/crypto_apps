@@ -153,26 +153,13 @@ func (engine *RebalancePairEngine) FailState(reason string) {
         engine.SaveState()
         logToFile(fmt.Sprintf("🚫 [CONFIG VALIDATION][%s] Engine disabled. Reason: %s", engine.Config.PairName, reason))
 }
-
-// Replace the existing UpdateMetrics signature and internal block
 func (engine *RebalancePairEngine) UpdateMetrics(earningsBNB float64, feesBNB float64, isSellingA bool) {
+        // Lock the ENTIRE function to prevent data corruption
         engine.mu.Lock()
-        defer engine.mu.Unlock() // Ensure absolute isolation during mutation
-        
-        now := time.Now()
-        
-        if !engine.State.LastUpdated.IsZero() {
-                y1, m1, d1 := engine.State.LastUpdated.Date()
-                y2, m2, d2 := now.Date()
-                
-                if y1 != y2 || m1 != m2 || d1 != d2 {
-                        engine.State.Yesterday = engine.State.Today
-                        engine.State.Today = RebalanceMetrics{} 
-                }
-        }
-
+        defer engine.mu.Unlock() 
+         
         updateBlock := func(m *RebalanceMetrics) {
-                m.TotalEarnings += earningsBNB // Now accumulates BNB
+                m.TotalEarnings += earningsBNB 
                 m.TotalFees += feesBNB
                 m.TotalSwitches += 1
                 if isSellingA {
@@ -190,10 +177,25 @@ func (engine *RebalancePairEngine) UpdateMetrics(earningsBNB float64, feesBNB fl
         updateBlock(&engine.State.Today)
         
         engine.State.TotalFeesPaidBNB += feesBNB
-        // Update this state tracking field to reflect BNB if it exists in PairState
         engine.State.LastRebalanceTotalBNB = earningsBNB 
 }
+// CheckMidnightRollover verifies if a new calendar day has started
+// and shifts the daily metrics accordingly.
+func (engine *RebalancePairEngine) CheckMidnightRollover() {
+        engine.mu.Lock()
+        defer engine.mu.Unlock() // Ensures the lock always releases safely
 
+        if !engine.State.LastUpdated.IsZero() {
+                y1, m1, d1 := engine.State.LastUpdated.Date()
+                y2, m2, d2 := time.Now().Date()
+                
+                if y1 != y2 || m1 != m2 || d1 != d2 {
+                        engine.State.Yesterday = engine.State.Today
+                        engine.State.Today = RebalanceMetrics{}
+                        logToFile(fmt.Sprintf("📅 [%s] Midnight crossed. Rolled 'Today' metrics into 'Yesterday'.", engine.Config.PairName))
+                }
+        }
+}
 // ====================================================================
 // CROSS-ENGINE ACCOUNTING: Safely calculating total liabilities
 // ====================================================================
@@ -217,6 +219,7 @@ func (r *EngineRegistry) GetTotalAllocated(tokenAddr common.Address) *big.Float 
 }
 
 func (engine *RebalancePairEngine) RunStage3(client *ethclient.Client, auth *bind.TransactOpts, wallet common.Address) {
+        engine.CheckMidnightRollover()
         logToFile(fmt.Sprintf("🚀 [%s ENGINE ACTIVATED] Evaluating pair divergence metrics...", engine.Config.PairName))
 
         bnbPrice := getLiveBNBPrice(client)
@@ -472,7 +475,21 @@ func (r *EngineRegistry) GetEngines() []*RebalancePairEngine {
         copy(enginesCopy, r.Engines)
         return enginesCopy
 }
+func getDecimalMultiplier(client *ethclient.Client, token common.Address) *big.Float {
+        const DEC_ABI = `[{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"}]`
+        parsedABI, _ := abi.JSON(strings.NewReader(DEC_ABI))
+        contract := bind.NewBoundContract(token, parsedABI, client, client, client)
 
+        var out []interface{}
+        err := contract.Call(&bind.CallOpts{}, &out, "decimals")
+        
+        decimals := int64(18) // Standard fallback
+        if err == nil && len(out) > 0 {
+                decimals = int64(out[0].(uint8))
+        }
+        
+        return new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(decimals), nil))
+}
 func processDynamicConfig(registry *EngineRegistry, configPath string, client *ethclient.Client, auth *bind.TransactOpts, walletAddress common.Address) {
         data, err := os.ReadFile(configPath)
         if err != nil {
@@ -732,66 +749,92 @@ func saveConfigToFile(config PairConfig, filename string) error {
         encoder.SetIndent("", "  ") // Keeps your JSON looking neat and readable
         return encoder.Encode(config)
 }
+
 func attemptPoolFunding(engine *RebalancePairEngine, client *ethclient.Client, auth *bind.TransactOpts, missingA, missingB, bnbPrice float64) error {
-        logToFile(fmt.Sprintf("⚙️ [%s] Auto-funding initiated. Target Buys - A: %.6f, B: %.6f", 
+        logToFile(fmt.Sprintf("⚙️ [%s - DEBUG] Auto-funding initiated. Target Buys - A: %.6f, B: %.6f", 
                 engine.Config.PairName, missingA, missingB))
 
         // 1. Estimate total BNB cost based on current DEX prices
         priceA_in_BNB := getLiveTokenPriceInBNB(client, engine.Config.TokenAAddress)
         priceB_in_BNB := getLiveTokenPriceInBNB(client, engine.Config.TokenBAddress)
         
+        logToFile(fmt.Sprintf("🔍 [%s - DEBUG] Live Prices in BNB - A: %.8f | B: %.8f", 
+                engine.Config.PairName, priceA_in_BNB, priceB_in_BNB))
+
         estimatedBnbCostA := missingA * priceA_in_BNB
         estimatedBnbCostB := missingB * priceB_in_BNB
         totalEstimatedBnb := estimatedBnbCostA + estimatedBnbCostB
         
-        // Add 5% buffer strictly for slippage and gas fees
-        requiredBnbWithBuffer := totalEstimatedBnb * 1.05 
+        logToFile(fmt.Sprintf("🧮 [%s - DEBUG] Estimated BNB Costs - For A: %.8f | For B: %.8f | Base Total: %.8f", 
+                engine.Config.PairName, estimatedBnbCostA, estimatedBnbCostB, totalEstimatedBnb))
+        
+        // Add 30% buffer strictly for extreme slippage, high taxes, and gas fees
+        requiredBnbWithBuffer := totalEstimatedBnb * 1.30 
+        logToFile(fmt.Sprintf("🛡️ [%s - DEBUG] Total required BNB (including 30%% buffer for balance check): %.8f", 
+                engine.Config.PairName, requiredBnbWithBuffer))
 
         // 2. Verify BNB Balance
         bnbBalanceFloat := getBNBBalanceFloat(client, auth.From)
+        logToFile(fmt.Sprintf("💰 [%s - DEBUG] Current Wallet BNB Balance: %.8f", 
+                engine.Config.PairName, bnbBalanceFloat))
+                
         if bnbBalanceFloat < requiredBnbWithBuffer {
-                return fmt.Errorf("insufficient BNB for auto-funding. Need %.4f BNB (inc. buffer), have %.4f BNB", requiredBnbWithBuffer, bnbBalanceFloat)
+                errMsg := fmt.Sprintf("insufficient BNB for auto-funding. Need %.4f BNB (inc. buffer), have %.4f BNB", requiredBnbWithBuffer, bnbBalanceFloat)
+                logToFile(fmt.Sprintf("🚫 [%s - ERROR] %s", engine.Config.PairName, errMsg))
+                return fmt.Errorf(errMsg)
         }
 
-        // 3. Execute Swaps via your Router Integration
+        // 3. Execute Swaps via your Router Integration (Passing the +30% buffered amounts to the execution layer)
         if missingA > 0 {
-                logToFile(fmt.Sprintf("🔄 [%s] Swapping approx %.4f BNB for %.6f Token A...", 
-                        engine.Config.PairName, estimatedBnbCostA, missingA))
+                maxCostA := estimatedBnbCostA * 1.30 // Apply 30% slippage allowance
+                logToFile(fmt.Sprintf("🔄 [%s - DEBUG] Executing Swap: Buying %.6f Token A for max %.8f BNB...", 
+                        engine.Config.PairName, missingA, maxCostA))
                         
-                err := executeSwapBNBForTokens(client, auth, engine.Config.TokenAAddress, missingA, estimatedBnbCostA)
+                err := executeSwapBNBForTokens(client, auth, engine.Config.TokenAAddress, missingA, maxCostA)
                 if err != nil {
+                        logToFile(fmt.Sprintf("❌ [%s - ERROR] Swap for Token A failed: %v", engine.Config.PairName, err))
                         return fmt.Errorf("failed to buy Token A: %v", err)
                 }
+                logToFile(fmt.Sprintf("✅ [%s - DEBUG] Swap for Token A successful.", engine.Config.PairName))
         }
 
         if missingB > 0 {
-                logToFile(fmt.Sprintf("🔄 [%s] Swapping approx %.4f BNB for %.6f Token B...", 
-                        engine.Config.PairName, estimatedBnbCostB, missingB))
+                maxCostB := estimatedBnbCostB * 1.30 // Apply 30% slippage allowance
+                logToFile(fmt.Sprintf("🔄 [%s - DEBUG] Executing Swap: Buying %.6f Token B for max %.8f BNB...", 
+                        engine.Config.PairName, missingB, maxCostB))
                         
-                err := executeSwapBNBForTokens(client, auth, engine.Config.TokenBAddress, missingB, estimatedBnbCostB)
+                err := executeSwapBNBForTokens(client, auth, engine.Config.TokenBAddress, missingB, maxCostB)
                 if err != nil {
+                        logToFile(fmt.Sprintf("❌ [%s - ERROR] Swap for Token B failed: %v", engine.Config.PairName, err))
                         return fmt.Errorf("failed to buy Token B: %v", err)
                 }
+                logToFile(fmt.Sprintf("✅ [%s - DEBUG] Swap for Token B successful.", engine.Config.PairName))
         }
 
+        logToFile(fmt.Sprintf("🎉 [%s - DEBUG] All required auto-funding swaps completed successfully.", engine.Config.PairName))
         return nil
 }
+
 
 func executeSwapBNBForTokens(client *ethclient.Client, auth *bind.TransactOpts, targetToken common.Address, amountOut float64, amountInMax float64) error {
         if amountOut <= 0 || amountInMax <= 0 {
                 return fmt.Errorf("invalid swap amounts: out=%f, maxIn=%f", amountOut, amountInMax)
         }
-
-        base18 := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
-        
+ 
+        // Dynamic multiplier for the Token we are buying (could be 6, 8, 18, etc.)
+        multiplier := getDecimalMultiplier(client, targetToken)
+ 
         // 1. Calculate the exact amount of tokens we want back
-        outAmtFloat := new(big.Float).Mul(big.NewFloat(amountOut), base18)
+        outAmtFloat := new(big.Float).Mul(big.NewFloat(amountOut), multiplier)
         amountOutBig := new(big.Int)
         outAmtFloat.Int(amountOutBig)
 
         // 2. Add a 5% Slippage Buffer to the Maximum BNB spend. 
         // PancakeSwap will automatically refund whatever BNB is not used.
         safeMaxInFloat := amountInMax * 1.05 
+        
+        // Static multiplier specifically for BNB (always 18 decimals)
+        base18 := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
         
         inAmtMaxFloat := new(big.Float).Mul(big.NewFloat(safeMaxInFloat), base18)
         amountInMaxBig := new(big.Int)
@@ -833,6 +876,7 @@ func executeSwapBNBForTokens(client *ethclient.Client, auth *bind.TransactOpts, 
 
         return nil
 }
+
 
 func getNativeBNBBalance(client *ethclient.Client, account common.Address) float64 {
         balance, err := client.BalanceAt(context.Background(), account, nil)
@@ -1101,17 +1145,28 @@ func getLiveBNBPrice(client *ethclient.Client) float64 {
 }
 
 func getLiveTokenPriceInBNB(client *ethclient.Client, tokenAddress common.Address) float64 {
-        // Query the price for 0.01 tokens instead of 1 full token to bypass slippage penalties
-        base18 := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-        amountIn := new(big.Int).Div(base18, big.NewInt(100)) 
+        // 1. Fetch the dynamic decimals for 1 full token
+        multiplierFloat := getDecimalMultiplier(client, tokenAddress) 
+
+        // 2. Convert it back to big.Int
+        oneTokenAmount := new(big.Int)
+        multiplierFloat.Int(oneTokenAmount)
+        
+        // 3. Create a fractional amount (0.001 tokens) to avoid pool slippage
+        // We divide the 1-token representation by 1000
+        fractionAmount := new(big.Int).Div(oneTokenAmount, big.NewInt(1000))
         
         path := []common.Address{tokenAddress, WBNB_ADDRESS}
-        microPrice := executeAmountsOutCall(client, amountIn, path)
         
-        // Scale the result back up to represent the price of 1 full token
-        return microPrice * 100 
+        // 4. Query the router for the output of just 0.001 tokens
+        // This slips under the radar of the pool's price impact
+        fractionalPriceBNB := executeAmountsOutCall(client, fractionAmount, path)
+        
+        // 5. Multiply the float result back by 1000 to get the true spot price for 1 full token
+        truePriceBNB := fractionalPriceBNB * 1000.0
+        
+        return truePriceBNB 
 }
-
 
 func executeAmountsOutCall(client *ethclient.Client, amountIn *big.Int, path []common.Address) float64 {
         routerABI, _ := abi.JSON(strings.NewReader(PANCAKE_ROUTER_ABI))
@@ -1141,9 +1196,19 @@ func getERC20Balance(client *ethclient.Client, token common.Address, owner commo
         contract := bind.NewBoundContract(token, erc20ABI, client, client, client)
         var result []interface{}
         _ = contract.Call(nil, &result, "balanceOf", owner)
-        if len(result) == 0 { return 0.0 }
-        base18 := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
-        cleanBal, _ := new(big.Float).Quo(new(big.Float).SetInt(result[0].(*big.Int)), base18).Float64()
+        
+        if len(result) == 0 { 
+                return 0.0 
+        }
+        
+        // Extract the raw big.Int balance from the contract response
+        rawBal := result[0].(*big.Int)
+        balFloat := new(big.Float).SetInt(rawBal)
+        
+        // Use 'token' directly to match the function parameter
+        multiplier := getDecimalMultiplier(client, token)
+        
+        cleanBal, _ := new(big.Float).Quo(balFloat, multiplier).Float64()
         return cleanBal
 }
 
@@ -1291,10 +1356,18 @@ func (engine *RebalancePairEngine) evaluatePoolIntegrity(physicalBalA, physicalB
 }
 func swapTokenForToken(client *ethclient.Client, auth *bind.TransactOpts, tokenIn common.Address, tokenOut common.Address, amountIn float64) float64 {
         logToFile(fmt.Sprintf("🔄 [EXEC DEBUG] Initiating Token Swap sequence... Volume: %.6f", amountIn))
+        
+        // This function handles the approval if it's missing
         ensureRouterAllowance(client, auth, tokenIn, auth.From)
         
-        base18 := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
-        scaledAmt := new(big.Float).Mul(big.NewFloat(amountIn), base18)
+        // ✅ ADD THE DELAY HERE: Give the RPC node 4 seconds to recognize the new allowance
+        logToFile("⏳ [EXEC DEBUG] Letting RPC state sync after potential allowance update...")
+        time.Sleep(4 * time.Second)
+        
+        // ✅ FIX: Use dynamic multiplier based on tokenIn's actual decimals (6 for XAUT, 18 for AAVE, etc.)
+        tokenInMultiplier := getDecimalMultiplier(client, tokenIn)
+        scaledAmt := new(big.Float).Mul(big.NewFloat(amountIn), tokenInMultiplier)
+        
         amountInWei := new(big.Int)
         scaledAmt.Int(amountInWei)
 
@@ -1329,6 +1402,8 @@ func swapTokenForToken(client *ethclient.Client, auth *bind.TransactOpts, tokenI
                 return 0
         }
 
+        // Static 18-decimal base strictly for calculating BNB gas fee float
+        base18 := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
         gasUsed := new(big.Float).SetInt64(int64(receipt.GasUsed))
         effectiveGasPrice := new(big.Float).SetInt(tx.GasPrice())
         totalGasWei := new(big.Float).Mul(gasUsed, effectiveGasPrice)
